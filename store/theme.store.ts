@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 export type ThemePreference = 'system' | 'light' | 'dark';
@@ -12,7 +11,7 @@ interface ThemeState {
 
 const storage = Platform.OS === 'web'
   ? createJSONStorage(() => localStorage)
-  : createJSONStorage(() => AsyncStorage);
+  : createJSONStorage(() => require('@react-native-async-storage/async-storage').default);
 
 export const useThemeStore = create<ThemeState>()(
   persist(

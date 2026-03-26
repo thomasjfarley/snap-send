@@ -1,4 +1,5 @@
 const { getDefaultConfig } = require('expo/metro-config');
+const path = require('path');
 
 const config = getDefaultConfig(__dirname);
 
@@ -15,6 +16,14 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
       filePath: require.resolve('./stubs/native-only.web.js'),
     };
   }
+
+  // Force zustand's CJS builds on web to avoid import.meta in the ESM variants
+  if (platform === 'web' && moduleName.startsWith('zustand')) {
+    const subpath = moduleName.replace('zustand', '').replace(/^\//, '') || 'index';
+    const cjsPath = path.join(__dirname, 'node_modules', 'zustand', `${subpath}.js`);
+    return { type: 'sourceFile', filePath: cjsPath };
+  }
+
   return context.resolveRequest(context, moduleName, platform);
 };
 
