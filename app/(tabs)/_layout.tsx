@@ -13,7 +13,8 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textSecondary,
-        tabBarStyle: { paddingBottom: 4 },
+        tabBarStyle: { paddingBottom: 12, height: 72 },
+        tabBarLabelStyle: { fontSize: 11, marginBottom: 4 },
       }}
     >
       <Tabs.Screen

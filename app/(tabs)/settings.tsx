@@ -143,13 +143,11 @@ export default function SettingsScreen() {
         <SectionHeader title="Return Address" />
         <View style={styles.card}>
           {personalAddress ? (
-            <>
-              <SettingsRow
-                label={personalAddress.full_name}
-                value={`${personalAddress.line1}, ${personalAddress.city}`}
-                onPress={() => router.push(`/address/${personalAddress.id}`)}
-              />
-            </>
+            <SettingsRow
+              label="Update return address"
+              value={`${personalAddress.line1}, ${personalAddress.city}`}
+              onPress={() => router.push(`/address/${personalAddress.id}`)}
+            />
           ) : (
             <SettingsRow
               label="Add your return address"

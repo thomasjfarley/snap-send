@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   Alert,
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -10,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useAuthStore } from '@/store/auth.store';
 import { useAddressStore } from '@/store/address.store';
 import { AddressForm } from '@/components/AddressForm';
 import type { AddressFormData } from '@/store/address.store';
@@ -18,7 +20,13 @@ import { COLORS, FONT_SIZE, SPACING } from '@/constants/theme';
 export default function EditAddressScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { addresses, update, validate, loading, validating } = useAddressStore();
+  const { user } = useAuthStore();
+  const { addresses, fetch: fetchAddresses, update, validate, loading, validating } = useAddressStore();
+
+  // Fetch addresses if store is empty (e.g. navigated directly)
+  useEffect(() => {
+    if (addresses.length === 0 && user) fetchAddresses(user.id);
+  }, []);
 
   const existing = addresses.find((a) => a.id === id);
 
@@ -35,9 +43,27 @@ export default function EditAddressScreen() {
   const [verified, setVerified] = useState<boolean | null>(existing?.lob_verified ?? null);
   const [suggestedAddress, setSuggestedAddress] = useState<AddressFormData | null>(null);
 
+  // Populate form once address loads from store
   useEffect(() => {
-    if (!existing) router.back();
-  }, [existing]);
+    if (existing) {
+      setForm({
+        label: existing.label,
+        full_name: existing.full_name,
+        line1: existing.line1,
+        line2: existing.line2 ?? '',
+        city: existing.city,
+        state: existing.state,
+        zip: existing.zip,
+        country: existing.country,
+      });
+      setVerified(existing.lob_verified ?? null);
+    }
+  }, [existing?.id]);
+
+  // Only bounce back if we've finished loading and still can't find the address
+  useEffect(() => {
+    if (!loading && addresses.length > 0 && !existing) router.back();
+  }, [loading, addresses.length, existing]);
 
   function handleChange(field: keyof AddressFormData, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -101,6 +127,11 @@ export default function EditAddressScreen() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      {loading && !existing ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      ) : (
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
@@ -130,6 +161,7 @@ export default function EditAddressScreen() {
           <Text style={styles.btnPrimaryText}>{loading ? 'Saving…' : 'Save Changes'}</Text>
         </TouchableOpacity>
       </ScrollView>
+      )}
     </KeyboardAvoidingView>
   );
 }
