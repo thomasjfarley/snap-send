@@ -26,6 +26,18 @@ serve(async (req) => {
       });
     }
 
+    // In Lob test mode, skip the real API call and return the input as verified
+    if (LOB_API_KEY.startsWith('test_')) {
+      return new Response(
+        JSON.stringify({
+          verified: true,
+          deliverability: 'deliverable',
+          address: { line1, line2: line2 || null, city, state, zip, country },
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
     const credentials = btoa(`${LOB_API_KEY}:`);
     const body: Record<string, string> = {
       primary_line: line1,
@@ -47,15 +59,18 @@ serve(async (req) => {
     const lobData = await lobRes.json();
 
     if (!lobRes.ok) {
+      console.error('Lob error:', lobRes.status, JSON.stringify(lobData));
       return new Response(JSON.stringify({ error: 'Address verification failed', detail: lobData }), {
         status: 422,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // deliverability values: deliverable, deliverable_unnecessary_unit,
-    // deliverable_incorrect_unit, deliverable_missing_unit, undeliverable
-    const verified = lobData.deliverability === 'deliverable';
+    console.log('Lob deliverability:', lobData.deliverability, 'primary_line:', lobData.primary_line);
+
+    // deliverable, deliverable_unnecessary_unit, deliverable_missing_unit,
+    // deliverable_incorrect_unit are all real addresses — only undeliverable is bad
+    const verified = lobData.deliverability !== 'undeliverable' && lobData.deliverability != null;
 
     return new Response(
       JSON.stringify({

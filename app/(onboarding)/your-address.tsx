@@ -40,10 +40,12 @@ export default function YourAddressScreen() {
   });
   const [verified, setVerified] = useState<boolean | null>(null);
   const [validatedForm, setValidatedForm] = useState<AddressFormData | null>(null);
+  const [suggestedAddress, setSuggestedAddress] = useState<AddressFormData | null>(null);
 
   function handleChange(field: keyof AddressFormData, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
-    setVerified(null); // reset verification when fields change
+    setVerified(null);
+    setSuggestedAddress(null);
   }
 
   async function handleVerify() {
@@ -57,27 +59,43 @@ export default function YourAddressScreen() {
       return;
     }
     if (result) {
-      setVerified(result.verified);
-      if (result.verified) {
-        // Auto-fill standardized address from Lob
-        setValidatedForm({
-          ...form,
-          line1: result.address.line1,
-          line2: result.address.line2 ?? '',
-          city: result.address.city,
-          state: result.address.state,
-          zip: result.address.zip,
-        });
-        setForm((prev) => ({
-          ...prev,
-          line1: result.address.line1,
-          line2: result.address.line2 ?? '',
-          city: result.address.city,
-          state: result.address.state,
-          zip: result.address.zip,
-        }));
+      const suggested: AddressFormData = {
+        ...form,
+        line1: result.address.line1,
+        line2: result.address.line2 ?? '',
+        city: result.address.city,
+        state: result.address.state,
+        zip: result.address.zip,
+      };
+      const isDifferent =
+        suggested.line1 !== form.line1 ||
+        suggested.line2 !== form.line2 ||
+        suggested.city !== form.city ||
+        suggested.state !== form.state ||
+        suggested.zip !== form.zip;
+
+      if (isDifferent) {
+        // Show suggestion UI for user to accept/reject
+        setSuggestedAddress(suggested);
+        setValidatedForm(suggested);
+      } else {
+        // Address already matches — mark verified directly
+        setVerified(result.verified);
+        setValidatedForm(form);
       }
     }
+  }
+
+  function handleAcceptSuggestion() {
+    if (!suggestedAddress) return;
+    setForm(suggestedAddress);
+    setSuggestedAddress(null);
+    setVerified(true);
+  }
+
+  function handleRejectSuggestion() {
+    setSuggestedAddress(null);
+    setVerified(false);
   }
 
   async function handleSave() {
@@ -127,6 +145,9 @@ export default function YourAddressScreen() {
           verified={verified}
           validating={validating}
           onValidate={handleVerify}
+          suggestedAddress={suggestedAddress}
+          onAcceptSuggestion={handleAcceptSuggestion}
+          onRejectSuggestion={handleRejectSuggestion}
           showLabel={false}
         />
 

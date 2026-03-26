@@ -5,9 +5,12 @@ import type { AddressFormData } from '@/store/address.store';
 interface AddressFormProps {
   values: AddressFormData;
   onChange: (field: keyof AddressFormData, value: string) => void;
-  verified: boolean | null; // null = not yet validated
+  verified: boolean | null;
   validating: boolean;
   onValidate: () => void;
+  suggestedAddress?: AddressFormData | null;
+  onAcceptSuggestion?: () => void;
+  onRejectSuggestion?: () => void;
   showLabel?: boolean;
 }
 
@@ -17,6 +20,9 @@ export function AddressForm({
   verified,
   validating,
   onValidate,
+  suggestedAddress,
+  onAcceptSuggestion,
+  onRejectSuggestion,
   showLabel = true,
 }: AddressFormProps) {
   return (
@@ -103,6 +109,26 @@ export function AddressForm({
         </Text>
       </TouchableOpacity>
 
+      {/* Suggested address from Lob — show before confirmed verified badge */}
+      {suggestedAddress && verified === null && (
+        <View style={styles.suggestionBox}>
+          <Text style={styles.suggestionTitle}>📬 We suggest this address:</Text>
+          <Text style={styles.suggestionText}>
+            {suggestedAddress.line1}
+            {suggestedAddress.line2 ? `\n${suggestedAddress.line2}` : ''}
+            {`\n${suggestedAddress.city}, ${suggestedAddress.state} ${suggestedAddress.zip}`}
+          </Text>
+          <View style={styles.suggestionBtns}>
+            <TouchableOpacity style={styles.acceptBtn} onPress={onAcceptSuggestion}>
+              <Text style={styles.acceptBtnText}>Use Suggested</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.rejectBtn} onPress={onRejectSuggestion}>
+              <Text style={styles.rejectBtnText}>Keep Mine</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       {verified === true && (
         <View style={styles.badge}>
           <Text style={styles.badgeText}>✅ Address verified</Text>
@@ -145,6 +171,27 @@ const styles = StyleSheet.create({
   },
   verifyBtnText: { color: COLORS.primary, fontSize: FONT_SIZE.sm, fontWeight: '600' },
   disabled: { opacity: 0.5 },
+  suggestionBox: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 12,
+    padding: SPACING.md,
+    gap: SPACING.sm,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  suggestionTitle: { fontSize: FONT_SIZE.sm, fontWeight: '700', color: '#1D4ED8' },
+  suggestionText: { fontSize: FONT_SIZE.sm, color: '#1E40AF', lineHeight: 20 },
+  suggestionBtns: { flexDirection: 'row', gap: SPACING.sm },
+  acceptBtn: {
+    flex: 1, backgroundColor: COLORS.primary, borderRadius: 10,
+    paddingVertical: 10, alignItems: 'center',
+  },
+  acceptBtnText: { color: '#fff', fontSize: FONT_SIZE.sm, fontWeight: '600' },
+  rejectBtn: {
+    flex: 1, borderWidth: 1.5, borderColor: COLORS.border, borderRadius: 10,
+    paddingVertical: 10, alignItems: 'center', backgroundColor: COLORS.surface,
+  },
+  rejectBtnText: { color: COLORS.textSecondary, fontSize: FONT_SIZE.sm, fontWeight: '500' },
   badge: {
     backgroundColor: '#DCFCE7',
     borderRadius: 10,
@@ -155,3 +202,4 @@ const styles = StyleSheet.create({
   badgeWarn: { backgroundColor: '#FEF9C3' },
   badgeWarnText: { color: '#854D0E', fontSize: FONT_SIZE.sm },
 });
+

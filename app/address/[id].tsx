@@ -33,6 +33,7 @@ export default function EditAddressScreen() {
     country: existing?.country ?? 'US',
   });
   const [verified, setVerified] = useState<boolean | null>(existing?.lob_verified ?? null);
+  const [suggestedAddress, setSuggestedAddress] = useState<AddressFormData | null>(null);
 
   useEffect(() => {
     if (!existing) router.back();
@@ -41,6 +42,7 @@ export default function EditAddressScreen() {
   function handleChange(field: keyof AddressFormData, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
     setVerified(null);
+    setSuggestedAddress(null);
   }
 
   async function handleVerify() {
@@ -51,18 +53,39 @@ export default function EditAddressScreen() {
     const { result, error } = await validate(form);
     if (error) { Alert.alert('Verification error', error); return; }
     if (result) {
-      setVerified(result.verified);
-      if (result.verified) {
-        setForm((prev) => ({
-          ...prev,
-          line1: result.address.line1,
-          line2: result.address.line2 ?? '',
-          city: result.address.city,
-          state: result.address.state,
-          zip: result.address.zip,
-        }));
+      const suggested: AddressFormData = {
+        ...form,
+        line1: result.address.line1,
+        line2: result.address.line2 ?? '',
+        city: result.address.city,
+        state: result.address.state,
+        zip: result.address.zip,
+      };
+      const isDifferent =
+        suggested.line1 !== form.line1 ||
+        suggested.line2 !== form.line2 ||
+        suggested.city !== form.city ||
+        suggested.state !== form.state ||
+        suggested.zip !== form.zip;
+
+      if (isDifferent) {
+        setSuggestedAddress(suggested);
+      } else {
+        setVerified(result.verified);
       }
     }
+  }
+
+  function handleAcceptSuggestion() {
+    if (!suggestedAddress) return;
+    setForm(suggestedAddress);
+    setSuggestedAddress(null);
+    setVerified(true);
+  }
+
+  function handleRejectSuggestion() {
+    setSuggestedAddress(null);
+    setVerified(false);
   }
 
   async function handleSave() {
@@ -93,6 +116,9 @@ export default function EditAddressScreen() {
           verified={verified}
           validating={validating}
           onValidate={handleVerify}
+          suggestedAddress={suggestedAddress}
+          onAcceptSuggestion={handleAcceptSuggestion}
+          onRejectSuggestion={handleRejectSuggestion}
           showLabel={true}
         />
 

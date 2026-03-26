@@ -36,6 +36,13 @@ export default function SignInScreen() {
   }
 
   async function handleGoogleSignIn() {
+    if (Platform.OS === 'web') {
+      await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin },
+      });
+      return;
+    }
     const redirectUri = makeRedirectUri({ scheme: 'snapsend' });
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
