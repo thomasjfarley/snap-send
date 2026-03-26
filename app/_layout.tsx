@@ -76,6 +76,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="postcard" options={{ presentation: 'modal' }} />
         <Stack.Screen name="address" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="order" options={{ presentation: 'modal' }} />
       </Stack>
     </StripeProvider>
   );
