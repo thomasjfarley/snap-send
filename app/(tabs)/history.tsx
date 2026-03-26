@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity,
   StyleSheet, RefreshControl,
@@ -8,7 +8,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/store/auth.store';
 import { useOrderStore } from '@/store/order.store';
 import type { Postcard } from '@/lib/database.types';
-import { COLORS, FONT_SIZE, SPACING } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
+import type { AppColors } from '@/constants/theme';
+import { FONT_SIZE, SPACING } from '@/constants/theme';
 
 const STATUS_CONFIG: Record<Postcard['status'], { label: string; color: string; bg: string; emoji: string }> = {
   pending:   { label: 'Pending',   color: '#92400E', bg: '#FEF3C7', emoji: '⏳' },
@@ -26,6 +28,8 @@ export default function HistoryScreen() {
   const router = useRouter();
   const { user } = useAuthStore();
   const { postcards, loading, fetch } = useOrderStore();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   useFocusEffect(
     useCallback(() => {
@@ -74,7 +78,7 @@ export default function HistoryScreen() {
           <RefreshControl
             refreshing={loading}
             onRefresh={() => user && fetch(user.id)}
-            tintColor={COLORS.primary}
+            tintColor={colors.primary}
           />
         }
         ListEmptyComponent={
@@ -94,32 +98,36 @@ export default function HistoryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  header: {
-    paddingHorizontal: SPACING.xl, paddingTop: 60, paddingBottom: SPACING.md,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
-  },
-  title: { fontSize: FONT_SIZE.xl, fontWeight: '700', color: COLORS.textPrimary },
-  list: { padding: SPACING.xl, gap: SPACING.sm, paddingBottom: 40 },
-  card: {
-    backgroundColor: COLORS.surface, borderRadius: 14, padding: SPACING.md,
-    borderWidth: 1, borderColor: COLORS.border,
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-  },
-  cardLeft: { flex: 1, gap: 3 },
-  recipient: { fontSize: FONT_SIZE.md, fontWeight: '600', color: COLORS.textPrimary },
-  address: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary },
-  date: { fontSize: FONT_SIZE.xs, color: COLORS.textSecondary, marginTop: 2 },
-  cardRight: { alignItems: 'flex-end', gap: SPACING.xs },
-  badge: { borderRadius: 8, paddingHorizontal: SPACING.sm, paddingVertical: 3 },
-  badgeText: { fontSize: FONT_SIZE.xs, fontWeight: '600' },
-  price: { fontSize: FONT_SIZE.sm, fontWeight: '700', color: COLORS.textPrimary },
-  empty: { alignItems: 'center', gap: SPACING.md, paddingTop: 80 },
-  emptyEmoji: { fontSize: 48 },
-  emptyTitle: { fontSize: FONT_SIZE.xl, fontWeight: '700', color: COLORS.textPrimary },
-  emptySub: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, textAlign: 'center' },
-  ctaBtn: { backgroundColor: COLORS.primary, borderRadius: 14, paddingVertical: SPACING.md, paddingHorizontal: SPACING.xl },
-  ctaBtnText: { color: '#fff', fontSize: FONT_SIZE.md, fontWeight: '600' },
-});
+const styles = StyleSheet.create({});  // replaced by makeStyles below
+
+function makeStyles(colors: AppColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    header: {
+      paddingHorizontal: SPACING.xl, paddingTop: 60, paddingBottom: SPACING.md,
+      borderBottomWidth: 1, borderBottomColor: colors.border,
+    },
+    title: { fontSize: FONT_SIZE.xl, fontWeight: '700', color: colors.textPrimary },
+    list: { padding: SPACING.xl, gap: SPACING.sm, paddingBottom: 40 },
+    card: {
+      backgroundColor: colors.surface, borderRadius: 14, padding: SPACING.md,
+      borderWidth: 1, borderColor: colors.border,
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    },
+    cardLeft: { flex: 1, gap: 3 },
+    recipient: { fontSize: FONT_SIZE.md, fontWeight: '600', color: colors.textPrimary },
+    address: { fontSize: FONT_SIZE.sm, color: colors.textSecondary },
+    date: { fontSize: FONT_SIZE.xs, color: colors.textSecondary, marginTop: 2 },
+    cardRight: { alignItems: 'flex-end', gap: SPACING.xs },
+    badge: { borderRadius: 8, paddingHorizontal: SPACING.sm, paddingVertical: 3 },
+    badgeText: { fontSize: FONT_SIZE.xs, fontWeight: '600' },
+    price: { fontSize: FONT_SIZE.sm, fontWeight: '700', color: colors.textPrimary },
+    empty: { alignItems: 'center', gap: SPACING.md, paddingTop: 80 },
+    emptyEmoji: { fontSize: 48 },
+    emptyTitle: { fontSize: FONT_SIZE.xl, fontWeight: '700', color: colors.textPrimary },
+    emptySub: { fontSize: FONT_SIZE.sm, color: colors.textSecondary, textAlign: 'center' },
+    ctaBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: SPACING.md, paddingHorizontal: SPACING.xl },
+    ctaBtnText: { color: '#fff', fontSize: FONT_SIZE.md, fontWeight: '600' },
+  });
+}
 

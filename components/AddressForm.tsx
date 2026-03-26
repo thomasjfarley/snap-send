@@ -1,5 +1,8 @@
+import { useMemo } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { COLORS, FONT_SIZE, SPACING } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
+import type { AppColors } from '@/constants/theme';
+import { FONT_SIZE, SPACING } from '@/constants/theme';
 import type { AddressFormData } from '@/store/address.store';
 
 interface AddressFormProps {
@@ -25,13 +28,15 @@ export function AddressForm({
   onRejectSuggestion,
   showLabel = true,
 }: AddressFormProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.container}>
       {showLabel && (
         <TextInput
           style={styles.input}
           placeholder='Label (e.g. "Home", "Mom")'
-          placeholderTextColor={COLORS.textSecondary}
+          placeholderTextColor={colors.textSecondary}
           value={values.label}
           onChangeText={(v) => onChange('label', v)}
           autoCapitalize="words"
@@ -41,7 +46,7 @@ export function AddressForm({
       <TextInput
         style={styles.input}
         placeholder="Full name of recipient"
-        placeholderTextColor={COLORS.textSecondary}
+        placeholderTextColor={colors.textSecondary}
         value={values.full_name}
         onChangeText={(v) => onChange('full_name', v)}
         autoCapitalize="words"
@@ -51,7 +56,7 @@ export function AddressForm({
       <TextInput
         style={styles.input}
         placeholder="Street address"
-        placeholderTextColor={COLORS.textSecondary}
+        placeholderTextColor={colors.textSecondary}
         value={values.line1}
         onChangeText={(v) => onChange('line1', v)}
         autoCapitalize="words"
@@ -61,7 +66,7 @@ export function AddressForm({
       <TextInput
         style={styles.input}
         placeholder="Apt, suite, unit (optional)"
-        placeholderTextColor={COLORS.textSecondary}
+        placeholderTextColor={colors.textSecondary}
         value={values.line2}
         onChangeText={(v) => onChange('line2', v)}
         autoCapitalize="words"
@@ -71,7 +76,7 @@ export function AddressForm({
         <TextInput
           style={[styles.input, styles.flex2]}
           placeholder="City"
-          placeholderTextColor={COLORS.textSecondary}
+          placeholderTextColor={colors.textSecondary}
           value={values.city}
           onChangeText={(v) => onChange('city', v)}
           autoCapitalize="words"
@@ -80,7 +85,7 @@ export function AddressForm({
         <TextInput
           style={[styles.input, styles.stateInput]}
           placeholder="State"
-          placeholderTextColor={COLORS.textSecondary}
+          placeholderTextColor={colors.textSecondary}
           value={values.state}
           onChangeText={(v) => onChange('state', v.toUpperCase().slice(0, 2))}
           autoCapitalize="characters"
@@ -90,7 +95,7 @@ export function AddressForm({
         <TextInput
           style={[styles.input, styles.zipInput]}
           placeholder="ZIP"
-          placeholderTextColor={COLORS.textSecondary}
+          placeholderTextColor={colors.textSecondary}
           value={values.zip}
           onChangeText={(v) => onChange('zip', v)}
           keyboardType="number-pad"
@@ -145,61 +150,47 @@ export function AddressForm({
   );
 }
 
-const styles = StyleSheet.create({
-  container: { gap: SPACING.sm },
-  row: { flexDirection: 'row', gap: SPACING.sm },
-  flex2: { flex: 2 },
-  stateInput: { width: 56 },
-  zipInput: { width: 90 },
-  input: {
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 14,
-    fontSize: FONT_SIZE.md,
-    color: COLORS.textPrimary,
-    backgroundColor: COLORS.surface,
-  },
-  verifyBtn: {
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: COLORS.primary,
-    marginTop: SPACING.xs,
-  },
-  verifyBtnText: { color: COLORS.primary, fontSize: FONT_SIZE.sm, fontWeight: '600' },
-  disabled: { opacity: 0.5 },
-  suggestionBox: {
-    backgroundColor: '#EFF6FF',
-    borderRadius: 12,
-    padding: SPACING.md,
-    gap: SPACING.sm,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-  },
-  suggestionTitle: { fontSize: FONT_SIZE.sm, fontWeight: '700', color: '#1D4ED8' },
-  suggestionText: { fontSize: FONT_SIZE.sm, color: '#1E40AF', lineHeight: 20 },
-  suggestionBtns: { flexDirection: 'row', gap: SPACING.sm },
-  acceptBtn: {
-    flex: 1, backgroundColor: COLORS.primary, borderRadius: 10,
-    paddingVertical: 10, alignItems: 'center',
-  },
-  acceptBtnText: { color: '#fff', fontSize: FONT_SIZE.sm, fontWeight: '600' },
-  rejectBtn: {
-    flex: 1, borderWidth: 1.5, borderColor: COLORS.border, borderRadius: 10,
-    paddingVertical: 10, alignItems: 'center', backgroundColor: COLORS.surface,
-  },
-  rejectBtnText: { color: COLORS.textSecondary, fontSize: FONT_SIZE.sm, fontWeight: '500' },
-  badge: {
-    backgroundColor: '#DCFCE7',
-    borderRadius: 10,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-  },
-  badgeText: { color: '#15803D', fontSize: FONT_SIZE.sm, fontWeight: '500' },
-  badgeWarn: { backgroundColor: '#FEF9C3' },
-  badgeWarnText: { color: '#854D0E', fontSize: FONT_SIZE.sm },
-});
+const styles = StyleSheet.create({});  // replaced by makeStyles below
+
+function makeStyles(colors: AppColors) {
+  return StyleSheet.create({
+    container: { gap: SPACING.sm },
+    row: { flexDirection: 'row', gap: SPACING.sm },
+    flex2: { flex: 2 },
+    stateInput: { width: 56 },
+    zipInput: { width: 90 },
+    input: {
+      borderWidth: 1.5, borderColor: colors.border, borderRadius: 12,
+      paddingHorizontal: SPACING.md, paddingVertical: 14,
+      fontSize: FONT_SIZE.md, color: colors.textPrimary, backgroundColor: colors.surface,
+    },
+    verifyBtn: {
+      borderRadius: 12, paddingVertical: 12, alignItems: 'center',
+      borderWidth: 1.5, borderColor: colors.primary, marginTop: SPACING.xs,
+    },
+    verifyBtnText: { color: colors.primary, fontSize: FONT_SIZE.sm, fontWeight: '600' },
+    disabled: { opacity: 0.5 },
+    suggestionBox: {
+      backgroundColor: '#EFF6FF', borderRadius: 12, padding: SPACING.md,
+      gap: SPACING.sm, borderWidth: 1, borderColor: '#BFDBFE',
+    },
+    suggestionTitle: { fontSize: FONT_SIZE.sm, fontWeight: '700', color: '#1D4ED8' },
+    suggestionText: { fontSize: FONT_SIZE.sm, color: '#1E40AF', lineHeight: 20 },
+    suggestionBtns: { flexDirection: 'row', gap: SPACING.sm },
+    acceptBtn: {
+      flex: 1, backgroundColor: colors.primary, borderRadius: 10,
+      paddingVertical: 10, alignItems: 'center',
+    },
+    acceptBtnText: { color: '#fff', fontSize: FONT_SIZE.sm, fontWeight: '600' },
+    rejectBtn: {
+      flex: 1, borderWidth: 1.5, borderColor: colors.border, borderRadius: 10,
+      paddingVertical: 10, alignItems: 'center', backgroundColor: colors.surface,
+    },
+    rejectBtnText: { color: colors.textSecondary, fontSize: FONT_SIZE.sm, fontWeight: '500' },
+    badge: { backgroundColor: '#DCFCE7', borderRadius: 10, paddingVertical: SPACING.sm, paddingHorizontal: SPACING.md },
+    badgeText: { color: '#15803D', fontSize: FONT_SIZE.sm, fontWeight: '500' },
+    badgeWarn: { backgroundColor: '#FEF9C3' },
+    badgeWarnText: { color: '#854D0E', fontSize: FONT_SIZE.sm },
+  });
+}
 

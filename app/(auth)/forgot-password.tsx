@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -11,11 +11,15 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/auth.store';
-import { COLORS, FONT_SIZE, SPACING } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
+import type { AppColors } from '@/constants/theme';
+import { FONT_SIZE, SPACING } from '@/constants/theme';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
   const { resetPassword, loading } = useAuthStore();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
 
@@ -62,7 +66,7 @@ export default function ForgotPasswordScreen() {
         <TextInput
           style={styles.input}
           placeholder="Email"
-          placeholderTextColor={COLORS.textSecondary}
+          placeholderTextColor={colors.textSecondary}
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
@@ -82,36 +86,30 @@ export default function ForgotPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-    padding: SPACING.xl,
-    paddingTop: 60,
-    gap: SPACING.md,
-  },
-  back: { marginBottom: SPACING.sm },
-  backText: { color: COLORS.primary, fontSize: FONT_SIZE.md },
-  emoji: { fontSize: 56, textAlign: 'center', marginBottom: SPACING.sm },
-  title: { fontSize: 28, fontWeight: '700', color: COLORS.textPrimary },
-  subtitle: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, lineHeight: 22 },
-  input: {
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 14,
-    fontSize: FONT_SIZE.md,
-    color: COLORS.textPrimary,
-    backgroundColor: COLORS.surface,
-    marginTop: SPACING.sm,
-  },
-  btnPrimary: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 14,
-    paddingVertical: SPACING.md,
-    alignItems: 'center',
-  },
-  btnPrimaryText: { color: '#fff', fontSize: FONT_SIZE.md, fontWeight: '600' },
-  disabled: { opacity: 0.6 },
-});
+const styles = StyleSheet.create({});  // replaced by makeStyles below
+
+function makeStyles(colors: AppColors) {
+  return StyleSheet.create({
+    container: {
+      flex: 1, backgroundColor: colors.background,
+      padding: SPACING.xl, paddingTop: 60, gap: SPACING.md,
+    },
+    back: { marginBottom: SPACING.sm },
+    backText: { color: colors.primary, fontSize: FONT_SIZE.md },
+    emoji: { fontSize: 56, textAlign: 'center', marginBottom: SPACING.sm },
+    title: { fontSize: 28, fontWeight: '700', color: colors.textPrimary },
+    subtitle: { fontSize: FONT_SIZE.sm, color: colors.textSecondary, lineHeight: 22 },
+    input: {
+      borderWidth: 1.5, borderColor: colors.border, borderRadius: 12,
+      paddingHorizontal: SPACING.md, paddingVertical: 14,
+      fontSize: FONT_SIZE.md, color: colors.textPrimary, backgroundColor: colors.surface,
+      marginTop: SPACING.sm,
+    },
+    btnPrimary: {
+      backgroundColor: colors.primary, borderRadius: 14,
+      paddingVertical: SPACING.md, alignItems: 'center',
+    },
+    btnPrimaryText: { color: '#fff', fontSize: FONT_SIZE.md, fontWeight: '600' },
+    disabled: { opacity: 0.6 },
+  });
+}

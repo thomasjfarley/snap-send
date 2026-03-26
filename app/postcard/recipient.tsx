@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, FlatList, StyleSheet,
 } from 'react-native';
@@ -8,13 +8,17 @@ import { usePostcardStore } from '@/store/postcard.store';
 import { useAddressStore } from '@/store/address.store';
 import { useAuthStore } from '@/store/auth.store';
 import type { Address } from '@/lib/database.types';
-import { COLORS, FONT_SIZE, SPACING } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
+import type { AppColors } from '@/constants/theme';
+import { FONT_SIZE, SPACING } from '@/constants/theme';
 
 export default function RecipientScreen() {
   const router = useRouter();
   const { recipient, setRecipient } = usePostcardStore();
   const { user } = useAuthStore();
   const { addresses, fetch } = useAddressStore();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   useFocusEffect(
     useCallback(() => {
@@ -38,7 +42,7 @@ export default function RecipientScreen() {
         </TouchableOpacity>
         <Text style={styles.title}>Choose Recipient</Text>
         <TouchableOpacity onPress={() => router.push('/address/new')}>
-          <Text style={[styles.navText, { color: COLORS.primary }]}>+ Add</Text>
+          <Text style={[styles.navText, { color: colors.primary }]}>+ Add</Text>
         </TouchableOpacity>
       </View>
 
@@ -78,30 +82,34 @@ export default function RecipientScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
-  },
-  navText: { fontSize: FONT_SIZE.md, color: COLORS.textSecondary },
-  title: { fontSize: FONT_SIZE.lg, fontWeight: '700', color: COLORS.textPrimary },
-  list: { padding: SPACING.xl, gap: SPACING.sm, paddingBottom: 40 },
-  card: {
-    backgroundColor: COLORS.surface, borderRadius: 14, padding: SPACING.md,
-    borderWidth: 2, borderColor: COLORS.border,
-    flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
-  },
-  cardSelected: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryLight },
-  name: { fontSize: FONT_SIZE.md, fontWeight: '600', color: COLORS.textPrimary },
-  label: { fontSize: FONT_SIZE.xs, color: COLORS.textSecondary, fontWeight: '500' },
-  addr: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary },
-  checkmark: { fontSize: 20, color: COLORS.primary, fontWeight: '700' },
-  empty: { alignItems: 'center', gap: SPACING.md, paddingTop: 80 },
-  emptyEmoji: { fontSize: 48 },
-  emptyTitle: { fontSize: FONT_SIZE.xl, fontWeight: '700', color: COLORS.textPrimary },
-  emptySub: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, textAlign: 'center' },
-  addBtn: { backgroundColor: COLORS.primary, borderRadius: 14, paddingVertical: SPACING.md, paddingHorizontal: SPACING.xl },
-  addBtnText: { color: '#fff', fontSize: FONT_SIZE.md, fontWeight: '600' },
-});
+const styles = StyleSheet.create({});  // replaced by makeStyles below
+
+function makeStyles(colors: AppColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    header: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md,
+      borderBottomWidth: 1, borderBottomColor: colors.border,
+    },
+    navText: { fontSize: FONT_SIZE.md, color: colors.textSecondary },
+    title: { fontSize: FONT_SIZE.lg, fontWeight: '700', color: colors.textPrimary },
+    list: { padding: SPACING.xl, gap: SPACING.sm, paddingBottom: 40 },
+    card: {
+      backgroundColor: colors.surface, borderRadius: 14, padding: SPACING.md,
+      borderWidth: 2, borderColor: colors.border,
+      flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
+    },
+    cardSelected: { borderColor: colors.primary, backgroundColor: colors.primaryLight },
+    name: { fontSize: FONT_SIZE.md, fontWeight: '600', color: colors.textPrimary },
+    label: { fontSize: FONT_SIZE.xs, color: colors.textSecondary, fontWeight: '500' },
+    addr: { fontSize: FONT_SIZE.sm, color: colors.textSecondary },
+    checkmark: { fontSize: 20, color: colors.primary, fontWeight: '700' },
+    empty: { alignItems: 'center', gap: SPACING.md, paddingTop: 80 },
+    emptyEmoji: { fontSize: 48 },
+    emptyTitle: { fontSize: FONT_SIZE.xl, fontWeight: '700', color: colors.textPrimary },
+    emptySub: { fontSize: FONT_SIZE.sm, color: colors.textSecondary, textAlign: 'center' },
+    addBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: SPACING.md, paddingHorizontal: SPACING.xl },
+    addBtnText: { color: '#fff', fontSize: FONT_SIZE.md, fontWeight: '600' },
+  });
+}

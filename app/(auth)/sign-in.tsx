@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -16,13 +16,17 @@ import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
 import { useAuthStore } from '@/store/auth.store';
 import { supabase } from '@/lib/supabase';
-import { COLORS, FONT_SIZE, SPACING } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
+import type { AppColors } from '@/constants/theme';
+import { FONT_SIZE, SPACING } from '@/constants/theme';
 
 WebBrowser.maybeCompleteAuthSession();
 
 export default function SignInScreen() {
   const router = useRouter();
   const { signIn, loading } = useAuthStore();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -99,7 +103,7 @@ export default function SignInScreen() {
           <TextInput
             style={styles.input}
             placeholder="Email"
-            placeholderTextColor={COLORS.textSecondary}
+            placeholderTextColor={colors.textSecondary}
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
@@ -109,7 +113,7 @@ export default function SignInScreen() {
           <TextInput
             style={styles.input}
             placeholder="Password"
-            placeholderTextColor={COLORS.textSecondary}
+            placeholderTextColor={colors.textSecondary}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -155,52 +159,56 @@ export default function SignInScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    backgroundColor: COLORS.background,
-    padding: SPACING.xl,
-    paddingTop: 60,
-    gap: SPACING.md,
-  },
-  back: { marginBottom: SPACING.sm },
-  backText: { color: COLORS.primary, fontSize: FONT_SIZE.md },
-  title: { fontSize: 28, fontWeight: '700', color: COLORS.textPrimary },
-  subtitle: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, marginTop: -SPACING.sm },
-  form: { gap: SPACING.sm },
-  input: {
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 14,
-    fontSize: FONT_SIZE.md,
-    color: COLORS.textPrimary,
-    backgroundColor: COLORS.surface,
-  },
-  forgotText: { color: COLORS.primary, fontSize: FONT_SIZE.sm, textAlign: 'right' },
-  btnPrimary: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 14,
-    paddingVertical: SPACING.md,
-    alignItems: 'center',
-    marginTop: SPACING.xs,
-  },
-  btnPrimaryText: { color: '#fff', fontSize: FONT_SIZE.md, fontWeight: '600' },
-  disabled: { opacity: 0.6 },
-  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  divider: { flex: 1, height: 1, backgroundColor: COLORS.border },
-  dividerText: { color: COLORS.textSecondary, fontSize: FONT_SIZE.xs },
-  btnSocial: {
-    borderRadius: 14,
-    paddingVertical: SPACING.md,
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.surface,
-  },
-  btnSocialText: { fontSize: FONT_SIZE.md, fontWeight: '500', color: COLORS.textPrimary },
-  appleBtn: { height: 50 },
-  switchText: { textAlign: 'center', color: COLORS.textSecondary, fontSize: FONT_SIZE.sm, marginTop: SPACING.sm },
-  link: { color: COLORS.primary, fontWeight: '600' },
-});
+const styles = StyleSheet.create({});  // replaced by makeStyles below
+
+function makeStyles(colors: AppColors) {
+  return StyleSheet.create({
+    container: {
+      flexGrow: 1,
+      backgroundColor: colors.background,
+      padding: SPACING.xl,
+      paddingTop: 60,
+      gap: SPACING.md,
+    },
+    back: { marginBottom: SPACING.sm },
+    backText: { color: colors.primary, fontSize: FONT_SIZE.md },
+    title: { fontSize: 28, fontWeight: '700', color: colors.textPrimary },
+    subtitle: { fontSize: FONT_SIZE.sm, color: colors.textSecondary, marginTop: -SPACING.sm },
+    form: { gap: SPACING.sm },
+    input: {
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      borderRadius: 12,
+      paddingHorizontal: SPACING.md,
+      paddingVertical: 14,
+      fontSize: FONT_SIZE.md,
+      color: colors.textPrimary,
+      backgroundColor: colors.surface,
+    },
+    forgotText: { color: colors.primary, fontSize: FONT_SIZE.sm, textAlign: 'right' },
+    btnPrimary: {
+      backgroundColor: colors.primary,
+      borderRadius: 14,
+      paddingVertical: SPACING.md,
+      alignItems: 'center',
+      marginTop: SPACING.xs,
+    },
+    btnPrimaryText: { color: '#fff', fontSize: FONT_SIZE.md, fontWeight: '600' },
+    disabled: { opacity: 0.6 },
+    dividerRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+    divider: { flex: 1, height: 1, backgroundColor: colors.border },
+    dividerText: { color: colors.textSecondary, fontSize: FONT_SIZE.xs },
+    btnSocial: {
+      borderRadius: 14,
+      paddingVertical: SPACING.md,
+      alignItems: 'center',
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    btnSocialText: { fontSize: FONT_SIZE.md, fontWeight: '500', color: colors.textPrimary },
+    appleBtn: { height: 50 },
+    switchText: { textAlign: 'center', color: colors.textSecondary, fontSize: FONT_SIZE.sm, marginTop: SPACING.sm },
+    link: { color: colors.primary, fontWeight: '600' },
+  });
+}

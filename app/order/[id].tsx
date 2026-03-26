@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   ScrollView, ActivityIndicator,
@@ -7,7 +7,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import type { Postcard } from '@/lib/database.types';
-import { COLORS, FONT_SIZE, SPACING } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
+import type { AppColors } from '@/constants/theme';
+import { FONT_SIZE, SPACING } from '@/constants/theme';
 
 const STATUS_STEPS: Postcard['status'][] = ['pending', 'paid', 'submitted', 'mailed'];
 
@@ -28,6 +30,8 @@ function formatDate(iso: string) {
 export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [postcard, setPostcard] = useState<Postcard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +53,7 @@ export default function OrderDetailScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <ActivityIndicator style={{ flex: 1 }} color={COLORS.primary} />
+        <ActivityIndicator style={{ flex: 1 }} color={colors.primary} />
       </SafeAreaView>
     );
   }
@@ -63,7 +67,7 @@ export default function OrderDetailScreen() {
           </TouchableOpacity>
         </View>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: COLORS.error }}>Order not found.</Text>
+          <Text style={{ color: colors.error }}>Order not found.</Text>
         </View>
       </SafeAreaView>
     );
@@ -100,12 +104,12 @@ export default function OrderDetailScreen() {
               return (
                 <View key={step} style={styles.timelineRow}>
                   <View style={styles.timelineLeft}>
-                    <View style={[styles.dot, done && { backgroundColor: COLORS.primary }]} />
+                    <View style={[styles.dot, done && { backgroundColor: colors.primary }]} />
                     {i < STATUS_STEPS.length - 1 && (
-                      <View style={[styles.line, done && i < currentStepIndex && { backgroundColor: COLORS.primary }]} />
+                      <View style={[styles.line, done && i < currentStepIndex && { backgroundColor: colors.primary }]} />
                     )}
                   </View>
-                  <Text style={[styles.timelineLabel, done && { color: COLORS.textPrimary, fontWeight: '600' }]}>
+                  <Text style={[styles.timelineLabel, done && { color: colors.textPrimary, fontWeight: '600' }]}>
                     {info.label}
                   </Text>
                 </View>
@@ -148,6 +152,8 @@ export default function OrderDetailScreen() {
 }
 
 function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.metaRow}>
       <Text style={styles.metaLabel}>{label}</Text>
@@ -156,50 +162,53 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
-  },
-  backText: { fontSize: FONT_SIZE.md, color: COLORS.textSecondary },
-  title: { fontSize: FONT_SIZE.lg, fontWeight: '700', color: COLORS.textPrimary },
-  scroll: { padding: SPACING.xl, gap: SPACING.lg, paddingBottom: 60 },
-  statusBanner: { borderRadius: 14, padding: SPACING.md, gap: 4 },
-  statusLabel: { fontSize: FONT_SIZE.lg, fontWeight: '800' },
-  statusDesc: { fontSize: FONT_SIZE.sm },
-  timeline: { gap: 0 },
-  timelineRow: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.md },
-  timelineLeft: { alignItems: 'center', width: 16 },
-  dot: { width: 14, height: 14, borderRadius: 7, backgroundColor: COLORS.border, borderWidth: 2, borderColor: COLORS.border },
-  line: { width: 2, height: 28, backgroundColor: COLORS.border, marginTop: 2 },
-  timelineLabel: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, paddingTop: 1, flex: 1 },
-  sectionTitle: { fontSize: FONT_SIZE.sm, fontWeight: '700', color: COLORS.textSecondary, textTransform: 'uppercase', letterSpacing: 1 },
-  postcardBack: {
-    backgroundColor: '#FFFEF0', borderRadius: 12,
-    borderWidth: 1, borderColor: '#E0DCC8',
-    flexDirection: 'row', padding: SPACING.md, minHeight: 120,
-  },
-  backLeft: { flex: 3, paddingRight: SPACING.sm },
-  messageText: { fontSize: FONT_SIZE.sm, color: '#333', lineHeight: 20 },
-  backDivider: { width: 1, backgroundColor: '#D0CCAA', marginHorizontal: SPACING.sm },
-  backRight: { flex: 2, justifyContent: 'center' },
-  addrBlock: { gap: 2 },
-  addrLabel: { fontSize: 8, fontWeight: '700', color: '#999', letterSpacing: 1 },
-  addrName: { fontSize: 11, fontWeight: '600', color: '#333' },
-  addrLine: { fontSize: 10, color: '#555', lineHeight: 14 },
-  metaCard: {
-    backgroundColor: COLORS.surface, borderRadius: 14,
-    borderWidth: 1, borderColor: COLORS.border,
-    overflow: 'hidden',
-  },
-  metaRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
-  },
-  metaLabel: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary },
-  metaValue: { fontSize: FONT_SIZE.sm, color: COLORS.textPrimary, fontWeight: '500', maxWidth: '60%', textAlign: 'right' },
-  metaMono: { fontFamily: 'monospace', fontSize: 11 },
-});
+const styles = StyleSheet.create({});  // replaced by makeStyles below
+
+function makeStyles(colors: AppColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    header: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md,
+      borderBottomWidth: 1, borderBottomColor: colors.border,
+    },
+    backText: { fontSize: FONT_SIZE.md, color: colors.textSecondary },
+    title: { fontSize: FONT_SIZE.lg, fontWeight: '700', color: colors.textPrimary },
+    scroll: { padding: SPACING.xl, gap: SPACING.lg, paddingBottom: 60 },
+    statusBanner: { borderRadius: 14, padding: SPACING.md, gap: 4 },
+    statusLabel: { fontSize: FONT_SIZE.lg, fontWeight: '800' },
+    statusDesc: { fontSize: FONT_SIZE.sm },
+    timeline: { gap: 0 },
+    timelineRow: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.md },
+    timelineLeft: { alignItems: 'center', width: 16 },
+    dot: { width: 14, height: 14, borderRadius: 7, backgroundColor: colors.border, borderWidth: 2, borderColor: colors.border },
+    line: { width: 2, height: 28, backgroundColor: colors.border, marginTop: 2 },
+    timelineLabel: { fontSize: FONT_SIZE.sm, color: colors.textSecondary, paddingTop: 1, flex: 1 },
+    sectionTitle: { fontSize: FONT_SIZE.sm, fontWeight: '700', color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 1 },
+    postcardBack: {
+      backgroundColor: '#FFFEF0', borderRadius: 12,
+      borderWidth: 1, borderColor: '#E0DCC8',
+      flexDirection: 'row', padding: SPACING.md, minHeight: 120,
+    },
+    backLeft: { flex: 3, paddingRight: SPACING.sm },
+    messageText: { fontSize: FONT_SIZE.sm, color: '#333', lineHeight: 20 },
+    backDivider: { width: 1, backgroundColor: '#D0CCAA', marginHorizontal: SPACING.sm },
+    backRight: { flex: 2, justifyContent: 'center' },
+    addrBlock: { gap: 2 },
+    addrLabel: { fontSize: 8, fontWeight: '700', color: '#999', letterSpacing: 1 },
+    addrName: { fontSize: 11, fontWeight: '600', color: '#333' },
+    addrLine: { fontSize: 10, color: '#555', lineHeight: 14 },
+    metaCard: {
+      backgroundColor: colors.surface, borderRadius: 14,
+      borderWidth: 1, borderColor: colors.border, overflow: 'hidden',
+    },
+    metaRow: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
+      borderBottomWidth: 1, borderBottomColor: colors.border,
+    },
+    metaLabel: { fontSize: FONT_SIZE.sm, color: colors.textSecondary },
+    metaValue: { fontSize: FONT_SIZE.sm, color: colors.textPrimary, fontWeight: '500', maxWidth: '60%', textAlign: 'right' },
+    metaMono: { fontFamily: 'monospace', fontSize: 11 },
+  });
+}

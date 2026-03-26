@@ -1,14 +1,18 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { usePostcardStore } from '@/store/postcard.store';
-import { COLORS, FONT_SIZE, SPACING } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
+import type { AppColors } from '@/constants/theme';
+import { FONT_SIZE, SPACING } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function PostcardPhotoScreen() {
   const router = useRouter();
   const { setPhoto, reset } = usePostcardStore();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   React.useEffect(() => { reset(); }, []);
 
@@ -76,32 +80,27 @@ export default function PostcardPhotoScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: SPACING.xl,
-    paddingVertical: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  closeBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  closeText: { fontSize: 18, color: COLORS.textSecondary },
-  title: { fontSize: FONT_SIZE.lg, fontWeight: '700', color: COLORS.textPrimary },
-  body: { flex: 1, padding: SPACING.xl, gap: SPACING.md, justifyContent: 'center' },
-  subtitle: { fontSize: FONT_SIZE.md, color: COLORS.textSecondary, textAlign: 'center', marginBottom: SPACING.lg },
-  optionBtn: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 20,
-    padding: SPACING.xl,
-    alignItems: 'center',
-    gap: SPACING.xs,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  optionEmoji: { fontSize: 48 },
-  optionLabel: { fontSize: FONT_SIZE.lg, fontWeight: '700', color: COLORS.textPrimary },
-  optionSub: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary },
-});
+const styles = StyleSheet.create({});  // replaced by makeStyles below
+
+function makeStyles(colors: AppColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    header: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md,
+      borderBottomWidth: 1, borderBottomColor: colors.border,
+    },
+    closeBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+    closeText: { fontSize: 18, color: colors.textSecondary },
+    title: { fontSize: FONT_SIZE.lg, fontWeight: '700', color: colors.textPrimary },
+    body: { flex: 1, padding: SPACING.xl, gap: SPACING.md, justifyContent: 'center' },
+    subtitle: { fontSize: FONT_SIZE.md, color: colors.textSecondary, textAlign: 'center', marginBottom: SPACING.lg },
+    optionBtn: {
+      backgroundColor: colors.surface, borderRadius: 20, padding: SPACING.xl,
+      alignItems: 'center', gap: SPACING.xs, borderWidth: 1, borderColor: colors.border,
+    },
+    optionEmoji: { fontSize: 48 },
+    optionLabel: { fontSize: FONT_SIZE.lg, fontWeight: '700', color: colors.textPrimary },
+    optionSub: { fontSize: FONT_SIZE.sm, color: colors.textSecondary },
+  });
+}

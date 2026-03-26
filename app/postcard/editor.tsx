@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View, Text, Image, TouchableOpacity, ScrollView,
   StyleSheet, Dimensions,
@@ -7,7 +7,9 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePostcardStore } from '@/store/postcard.store';
 import { FILTERS, FRAMES } from '@/constants/editor';
-import { COLORS, FONT_SIZE, SPACING } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
+import type { AppColors } from '@/constants/theme';
+import { FONT_SIZE, SPACING } from '@/constants/theme';
 
 const FILTER_OVERLAYS: Record<string, { color: string; opacity: number } | null> = {
   none: null,
@@ -25,6 +27,8 @@ const PHOTO_H = PHOTO_W * (3 / 4);
 export default function EditorScreen() {
   const router = useRouter();
   const { photoUri, filterId, frameId, setFilter, setFrame } = usePostcardStore();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   if (!photoUri) {
     router.replace('/postcard');
@@ -44,7 +48,7 @@ export default function EditorScreen() {
         </TouchableOpacity>
         <Text style={styles.title}>Edit Photo</Text>
         <TouchableOpacity onPress={() => router.push('/postcard/message')}>
-          <Text style={[styles.navText, { color: COLORS.primary, fontWeight: '700' }]}>Next →</Text>
+          <Text style={[styles.navText, { color: colors.primary, fontWeight: '700' }]}>Next →</Text>
         </TouchableOpacity>
       </View>
 
@@ -92,7 +96,7 @@ export default function EditorScreen() {
                   {ov && <View style={[StyleSheet.absoluteFill, { backgroundColor: ov.color, opacity: ov.opacity }]} />}
                   {f.id === 'bw' && <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(128,128,128,0.55)' }]} />}
                 </View>
-                <Text style={[styles.thumbLabel, selected && { color: COLORS.primary }]}>{f.label}</Text>
+                <Text style={[styles.thumbLabel, selected && { color: colors.primary }]}>{f.label}</Text>
               </TouchableOpacity>
             );
           })}
@@ -114,7 +118,7 @@ export default function EditorScreen() {
                 <View style={[styles.thumbImg, { borderWidth: fr.borderWidth > 0 ? 4 : 0, borderColor: fr.borderColor, backgroundColor: fr.borderColor || '#eee' }]}>
                   <Image source={{ uri: photoUri }} style={[StyleSheet.absoluteFill, { margin: fr.borderWidth > 0 ? 4 : 0 }]} resizeMode="cover" />
                 </View>
-                <Text style={[styles.thumbLabel, selected && { color: COLORS.primary }]}>{fr.label}</Text>
+                <Text style={[styles.thumbLabel, selected && { color: colors.primary }]}>{fr.label}</Text>
               </TouchableOpacity>
             );
           })}
@@ -124,24 +128,25 @@ export default function EditorScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#111' },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md,
-  },
-  navText: { fontSize: FONT_SIZE.md, color: '#ccc' },
-  title: { fontSize: FONT_SIZE.lg, fontWeight: '700', color: '#fff' },
-  photoArea: {
-    flex: 1, alignItems: 'center', justifyContent: 'center',
-    paddingHorizontal: SPACING.xl,
-  },
-  photoFrame: { backgroundColor: '#000', overflow: 'hidden' },
-  section: { paddingBottom: SPACING.md },
-  sectionLabel: { color: '#aaa', fontSize: FONT_SIZE.xs, fontWeight: '600', paddingHorizontal: SPACING.xl, marginBottom: SPACING.xs, textTransform: 'uppercase', letterSpacing: 1 },
-  scrollRow: { paddingHorizontal: SPACING.xl, gap: SPACING.sm },
-  thumbnail: { alignItems: 'center', gap: 4, opacity: 0.7 },
-  thumbnailSelected: { opacity: 1 },
-  thumbImg: { width: 56, height: 42, borderRadius: 6, overflow: 'hidden', backgroundColor: '#333' },
-  thumbLabel: { fontSize: 10, color: '#aaa', fontWeight: '500' },
-});
+const styles = StyleSheet.create({});  // replaced by makeStyles below
+
+function makeStyles(colors: AppColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: '#111' },  // dark canvas — intentional for photo editing
+    header: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md,
+    },
+    navText: { fontSize: FONT_SIZE.md, color: '#ccc' },
+    title: { fontSize: FONT_SIZE.lg, fontWeight: '700', color: '#fff' },
+    photoArea: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: SPACING.xl },
+    photoFrame: { backgroundColor: '#000', overflow: 'hidden' },
+    section: { paddingBottom: SPACING.md },
+    sectionLabel: { color: '#aaa', fontSize: FONT_SIZE.xs, fontWeight: '600', paddingHorizontal: SPACING.xl, marginBottom: SPACING.xs, textTransform: 'uppercase', letterSpacing: 1 },
+    scrollRow: { paddingHorizontal: SPACING.xl, gap: SPACING.sm },
+    thumbnail: { alignItems: 'center', gap: 4, opacity: 0.7 },
+    thumbnailSelected: { opacity: 1 },
+    thumbImg: { width: 56, height: 42, borderRadius: 6, overflow: 'hidden', backgroundColor: '#333' },
+    thumbLabel: { fontSize: 10, color: '#aaa', fontWeight: '500' },
+  });
+}

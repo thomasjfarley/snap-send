@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -15,7 +15,9 @@ import { useProfileStore } from '@/store/profile.store';
 import { useAddressStore } from '@/store/address.store';
 import { AddressForm } from '@/components/AddressForm';
 import type { AddressFormData } from '@/store/address.store';
-import { COLORS, FONT_SIZE, SPACING } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
+import type { AppColors } from '@/constants/theme';
+import { FONT_SIZE, SPACING } from '@/constants/theme';
 
 const EMPTY_FORM: AddressFormData = {
   label: 'Home',
@@ -33,6 +35,8 @@ export default function YourAddressScreen() {
   const { user } = useAuthStore();
   const { profile, update: updateProfile } = useProfileStore();
   const { add, validate, loading, validating } = useAddressStore();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [form, setForm] = useState<AddressFormData>({
     ...EMPTY_FORM,
@@ -175,27 +179,24 @@ async function supabaseMarkPersonal(addressId: string) {
   await supabase.from('addresses').update({ is_personal: true }).eq('id', addressId);
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    backgroundColor: COLORS.background,
-    padding: SPACING.xl,
-    paddingTop: 80,
-    gap: SPACING.lg,
-    paddingBottom: 40,
-  },
-  header: { gap: SPACING.sm },
-  step: { fontSize: FONT_SIZE.sm, color: COLORS.primary, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 },
-  title: { fontSize: 28, fontWeight: '700', color: COLORS.textPrimary },
-  subtitle: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, lineHeight: 22 },
-  btnPrimary: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 14,
-    paddingVertical: SPACING.md,
-    alignItems: 'center',
-    marginTop: SPACING.sm,
-  },
-  btnPrimaryText: { color: '#fff', fontSize: FONT_SIZE.md, fontWeight: '600' },
-  disabled: { opacity: 0.5 },
-  hint: { textAlign: 'center', color: COLORS.textSecondary, fontSize: FONT_SIZE.xs, marginTop: -SPACING.sm },
-});
+const styles = StyleSheet.create({});  // replaced by makeStyles below
+
+function makeStyles(colors: AppColors) {
+  return StyleSheet.create({
+    container: {
+      flexGrow: 1, backgroundColor: colors.background,
+      padding: SPACING.xl, paddingTop: 80, gap: SPACING.lg, paddingBottom: 40,
+    },
+    header: { gap: SPACING.sm },
+    step: { fontSize: FONT_SIZE.sm, color: colors.primary, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 },
+    title: { fontSize: 28, fontWeight: '700', color: colors.textPrimary },
+    subtitle: { fontSize: FONT_SIZE.sm, color: colors.textSecondary, lineHeight: 22 },
+    btnPrimary: {
+      backgroundColor: colors.primary, borderRadius: 14,
+      paddingVertical: SPACING.md, alignItems: 'center', marginTop: SPACING.sm,
+    },
+    btnPrimaryText: { color: '#fff', fontSize: FONT_SIZE.md, fontWeight: '600' },
+    disabled: { opacity: 0.5 },
+    hint: { textAlign: 'center', color: colors.textSecondary, fontSize: FONT_SIZE.xs, marginTop: -SPACING.sm },
+  });
+}

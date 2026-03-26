@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import {
   View, Text, Image, TouchableOpacity, StyleSheet,
   ScrollView, Dimensions, Alert, Platform, ActivityIndicator,
@@ -9,7 +9,9 @@ import { usePostcardStore } from '@/store/postcard.store';
 import { useProfileStore } from '@/store/profile.store';
 import { useAddressStore } from '@/store/address.store';
 import { FRAMES } from '@/constants/editor';
-import { COLORS, FONT_SIZE, SPACING } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
+import type { AppColors } from '@/constants/theme';
+import { FONT_SIZE, SPACING } from '@/constants/theme';
 import { POSTCARD_PRICE_CENTS } from '@/constants/config';
 import { supabase } from '@/lib/supabase';
 
@@ -46,6 +48,8 @@ export default function PreviewScreen() {
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const cardFrontRef = useRef<View>(null);
   const [sending, setSending] = useState(false);
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   if (!photoUri || !recipient) {
     router.replace('/postcard');
@@ -220,38 +224,42 @@ export default function PreviewScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
-  },
-  navText: { fontSize: FONT_SIZE.md, color: COLORS.textSecondary },
-  title: { fontSize: FONT_SIZE.lg, fontWeight: '700', color: COLORS.textPrimary },
-  scroll: { padding: SPACING.xl, gap: SPACING.md, paddingBottom: 60 },
-  sideLabel: { fontSize: FONT_SIZE.xs, fontWeight: '700', color: COLORS.textSecondary, letterSpacing: 2, textTransform: 'uppercase' },
-  cardFront: { width: CARD_W, overflow: 'hidden', borderRadius: 4 },
-  cardBack: {
-    width: CARD_W, minHeight: CARD_H,
-    backgroundColor: '#FFFEF0', borderRadius: 4,
-    borderWidth: 1, borderColor: '#E0DCC8',
-    flexDirection: 'row', padding: SPACING.md,
-  },
-  backMessage: { flex: 3, paddingRight: SPACING.sm },
-  backMessageText: { fontSize: FONT_SIZE.sm, color: '#333', lineHeight: 22 },
-  backDivider: { width: 1, backgroundColor: '#D0CCAA', marginHorizontal: SPACING.sm },
-  backRight: { flex: 2, justifyContent: 'space-between' },
-  backAddresses: { gap: SPACING.md, flex: 1, justifyContent: 'center' },
-  addressBlock: { gap: 2 },
-  addrLabel: { fontSize: 8, fontWeight: '700', color: '#999', letterSpacing: 1 },
-  addrText: { fontSize: 10, color: '#444', lineHeight: 14 },
-  stampBox: { width: 40, height: 48, borderWidth: 1.5, borderColor: '#CCC', alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-end', borderRadius: 2 },
-  stampText: { fontSize: 7, color: '#BBB', letterSpacing: 1 },
-  sendBtn: { backgroundColor: COLORS.primary, borderRadius: 16, paddingVertical: SPACING.lg, alignItems: 'center', justifyContent: 'center', marginTop: SPACING.xl, minHeight: 56 },
-  sendBtnDisabled: { opacity: 0.6 },
-  sendBtnText: { color: '#fff', fontSize: FONT_SIZE.lg, fontWeight: '700' },
-  webNote: { textAlign: 'center', fontSize: FONT_SIZE.sm, color: COLORS.warning ?? '#B45309', backgroundColor: '#FEF3C7', padding: SPACING.md, borderRadius: 10 },
-  sendNote: { fontSize: FONT_SIZE.xs, color: COLORS.textSecondary, textAlign: 'center' },
-});
+const styles = StyleSheet.create({});  // replaced by makeStyles below
+
+function makeStyles(colors: AppColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    header: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md,
+      borderBottomWidth: 1, borderBottomColor: colors.border,
+    },
+    navText: { fontSize: FONT_SIZE.md, color: colors.textSecondary },
+    title: { fontSize: FONT_SIZE.lg, fontWeight: '700', color: colors.textPrimary },
+    scroll: { padding: SPACING.xl, gap: SPACING.md, paddingBottom: 60 },
+    sideLabel: { fontSize: FONT_SIZE.xs, fontWeight: '700', color: colors.textSecondary, letterSpacing: 2, textTransform: 'uppercase' },
+    cardFront: { width: CARD_W, overflow: 'hidden', borderRadius: 4 },
+    cardBack: {
+      width: CARD_W, minHeight: CARD_H,
+      backgroundColor: '#FFFEF0', borderRadius: 4,
+      borderWidth: 1, borderColor: '#E0DCC8',
+      flexDirection: 'row', padding: SPACING.md,
+    },
+    backMessage: { flex: 3, paddingRight: SPACING.sm },
+    backMessageText: { fontSize: FONT_SIZE.sm, color: '#333', lineHeight: 22 },
+    backDivider: { width: 1, backgroundColor: '#D0CCAA', marginHorizontal: SPACING.sm },
+    backRight: { flex: 2, justifyContent: 'space-between' },
+    backAddresses: { gap: SPACING.md, flex: 1, justifyContent: 'center' },
+    addressBlock: { gap: 2 },
+    addrLabel: { fontSize: 8, fontWeight: '700', color: '#999', letterSpacing: 1 },
+    addrText: { fontSize: 10, color: '#444', lineHeight: 14 },
+    stampBox: { width: 40, height: 48, borderWidth: 1.5, borderColor: '#CCC', alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-end', borderRadius: 2 },
+    stampText: { fontSize: 7, color: '#BBB', letterSpacing: 1 },
+    sendBtn: { backgroundColor: colors.primary, borderRadius: 16, paddingVertical: SPACING.lg, alignItems: 'center', justifyContent: 'center', marginTop: SPACING.xl, minHeight: 56 },
+    sendBtnDisabled: { opacity: 0.6 },
+    sendBtnText: { color: '#fff', fontSize: FONT_SIZE.lg, fontWeight: '700' },
+    webNote: { textAlign: 'center', fontSize: FONT_SIZE.sm, color: '#B45309', backgroundColor: '#FEF3C7', padding: SPACING.md, borderRadius: 10 },
+    sendNote: { fontSize: FONT_SIZE.xs, color: colors.textSecondary, textAlign: 'center' },
+  });
+}
 

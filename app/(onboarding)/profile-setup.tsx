@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -12,12 +12,16 @@ import {
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/auth.store';
 import { useProfileStore } from '@/store/profile.store';
-import { COLORS, FONT_SIZE, SPACING } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
+import type { AppColors } from '@/constants/theme';
+import { FONT_SIZE, SPACING } from '@/constants/theme';
 
 export default function ProfileSetupScreen() {
   const router = useRouter();
   const { user } = useAuthStore();
   const { update, loading } = useProfileStore();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [fullName, setFullName] = useState('');
 
   async function handleContinue() {
@@ -49,7 +53,7 @@ export default function ProfileSetupScreen() {
         <TextInput
           style={styles.input}
           placeholder="Full name"
-          placeholderTextColor={COLORS.textSecondary}
+          placeholderTextColor={colors.textSecondary}
           value={fullName}
           onChangeText={setFullName}
           autoCapitalize="words"
@@ -73,35 +77,29 @@ export default function ProfileSetupScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-    padding: SPACING.xl,
-    paddingTop: 80,
-    gap: SPACING.xl,
-  },
-  header: { gap: SPACING.sm },
-  step: { fontSize: FONT_SIZE.sm, color: COLORS.primary, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 },
-  title: { fontSize: 28, fontWeight: '700', color: COLORS.textPrimary },
-  subtitle: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, lineHeight: 22 },
-  input: {
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 14,
-    fontSize: FONT_SIZE.xl,
-    color: COLORS.textPrimary,
-    backgroundColor: COLORS.surface,
-  },
-  footer: { marginTop: 'auto' },
-  btnPrimary: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 14,
-    paddingVertical: SPACING.md,
-    alignItems: 'center',
-  },
-  btnPrimaryText: { color: '#fff', fontSize: FONT_SIZE.md, fontWeight: '600' },
-  disabled: { opacity: 0.6 },
-});
+const styles = StyleSheet.create({});  // replaced by makeStyles below
+
+function makeStyles(colors: AppColors) {
+  return StyleSheet.create({
+    container: {
+      flex: 1, backgroundColor: colors.background,
+      padding: SPACING.xl, paddingTop: 80, gap: SPACING.xl,
+    },
+    header: { gap: SPACING.sm },
+    step: { fontSize: FONT_SIZE.sm, color: colors.primary, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 },
+    title: { fontSize: 28, fontWeight: '700', color: colors.textPrimary },
+    subtitle: { fontSize: FONT_SIZE.sm, color: colors.textSecondary, lineHeight: 22 },
+    input: {
+      borderWidth: 1.5, borderColor: colors.border, borderRadius: 12,
+      paddingHorizontal: SPACING.md, paddingVertical: 14,
+      fontSize: FONT_SIZE.xl, color: colors.textPrimary, backgroundColor: colors.surface,
+    },
+    footer: { marginTop: 'auto' },
+    btnPrimary: {
+      backgroundColor: colors.primary, borderRadius: 14,
+      paddingVertical: SPACING.md, alignItems: 'center',
+    },
+    btnPrimaryText: { color: '#fff', fontSize: FONT_SIZE.md, fontWeight: '600' },
+    disabled: { opacity: 0.6 },
+  });
+}

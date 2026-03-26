@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
   Alert,
   FlatList,
@@ -13,13 +13,17 @@ import { useAuthStore } from '@/store/auth.store';
 import { useProfileStore } from '@/store/profile.store';
 import { useAddressStore } from '@/store/address.store';
 import type { Address } from '@/lib/database.types';
-import { COLORS, FONT_SIZE, SPACING } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
+import type { AppColors } from '@/constants/theme';
+import { FONT_SIZE, SPACING } from '@/constants/theme';
 
 export default function AddressBookScreen() {
   const router = useRouter();
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
   const { addresses, fetch, remove, loading } = useAddressStore();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   useFocusEffect(
     useCallback(() => {
@@ -104,7 +108,7 @@ export default function AddressBookScreen() {
           <RefreshControl
             refreshing={loading}
             onRefresh={() => user && fetch(user.id)}
-            tintColor={COLORS.primary}
+            tintColor={colors.primary}
           />
         }
         ListEmptyComponent={
@@ -124,50 +128,43 @@ export default function AddressBookScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: SPACING.xl,
-    paddingTop: 60,
-    paddingBottom: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  title: { fontSize: FONT_SIZE.xl, fontWeight: '700', color: COLORS.textPrimary },
-  addBtn: { backgroundColor: COLORS.primary, borderRadius: 20, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs },
-  addBtnText: { color: '#fff', fontSize: FONT_SIZE.sm, fontWeight: '600' },
-  list: { padding: SPACING.xl, gap: SPACING.sm, paddingBottom: 40 },
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 14,
-    padding: SPACING.md,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: SPACING.sm,
-  },
-  cardLeft: { flex: 1, gap: 3 },
-  cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs, flexWrap: 'wrap' },
-  cardName: { fontSize: FONT_SIZE.md, fontWeight: '600', color: COLORS.textPrimary },
-  personalBadge: { backgroundColor: COLORS.primaryLight, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
-  personalBadgeText: { fontSize: 10, fontWeight: '700', color: COLORS.primary },
-  verifiedBadge: { backgroundColor: '#DCFCE7', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
-  verifiedBadgeText: { fontSize: 10, fontWeight: '600', color: '#15803D' },
-  cardLabel: { fontSize: FONT_SIZE.xs, color: COLORS.textSecondary, fontWeight: '500' },
-  cardAddress: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary },
-  cardActions: { gap: SPACING.xs, alignItems: 'flex-end' },
-  actionBtn: { padding: SPACING.xs },
-  editText: { fontSize: FONT_SIZE.sm, color: COLORS.primary, fontWeight: '500' },
-  deleteText: { fontSize: FONT_SIZE.sm, color: COLORS.error, fontWeight: '500' },
-  empty: { alignItems: 'center', gap: SPACING.md, paddingTop: 80 },
-  emptyEmoji: { fontSize: 48 },
-  emptyTitle: { fontSize: FONT_SIZE.xl, fontWeight: '700', color: COLORS.textPrimary },
-  emptySubtitle: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary },
-  btnPrimary: { backgroundColor: COLORS.primary, borderRadius: 14, paddingVertical: SPACING.md, paddingHorizontal: SPACING.xl, alignItems: 'center', marginTop: SPACING.sm },
-  btnPrimaryText: { color: '#fff', fontSize: FONT_SIZE.md, fontWeight: '600' },
-});
+const styles = StyleSheet.create({});  // replaced by makeStyles below
+
+function makeStyles(colors: AppColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    header: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: SPACING.xl, paddingTop: 60, paddingBottom: SPACING.md,
+      borderBottomWidth: 1, borderBottomColor: colors.border,
+    },
+    title: { fontSize: FONT_SIZE.xl, fontWeight: '700', color: colors.textPrimary },
+    addBtn: { backgroundColor: colors.primary, borderRadius: 20, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs },
+    addBtnText: { color: '#fff', fontSize: FONT_SIZE.sm, fontWeight: '600' },
+    list: { padding: SPACING.xl, gap: SPACING.sm, paddingBottom: 40 },
+    card: {
+      backgroundColor: colors.surface, borderRadius: 14, padding: SPACING.md,
+      borderWidth: 1, borderColor: colors.border,
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: SPACING.sm,
+    },
+    cardLeft: { flex: 1, gap: 3 },
+    cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs, flexWrap: 'wrap' },
+    cardName: { fontSize: FONT_SIZE.md, fontWeight: '600', color: colors.textPrimary },
+    personalBadge: { backgroundColor: colors.primaryLight, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+    personalBadgeText: { fontSize: 10, fontWeight: '700', color: colors.primary },
+    verifiedBadge: { backgroundColor: '#DCFCE7', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+    verifiedBadgeText: { fontSize: 10, fontWeight: '600', color: '#15803D' },
+    cardLabel: { fontSize: FONT_SIZE.xs, color: colors.textSecondary, fontWeight: '500' },
+    cardAddress: { fontSize: FONT_SIZE.sm, color: colors.textSecondary },
+    cardActions: { gap: SPACING.xs, alignItems: 'flex-end' },
+    actionBtn: { padding: SPACING.xs },
+    editText: { fontSize: FONT_SIZE.sm, color: colors.primary, fontWeight: '500' },
+    deleteText: { fontSize: FONT_SIZE.sm, color: colors.error, fontWeight: '500' },
+    empty: { alignItems: 'center', gap: SPACING.md, paddingTop: 80 },
+    emptyEmoji: { fontSize: 48 },
+    emptyTitle: { fontSize: FONT_SIZE.xl, fontWeight: '700', color: colors.textPrimary },
+    emptySubtitle: { fontSize: FONT_SIZE.sm, color: colors.textSecondary },
+    btnPrimary: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: SPACING.md, paddingHorizontal: SPACING.xl, alignItems: 'center', marginTop: SPACING.sm },
+    btnPrimaryText: { color: '#fff', fontSize: FONT_SIZE.md, fontWeight: '600' },
+  });
+}
