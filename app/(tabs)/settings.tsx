@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  Alert, TextInput, ActivityIndicator,
+  Alert, TextInput, ActivityIndicator, Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -42,7 +42,13 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { user, signOut } = useAuthStore();
   const { profile, update: updateProfile } = useProfileStore();
-  const { addresses } = useAddressStore();
+  const { addresses, fetch: fetchAddresses, loading: addressesLoading } = useAddressStore();
+
+  // Load addresses when screen mounts so label/nav are accurate immediately
+  useEffect(() => {
+    if (user) fetchAddresses(user.id);
+  }, [user?.id]);
+
   const personalAddress = addresses.find((a) => a.is_personal);
 
   const [editingName, setEditingName] = useState(false);
@@ -69,6 +75,11 @@ export default function SettingsScreen() {
   }
 
   function confirmSignOut() {
+    if (Platform.OS === 'web') {
+      // Alert.alert doesn't render a real interactive dialog on web
+      if (window.confirm('Are you sure you want to sign out?')) signOut();
+      return;
+    }
     Alert.alert('Sign out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Sign out', style: 'destructive', onPress: signOut },
@@ -142,11 +153,21 @@ export default function SettingsScreen() {
         {/* Return Address */}
         <SectionHeader title="Return Address" />
         <View style={styles.card}>
-          {personalAddress ? (
+          {addressesLoading && !personalAddress ? (
+            <View style={styles.row}>
+              <ActivityIndicator size="small" color={COLORS.primary} />
+            </View>
+          ) : personalAddress ? (
             <SettingsRow
               label="Update return address"
               value={`${personalAddress.line1}, ${personalAddress.city}`}
               onPress={() => router.push(`/address/${personalAddress.id}`)}
+            />
+          ) : profile?.personal_address_id ? (
+            // Profile has an address ID but it hasn't loaded into the store yet
+            <SettingsRow
+              label="Update return address"
+              onPress={() => router.push(`/address/${profile.personal_address_id}`)}
             />
           ) : (
             <SettingsRow
