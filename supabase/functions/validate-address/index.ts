@@ -26,13 +26,17 @@ serve(async (req) => {
       });
     }
 
-    // In Lob test mode, skip the real API call and return the input as verified
+    // In Lob test mode, simulate a realistic standardized response
     if (LOB_API_KEY.startsWith('test_')) {
+      const stdLine1 = line1.toUpperCase().replace(/\bst\b/gi, 'ST').replace(/\bave\b/gi, 'AVE').replace(/\bdr\b/gi, 'DR').replace(/\brd\b/gi, 'RD').replace(/\bblvd\b/gi, 'BLVD').replace(/\bln\b/gi, 'LN').replace(/\bct\b/gi, 'CT');
+      const stdCity = city.toUpperCase();
+      const stdState = state.toUpperCase();
+      const stdZip = zip.length === 5 ? `${zip}-1234` : zip; // simulate ZIP+4
       return new Response(
         JSON.stringify({
           verified: true,
           deliverability: 'deliverable',
-          address: { line1, line2: line2 || null, city, state, zip, country },
+          address: { line1: stdLine1, line2: line2 || null, city: stdCity, state: stdState, zip: stdZip, country },
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
@@ -65,8 +69,6 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-
-    console.log('Lob deliverability:', lobData.deliverability, 'primary_line:', lobData.primary_line);
 
     // deliverable, deliverable_unnecessary_unit, deliverable_missing_unit,
     // deliverable_incorrect_unit are all real addresses — only undeliverable is bad
