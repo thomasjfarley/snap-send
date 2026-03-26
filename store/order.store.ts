@@ -25,7 +25,7 @@ export const useOrderStore = create<OrderState>((set) => ({
     if (error) {
       set({ error: error.message, loading: false });
     } else {
-      set({ postcards: data ?? [], loading: false });
+      set({ postcards: (data as Postcard[] | null) ?? [], loading: false });
     }
   },
 }));

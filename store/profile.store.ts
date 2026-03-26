@@ -17,7 +17,7 @@ export const useProfileStore = create<ProfileState>((set) => ({
   fetch: async (userId) => {
     set({ loading: true });
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
-    set({ profile: data ?? null, loading: false });
+    set({ profile: (data as Profile | null) ?? null, loading: false });
   },
 
   update: async (userId, data) => {

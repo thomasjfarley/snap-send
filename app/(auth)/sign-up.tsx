@@ -76,8 +76,7 @@ export default function SignUpScreen() {
       const { error } = await supabase.auth.signInWithIdToken({
         provider: 'apple',
         token: credential.identityToken,
-        nonce: credential.nonce ?? undefined,
-        options: { data: { full_name: fullNameStr } },
+        nonce: undefined,
       });
       if (error) Alert.alert('Apple sign-in failed', error.message);
     } catch (e: any) {

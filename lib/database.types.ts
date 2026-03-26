@@ -7,6 +7,7 @@ export interface Database {
   public: {
     Tables: {
       profiles: {
+        Relationships: [];
         Row: {
           id: string;
           full_name: string;
@@ -28,6 +29,7 @@ export interface Database {
         };
       };
       addresses: {
+        Relationships: [];
         Row: {
           id: string;
           user_id: string;
@@ -72,6 +74,7 @@ export interface Database {
         };
       };
       postcards: {
+        Relationships: [];
         Row: {
           id: string;
           user_id: string;
@@ -112,6 +115,7 @@ export interface Database {
         };
       };
       orders: {
+        Relationships: [];
         Row: {
           id: string;
           user_id: string;
@@ -135,6 +139,10 @@ export interface Database {
         };
       };
     };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
   };
 }
 

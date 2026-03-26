@@ -61,7 +61,7 @@ export default function AddressBookScreen() {
           {isPersonal ? (
             <TouchableOpacity
               style={styles.actionBtn}
-              onPress={() => router.push('/settings')}
+              onPress={() => router.push('/(tabs)/settings')}
             >
               <Text style={styles.editText}>Edit</Text>
             </TouchableOpacity>

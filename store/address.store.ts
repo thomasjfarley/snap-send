@@ -11,6 +11,7 @@ export interface AddressFormData {
   state: string;
   zip: string;
   country: string;
+  lob_verified?: boolean;
 }
 
 export interface ValidationResult {
@@ -51,7 +52,7 @@ export const useAddressStore = create<AddressState>((set, get) => ({
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: true });
-    set({ addresses: data ?? [], loading: false });
+    set({ addresses: (data as Address[] | null) ?? [], loading: false });
   },
 
   add: async (userId, form, lobVerified) => {
@@ -73,9 +74,9 @@ export const useAddressStore = create<AddressState>((set, get) => ({
       })
       .select()
       .single();
-    if (data) set((s) => ({ addresses: [...s.addresses, data] }));
+    if (data) set((s) => ({ addresses: [...s.addresses, data as Address] }));
     set({ loading: false });
-    return { data: data ?? null, error: error?.message ?? null };
+    return { data: (data as Address | null) ?? null, error: error?.message ?? null };
   },
 
   update: async (id, form) => {

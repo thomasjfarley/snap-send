@@ -41,7 +41,7 @@ export default function OrderDetailScreen() {
       .single()
       .then(({ data, error }) => {
         if (error) setError(error.message);
-        else setPostcard(data);
+        else setPostcard(data as Postcard | null);
         setLoading(false);
       });
   }, [id]);
