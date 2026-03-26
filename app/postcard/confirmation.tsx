@@ -1,9 +1,74 @@
-import { View, Text } from 'react-native';
+import React from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { COLORS, FONT_SIZE, SPACING } from '@/constants/theme';
 
 export default function ConfirmationScreen() {
+  const router = useRouter();
+
   return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-      <Text>🎉 Postcard Sent!</Text>
-    </View>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.body}>
+        <Text style={styles.emoji}>📬</Text>
+        <Text style={styles.title}>Postcard Sent!</Text>
+        <Text style={styles.subtitle}>
+          Your postcard is on its way to the printer.{'\n'}It will arrive in 3–5 business days.
+        </Text>
+
+        <View style={styles.details}>
+          {[
+            { emoji: '🖨️', text: 'Printing in 1 business day' },
+            { emoji: '✉️', text: 'Mailed via USPS First Class' },
+            { emoji: '📍', text: 'Arrives in 3–5 business days' },
+          ].map((item, i) => (
+            <View key={i} style={styles.detailRow}>
+              <Text style={styles.detailEmoji}>{item.emoji}</Text>
+              <Text style={styles.detailText}>{item.text}</Text>
+            </View>
+          ))}
+        </View>
+
+        <TouchableOpacity
+          style={styles.btnPrimary}
+          onPress={() => {
+            router.dismissAll();
+            router.replace('/(tabs)');
+          }}
+        >
+          <Text style={styles.btnPrimaryText}>Back to Home</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.btnSecondary}
+          onPress={() => {
+            router.dismissAll();
+            router.replace('/postcard');
+          }}
+        >
+          <Text style={styles.btnSecondaryText}>Send Another</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: COLORS.background },
+  body: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.xl, gap: SPACING.md },
+  emoji: { fontSize: 80 },
+  title: { fontSize: 32, fontWeight: '800', color: COLORS.textPrimary, textAlign: 'center' },
+  subtitle: { fontSize: FONT_SIZE.md, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 24 },
+  details: {
+    backgroundColor: COLORS.surface, borderRadius: 16, padding: SPACING.lg,
+    borderWidth: 1, borderColor: COLORS.border, width: '100%', gap: SPACING.sm, marginVertical: SPACING.md,
+  },
+  detailRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
+  detailEmoji: { fontSize: 20, width: 28 },
+  detailText: { fontSize: FONT_SIZE.sm, color: COLORS.textPrimary },
+  btnPrimary: { backgroundColor: COLORS.primary, borderRadius: 16, paddingVertical: SPACING.md, alignItems: 'center', width: '100%' },
+  btnPrimaryText: { color: '#fff', fontSize: FONT_SIZE.md, fontWeight: '700' },
+  btnSecondary: { paddingVertical: SPACING.sm, alignItems: 'center', width: '100%' },
+  btnSecondaryText: { color: COLORS.primary, fontSize: FONT_SIZE.md, fontWeight: '600' },
+});
+

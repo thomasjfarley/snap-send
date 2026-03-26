@@ -1,10 +1,15 @@
 import { useEffect } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Platform, View } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useAuthStore } from '@/store/auth.store';
 import { useProfileStore } from '@/store/profile.store';
 import { COLORS } from '@/constants/theme';
+
+// StripeProvider is native-only — skip on web to avoid import errors
+const StripeProvider = Platform.OS !== 'web'
+  ? require('@stripe/stripe-react-native').StripeProvider
+  : ({ children }: { children: React.ReactNode }) => <>{children}</>;
 
 function AuthGate() {
   const router = useRouter();
@@ -62,7 +67,7 @@ export default function RootLayout() {
   }
 
   return (
-    <>
+    <StripeProvider publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ''}>
       <StatusBar style="auto" />
       <AuthGate />
       <Stack screenOptions={{ headerShown: false }}>
@@ -72,6 +77,6 @@ export default function RootLayout() {
         <Stack.Screen name="postcard" options={{ presentation: 'modal' }} />
         <Stack.Screen name="address" options={{ presentation: 'modal' }} />
       </Stack>
-    </>
+    </StripeProvider>
   );
 }
