@@ -70,6 +70,7 @@ export default function RootLayout() {
         <Stack.Screen name="(onboarding)" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="postcard" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="address" options={{ presentation: 'modal' }} />
       </Stack>
     </>
   );
