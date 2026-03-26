@@ -1,0 +1,31 @@
+import { create } from 'zustand';
+import type { Address } from '@/lib/database.types';
+import type { FilterId, FrameId } from '@/constants/editor';
+
+interface PostcardState {
+  photoUri: string | null;
+  filterId: FilterId;
+  frameId: FrameId;
+  message: string;
+  recipient: Address | null;
+  setPhoto: (uri: string) => void;
+  setFilter: (id: FilterId) => void;
+  setFrame: (id: FrameId) => void;
+  setMessage: (msg: string) => void;
+  setRecipient: (address: Address) => void;
+  reset: () => void;
+}
+
+export const usePostcardStore = create<PostcardState>((set) => ({
+  photoUri: null,
+  filterId: 'none',
+  frameId: 'none',
+  message: '',
+  recipient: null,
+  setPhoto: (uri) => set({ photoUri: uri }),
+  setFilter: (id) => set({ filterId: id }),
+  setFrame: (id) => set({ frameId: id }),
+  setMessage: (msg) => set({ message: msg }),
+  setRecipient: (address) => set({ recipient: address }),
+  reset: () => set({ photoUri: null, filterId: 'none', frameId: 'none', message: '', recipient: null }),
+}));

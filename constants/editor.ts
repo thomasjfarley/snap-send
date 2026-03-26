@@ -1,10 +1,10 @@
 export const FRAMES = [
-  { id: 'none', label: 'None', file: null },
-  { id: 'classic', label: 'Classic', file: require('../assets/frames/classic.png') },
-  { id: 'vintage', label: 'Vintage', file: require('../assets/frames/vintage.png') },
-  { id: 'polaroid', label: 'Polaroid', file: require('../assets/frames/polaroid.png') },
-  { id: 'minimal', label: 'Minimal', file: require('../assets/frames/minimal.png') },
-  { id: 'travel', label: 'Travel', file: require('../assets/frames/travel.png') },
+  { id: 'none', label: 'None', borderWidth: 0, borderColor: 'transparent', padding: 0 },
+  { id: 'classic', label: 'Classic', borderWidth: 14, borderColor: '#FFFFFF', padding: 0 },
+  { id: 'vintage', label: 'Vintage', borderWidth: 14, borderColor: '#D4B896', padding: 3 },
+  { id: 'polaroid', label: 'Polaroid', borderWidth: 6, borderColor: '#F5F5F0', padding: 0 },
+  { id: 'minimal', label: 'Minimal', borderWidth: 3, borderColor: '#222222', padding: 0 },
+  { id: 'travel', label: 'Travel', borderWidth: 10, borderColor: '#2D6A4F', padding: 2 },
 ] as const;
 
 export type FrameId = (typeof FRAMES)[number]['id'];
