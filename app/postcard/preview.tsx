@@ -49,6 +49,7 @@ export default function PreviewScreen() {
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const cardFrontRef = useRef<View>(null);
   const submittedRef = useRef(false);
+  const sendInProgressRef = useRef(false);
   const [sending, setSending] = useState(false);
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -69,6 +70,8 @@ export default function PreviewScreen() {
 
   async function handleSend() {
     if (!recipient) return;
+    if (sendInProgressRef.current) return;
+    sendInProgressRef.current = true;
     if (Platform.OS === 'web') {
       Alert.alert('Mobile only', 'Payments are available in the iOS and Android app.');
       return;
@@ -227,6 +230,7 @@ export default function PreviewScreen() {
       console.error('[handleSend] caught error:', err);
       Alert.alert('Something went wrong', err.message ?? 'Please try again.');
     } finally {
+      sendInProgressRef.current = false;
       setSending(false);
     }
   }
