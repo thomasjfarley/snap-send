@@ -104,7 +104,7 @@ function makeStyles(colors: AppColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     header: {
-      paddingHorizontal: SPACING.xl, paddingTop: 60, paddingBottom: SPACING.md,
+      paddingHorizontal: SPACING.xl, paddingTop: SPACING.xl, paddingBottom: SPACING.md,
       borderBottomWidth: 1, borderBottomColor: colors.border,
     },
     title: { fontSize: FONT_SIZE.xl, fontWeight: '700', color: colors.textPrimary },

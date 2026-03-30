@@ -16,5 +16,8 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: Platform.OS === 'web',
+    // Use implicit flow on native so recovery links include tokens directly
+    // in the URL hash instead of a PKCE code that requires a stored verifier.
+    flowType: Platform.OS === 'web' ? 'pkce' : 'implicit',
   },
 });

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   View, Text, Image, TouchableOpacity, ScrollView,
   StyleSheet, Dimensions,
@@ -26,12 +26,15 @@ const PHOTO_H = PHOTO_W * (3 / 4);
 
 export default function EditorScreen() {
   const router = useRouter();
-  const { photoUri, filterId, frameId, setFilter, setFrame } = usePostcardStore();
+  const { photoUri, filterId, frameId, setFilter, setFrame, justSent } = usePostcardStore();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
+  useEffect(() => {
+    if (!photoUri && !justSent) router.replace('/postcard');
+  }, [photoUri, justSent]);
+
   if (!photoUri) {
-    router.replace('/postcard');
     return null;
   }
 
@@ -124,6 +127,7 @@ export default function EditorScreen() {
           })}
         </ScrollView>
       </View>
+
     </SafeAreaView>
   );
 }

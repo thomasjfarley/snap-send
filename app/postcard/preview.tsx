@@ -1,10 +1,11 @@
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useRef, useState, useMemo, useEffect } from 'react';
 import {
   View, Text, Image, TouchableOpacity, StyleSheet,
   ScrollView, Dimensions, Alert, Platform, ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { usePostcardStore } from '@/store/postcard.store';
 import { useProfileStore } from '@/store/profile.store';
 import { useAddressStore } from '@/store/address.store';
@@ -16,7 +17,7 @@ import { POSTCARD_PRICE_CENTS } from '@/constants/config';
 import { supabase } from '@/lib/supabase';
 
 // Native-only imports — gracefully skipped on web
-const captureRef: (ref: React.RefObject<View | null>, opts?: object) => Promise<string> =
+const captureRef: (ref: React.RefObject<View | null>, opts?: Record<string, unknown>) => Promise<string> =
   Platform.OS !== 'web'
     ? require('react-native-view-shot').captureRef
     : async () => '';
@@ -41,18 +42,23 @@ const CARD_H = CARD_W * (3 / 4);
 
 export default function PreviewScreen() {
   const router = useRouter();
-  const { photoUri, filterId, frameId, message, recipient, reset } = usePostcardStore();
+  const { photoUri, filterId, frameId, message, recipient, reset, setJustSent } = usePostcardStore();
   const { profile } = useProfileStore();
   const { addresses } = useAddressStore();
   const personalAddress = addresses.find((a) => a.is_personal);
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const cardFrontRef = useRef<View>(null);
+  const submittedRef = useRef(false);
   const [sending, setSending] = useState(false);
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
+  useEffect(() => {
+    if (submittedRef.current) return; // success path — guard suppressed
+    if (!photoUri || !recipient) router.replace('/postcard');
+  }, [photoUri, recipient]);
+
   if (!photoUri || !recipient) {
-    router.replace('/postcard');
     return null;
   }
 
@@ -74,30 +80,21 @@ export default function PreviewScreen() {
 
     setSending(true);
     try {
-      // 1. Capture the postcard front as base64 JPEG
-      const uri = await captureRef(cardFrontRef, { format: 'jpg', quality: 0.9 });
-      const response = await fetch(uri);
-      const blob = await response.blob();
-      const base64: string = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve((reader.result as string).split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-
-      // 2. Create PaymentIntent via Edge Function
+      // 1. Create PaymentIntent
       const { data: piData, error: piError } = await supabase.functions.invoke('create-payment-intent');
       if (piError || !piData?.clientSecret) throw new Error(piError?.message ?? 'Failed to create payment');
 
-      // 3. Init Stripe PaymentSheet
+      // 2. Init Stripe PaymentSheet
       const { error: initError } = await initPaymentSheet({
         merchantDisplayName: 'Snap Send',
         paymentIntentClientSecret: piData.clientSecret,
+        returnURL: 'snapsend://stripe-redirect',
         defaultBillingDetails: { name: profile?.full_name ?? '' },
       });
       if (initError) throw new Error(initError.message);
 
-      // 4. Present PaymentSheet
+      // 3. Present PaymentSheet — must happen before captureRef so the native
+      //    view-shot snapshot doesn't disrupt the iOS view controller hierarchy
       const { error: payError } = await presentPaymentSheet();
       if (payError) {
         if (payError.code !== 'Canceled') {
@@ -106,6 +103,15 @@ export default function PreviewScreen() {
         setSending(false);
         return;
       }
+
+      // 4. Capture and resize image after payment is confirmed
+      const tmpUri = await captureRef(cardFrontRef, { format: 'jpg', quality: 0.9 });
+      const resized = await ImageManipulator.manipulateAsync(
+        tmpUri,
+        [{ resize: { width: 1875, height: 1275 } }],
+        { compress: 0.88, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+      );
+      const base64 = resized.base64!;
 
       // 5. Submit postcard via Edge Function
       const { data: submitData, error: submitError } = await supabase.functions.invoke('submit-postcard', {
@@ -128,7 +134,16 @@ export default function PreviewScreen() {
         },
       });
 
-      if (submitError) throw new Error(submitError.message);
+      if (submitError) {
+        // supabase.functions.invoke returns data:null on non-2xx; read body from error.context
+        let detail = submitError.message;
+        try {
+          const body = await (submitError as any).context.json();
+          const raw = body?.detail ?? body?.error;
+          if (raw) detail = typeof raw === 'string' ? raw : JSON.stringify(raw, null, 2);
+        } catch {}
+        throw new Error(detail);
+      }
 
       if (submitData?.error === 'CONTENT_REJECTED') {
         Alert.alert('Image rejected', 'This image cannot be mailed. Please choose a different photo.');
@@ -136,9 +151,12 @@ export default function PreviewScreen() {
         return;
       }
 
-      // 6. Success — reset store and navigate to confirmation
+      // 6. Success — close the postcard modal and show confirmation on home tab
+      submittedRef.current = true;
+      setJustSent(true);   // set BEFORE reset so all guards skip
       reset();
-      router.replace('/postcard/confirmation');
+      router.navigate('/(tabs)');  // resolves at root stack, closes the modal
+      return; // component unmounts; don't call setSending in finally
     } catch (err: any) {
       Alert.alert('Something went wrong', err.message ?? 'Please try again.');
     } finally {

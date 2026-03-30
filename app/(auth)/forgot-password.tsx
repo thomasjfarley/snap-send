@@ -15,6 +15,8 @@ import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
 import { FONT_SIZE, SPACING } from '@/constants/theme';
 
+const RESET_REDIRECT = Platform.OS === 'web' ? undefined : 'snapsend://';
+
 export default function ForgotPasswordScreen() {
   const router = useRouter();
   const { resetPassword, loading } = useAuthStore();
@@ -28,7 +30,7 @@ export default function ForgotPasswordScreen() {
       Alert.alert('Enter your email', 'Please enter the email address on your account.');
       return;
     }
-    const { error } = await resetPassword(email.trim());
+    const { error } = await resetPassword(email.trim(), RESET_REDIRECT);
     if (error) {
       Alert.alert('Error', error);
     } else {

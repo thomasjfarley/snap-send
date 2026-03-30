@@ -58,11 +58,21 @@ export default function SignInScreen() {
     }
     const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
     if (result.type === 'success' && result.url) {
+      // Try PKCE code exchange first (newer Supabase default)
+      const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(result.url);
+      if (!exchangeError) return;
+
+      // Fall back to token parsing from query params or hash fragments
       const url = new URL(result.url);
-      const accessToken = url.searchParams.get('access_token');
-      const refreshToken = url.searchParams.get('refresh_token');
+      const params = url.hash
+        ? new URLSearchParams(url.hash.slice(1))
+        : url.searchParams;
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
       if (accessToken && refreshToken) {
         await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+      } else {
+        Alert.alert('Sign in failed', 'Could not retrieve session from Google.');
       }
     }
   }

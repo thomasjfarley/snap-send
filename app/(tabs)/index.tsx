@@ -1,8 +1,9 @@
 import React, { useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useProfileStore } from '@/store/profile.store';
+import { usePostcardStore } from '@/store/postcard.store';
 import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
 import { FONT_SIZE, SPACING } from '@/constants/theme';
@@ -10,13 +11,14 @@ import { FONT_SIZE, SPACING } from '@/constants/theme';
 export default function HomeScreen() {
   const router = useRouter();
   const { profile } = useProfileStore();
+  const { justSent, setJustSent } = usePostcardStore();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const firstName = profile?.full_name?.split(' ')[0] ?? 'there';
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>Hello, {firstName} 👋</Text>
@@ -52,6 +54,40 @@ export default function HomeScreen() {
           ))}
         </View>
       </ScrollView>
+
+      {/* Postcard sent confirmation sheet — conditional render avoids invisible Android Dialog */}
+      {justSent && <Modal visible={true} transparent animationType="slide" onRequestClose={() => setJustSent(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.sheet}>
+            <Text style={styles.sheetEmoji}>📬</Text>
+            <Text style={styles.sheetTitle}>Postcard Sent!</Text>
+            <Text style={styles.sheetSub}>
+              Your postcard is on its way to the printer and will arrive in 3–5 business days.
+            </Text>
+            <View style={styles.sheetDetails}>
+              {[
+                { emoji: '🖨️', text: 'Printing in 1 business day' },
+                { emoji: '✉️', text: 'Mailed via USPS First Class' },
+                { emoji: '📍', text: 'Arrives in 3–5 business days' },
+              ].map((item, i) => (
+                <View key={i} style={styles.detailRow}>
+                  <Text style={styles.detailEmoji}>{item.emoji}</Text>
+                  <Text style={styles.detailText}>{item.text}</Text>
+                </View>
+              ))}
+            </View>
+            <TouchableOpacity style={styles.sheetBtn} onPress={() => setJustSent(false)}>
+              <Text style={styles.sheetBtnText}>Done</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.sheetBtnSecondary}
+              onPress={() => { setJustSent(false); router.push('/postcard'); }}
+            >
+              <Text style={styles.sheetBtnSecondaryText}>Send Another</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>}
     </SafeAreaView>
   );
 }
@@ -80,5 +116,29 @@ function makeStyles(colors: AppColors) {
     stepEmoji: { fontSize: 28 },
     stepTitle: { fontSize: FONT_SIZE.md, fontWeight: '600', color: colors.textPrimary },
     stepDesc: { fontSize: FONT_SIZE.sm, color: colors.textSecondary, marginTop: 2 },
+    // Confirmation sheet
+    modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
+    sheet: {
+      backgroundColor: colors.background, borderTopLeftRadius: 28, borderTopRightRadius: 28,
+      padding: SPACING.xl, paddingBottom: 40, alignItems: 'center', gap: SPACING.md,
+    },
+    sheetEmoji: { fontSize: 72, marginTop: SPACING.sm },
+    sheetTitle: { fontSize: 28, fontWeight: '800', color: colors.textPrimary },
+    sheetSub: { fontSize: FONT_SIZE.sm, color: colors.textSecondary, textAlign: 'center', lineHeight: 22 },
+    sheetDetails: {
+      backgroundColor: colors.surface, borderRadius: 16, padding: SPACING.lg,
+      borderWidth: 1, borderColor: colors.border, width: '100%', gap: SPACING.sm,
+    },
+    detailRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
+    detailEmoji: { fontSize: 20, width: 28 },
+    detailText: { fontSize: FONT_SIZE.sm, color: colors.textPrimary },
+    sheetBtn: {
+      backgroundColor: colors.primary, borderRadius: 16, paddingVertical: SPACING.md,
+      alignItems: 'center', width: '100%',
+    },
+    sheetBtnText: { color: '#fff', fontSize: FONT_SIZE.md, fontWeight: '700' },
+    sheetBtnSecondary: { paddingVertical: SPACING.sm, alignItems: 'center', width: '100%' },
+    sheetBtnSecondaryText: { color: colors.primary, fontSize: FONT_SIZE.md, fontWeight: '600' },
   });
 }
+
