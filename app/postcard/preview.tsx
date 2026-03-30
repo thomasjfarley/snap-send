@@ -94,7 +94,34 @@ export default function PreviewScreen() {
       }
       console.log('[handleSend] session refreshed ok');
 
-      // 1. Create PaymentIntent
+      // 1. Pre-payment safety check — encode the raw photo and run Vision SafeSearch
+      //    before showing the payment sheet so we never charge for a rejected image.
+      console.log('[handleSend] running pre-payment safety check...');
+      const preCheck = await ImageManipulator.manipulateAsync(
+        photoUri!,
+        [{ resize: { width: 800 } }],
+        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+      );
+      const { data: safetyData, error: safetyError } = await supabase.functions.invoke('check-image-safety', {
+        headers: { Authorization: `Bearer ${freshToken}` },
+        body: { imageBase64: preCheck.base64 },
+      });
+      if (safetyError) {
+        const status = (safetyError as any)?.context?.status ?? 'unknown';
+        // 503 means Vision API is temporarily down — warn but allow through
+        if (status !== 503) {
+          console.error('[check-image-safety] error', safetyError);
+          throw new Error(`Safety check failed (${status}): ${safetyError.message}`);
+        }
+        console.warn('[check-image-safety] moderation unavailable, continuing');
+      } else if (safetyData?.safe === false) {
+        Alert.alert('Image rejected', 'This image cannot be mailed. Please choose a different photo.');
+        setSending(false);
+        return;
+      }
+      console.log('[check-image-safety] ok');
+
+      // 2. Create PaymentIntent
       console.log('[handleSend] calling create-payment-intent...');
       const { data: piData, error: piError } = await supabase.functions.invoke('create-payment-intent', {
         headers: { Authorization: `Bearer ${freshToken}` },
@@ -108,7 +135,7 @@ export default function PreviewScreen() {
       }
       console.log('[create-payment-intent] ok', { paymentIntentId: piData.paymentIntentId, amount: piData.amount });
 
-      // 2. Init Stripe PaymentSheet
+      // 3. Init Stripe PaymentSheet
       const { error: initError } = await initPaymentSheet({
         merchantDisplayName: 'Snap Send',
         paymentIntentClientSecret: piData.clientSecret,
@@ -117,7 +144,7 @@ export default function PreviewScreen() {
       });
       if (initError) throw new Error(`initPaymentSheet: ${initError.message}`);
 
-      // 3. Present PaymentSheet — must happen before captureRef so the native
+      // 4. Present PaymentSheet — must happen before captureRef so the native
       //    view-shot snapshot doesn't disrupt the iOS view controller hierarchy
       const { error: payError } = await presentPaymentSheet();
       if (payError) {
@@ -130,7 +157,7 @@ export default function PreviewScreen() {
       }
       console.log('[presentPaymentSheet] payment confirmed');
 
-      // 4. Capture and resize image after payment is confirmed
+      // 5. Capture and resize image after payment is confirmed
       const tmpUri = await captureRef(cardFrontRef, { format: 'jpg', quality: 0.9 });
       const resized = await ImageManipulator.manipulateAsync(
         tmpUri,
@@ -140,7 +167,7 @@ export default function PreviewScreen() {
       const base64 = resized.base64!;
       console.log('[handleSend] image captured, base64 length:', base64.length);
 
-      // 5. Submit postcard via Edge Function
+      // 6. Submit postcard via Edge Function
       console.log('[handleSend] calling submit-postcard...');
       const { data: submitData, error: submitError } = await supabase.functions.invoke('submit-postcard', {
         headers: { Authorization: `Bearer ${freshToken}` },
@@ -168,6 +195,15 @@ export default function PreviewScreen() {
         let body: unknown = null;
         try { body = await (submitError as any)?.context?.json(); } catch {}
         console.error('[submit-postcard] error', { status, message: submitError.message, body });
+
+        // Defense-in-depth: the submit function also runs SafeSearch; surface the
+        // rejection message directly rather than wrapping it in a generic error.
+        if (status === 422 && (body as any)?.code === 'CONTENT_REJECTED') {
+          Alert.alert('Image rejected', 'This image cannot be mailed. Please choose a different photo.');
+          setSending(false);
+          return;
+        }
+
         const detail = body
           ? (typeof (body as any)?.error === 'string' ? (body as any).error : JSON.stringify(body, null, 2))
           : submitError.message;
@@ -175,14 +211,6 @@ export default function PreviewScreen() {
       }
 
       console.log('[submit-postcard] ok', submitData);
-
-      if (submitData?.error === 'CONTENT_REJECTED') {
-        Alert.alert('Image rejected', 'This image cannot be mailed. Please choose a different photo.');
-        setSending(false);
-        return;
-      }
-
-      // 6. Success — dismiss the postcard modal and show confirmation on home tab
       submittedRef.current = true;
       setJustSent(true);   // set BEFORE reset so all guards skip
       reset();

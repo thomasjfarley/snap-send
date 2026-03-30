@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, Image, TouchableOpacity, ScrollView,
   StyleSheet, Dimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { usePostcardStore } from '@/store/postcard.store';
 import { FILTERS, FRAMES } from '@/constants/editor';
 import { useTheme } from '@/hooks/useTheme';
@@ -26,9 +27,10 @@ const PHOTO_H = PHOTO_W * (3 / 4);
 
 export default function EditorScreen() {
   const router = useRouter();
-  const { photoUri, filterId, frameId, setFilter, setFrame, justSent } = usePostcardStore();
+  const { photoUri, filterId, frameId, setFilter, setFrame, setPhoto, justSent } = usePostcardStore();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const [rotating, setRotating] = useState(false);
 
   useEffect(() => {
     if (!photoUri && !justSent) router.replace('/postcard');
@@ -41,6 +43,22 @@ export default function EditorScreen() {
   const activeFrame = FRAMES.find((f) => f.id === frameId)!;
   const overlay = FILTER_OVERLAYS[filterId];
   const isGrayscale = filterId === 'bw';
+
+  async function rotate(direction: 'left' | 'right') {
+    if (!photoUri || rotating) return;
+    setRotating(true);
+    try {
+      const degrees = direction === 'left' ? -90 : 90;
+      const result = await ImageManipulator.manipulateAsync(
+        photoUri,
+        [{ rotate: degrees }],
+        { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG },
+      );
+      setPhoto(result.uri);
+    } finally {
+      setRotating(false);
+    }
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -79,6 +97,16 @@ export default function EditorScreen() {
             )}
           </View>
         </View>
+      </View>
+
+      {/* Rotate Controls */}
+      <View style={styles.rotateRow}>
+        <TouchableOpacity style={styles.rotateBtn} onPress={() => rotate('left')} disabled={rotating}>
+          <Text style={styles.rotateBtnText}>↺ Rotate Left</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.rotateBtn} onPress={() => rotate('right')} disabled={rotating}>
+          <Text style={styles.rotateBtnText}>Rotate Right ↻</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Filter Picker */}
@@ -146,6 +174,9 @@ function makeStyles(colors: AppColors) {
     photoArea: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: SPACING.xl },
     photoFrame: { backgroundColor: '#000', overflow: 'hidden' },
     section: { paddingBottom: SPACING.md },
+    rotateRow: { flexDirection: 'row', justifyContent: 'center', gap: SPACING.md, paddingHorizontal: SPACING.xl, paddingBottom: SPACING.md },
+    rotateBtn: { flex: 1, alignItems: 'center', paddingVertical: SPACING.sm, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.08)' },
+    rotateBtnText: { color: '#ccc', fontSize: FONT_SIZE.sm, fontWeight: '600' },
     sectionLabel: { color: '#aaa', fontSize: FONT_SIZE.xs, fontWeight: '600', paddingHorizontal: SPACING.xl, marginBottom: SPACING.xs, textTransform: 'uppercase', letterSpacing: 1 },
     scrollRow: { paddingHorizontal: SPACING.xl, gap: SPACING.sm },
     thumbnail: { alignItems: 'center', gap: 4, opacity: 0.7 },
