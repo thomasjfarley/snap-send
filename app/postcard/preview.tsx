@@ -80,9 +80,33 @@ export default function PreviewScreen() {
 
     setSending(true);
     try {
+      // 0. Force-refresh the access token so the gateway never sees a stale JWT.
+      //    refreshSession() always hits the auth server and returns a brand-new
+      //    access token (unlike getSession() which returns the cached one).
+      //    We then pass the fresh token explicitly in every functions.invoke call.
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      const freshToken = refreshData?.session?.access_token;
+      if (refreshError || !freshToken) {
+        console.error('[handleSend] session refresh failed', refreshError);
+        Alert.alert('Session expired', 'Please sign out and sign back in, then try again.');
+        setSending(false);
+        return;
+      }
+      console.log('[handleSend] session refreshed ok');
+
       // 1. Create PaymentIntent
-      const { data: piData, error: piError } = await supabase.functions.invoke('create-payment-intent');
-      if (piError || !piData?.clientSecret) throw new Error(piError?.message ?? 'Failed to create payment');
+      console.log('[handleSend] calling create-payment-intent...');
+      const { data: piData, error: piError } = await supabase.functions.invoke('create-payment-intent', {
+        headers: { Authorization: `Bearer ${freshToken}` },
+      });
+      if (piError || !piData?.clientSecret) {
+        const status = (piError as any)?.context?.status ?? 'unknown';
+        let body: unknown = null;
+        try { body = await (piError as any)?.context?.json(); } catch {}
+        console.error('[create-payment-intent] error', { status, message: piError?.message, body });
+        throw new Error(`create-payment-intent failed (${status}): ${JSON.stringify(body) || piError?.message}`);
+      }
+      console.log('[create-payment-intent] ok', { paymentIntentId: piData.paymentIntentId, amount: piData.amount });
 
       // 2. Init Stripe PaymentSheet
       const { error: initError } = await initPaymentSheet({
@@ -91,18 +115,20 @@ export default function PreviewScreen() {
         returnURL: 'snapsend://stripe-redirect',
         defaultBillingDetails: { name: profile?.full_name ?? '' },
       });
-      if (initError) throw new Error(initError.message);
+      if (initError) throw new Error(`initPaymentSheet: ${initError.message}`);
 
       // 3. Present PaymentSheet — must happen before captureRef so the native
       //    view-shot snapshot doesn't disrupt the iOS view controller hierarchy
       const { error: payError } = await presentPaymentSheet();
       if (payError) {
         if (payError.code !== 'Canceled') {
+          console.error('[presentPaymentSheet] error', payError);
           Alert.alert('Payment failed', payError.message);
         }
         setSending(false);
         return;
       }
+      console.log('[presentPaymentSheet] payment confirmed');
 
       // 4. Capture and resize image after payment is confirmed
       const tmpUri = await captureRef(cardFrontRef, { format: 'jpg', quality: 0.9 });
@@ -112,9 +138,12 @@ export default function PreviewScreen() {
         { compress: 0.88, format: ImageManipulator.SaveFormat.JPEG, base64: true },
       );
       const base64 = resized.base64!;
+      console.log('[handleSend] image captured, base64 length:', base64.length);
 
       // 5. Submit postcard via Edge Function
+      console.log('[handleSend] calling submit-postcard...');
       const { data: submitData, error: submitError } = await supabase.functions.invoke('submit-postcard', {
+        headers: { Authorization: `Bearer ${freshToken}` },
         body: {
           imageBase64: base64,
           message,
@@ -135,15 +164,17 @@ export default function PreviewScreen() {
       });
 
       if (submitError) {
-        // supabase.functions.invoke returns data:null on non-2xx; read body from error.context
-        let detail = submitError.message;
-        try {
-          const body = await (submitError as any).context.json();
-          const raw = body?.detail ?? body?.error;
-          if (raw) detail = typeof raw === 'string' ? raw : JSON.stringify(raw, null, 2);
-        } catch {}
-        throw new Error(detail);
+        const status = (submitError as any)?.context?.status ?? 'unknown';
+        let body: unknown = null;
+        try { body = await (submitError as any)?.context?.json(); } catch {}
+        console.error('[submit-postcard] error', { status, message: submitError.message, body });
+        const detail = body
+          ? (typeof (body as any)?.error === 'string' ? (body as any).error : JSON.stringify(body, null, 2))
+          : submitError.message;
+        throw new Error(`submit-postcard failed (${status}): ${detail}`);
       }
+
+      console.log('[submit-postcard] ok', submitData);
 
       if (submitData?.error === 'CONTENT_REJECTED') {
         Alert.alert('Image rejected', 'This image cannot be mailed. Please choose a different photo.');
@@ -151,14 +182,14 @@ export default function PreviewScreen() {
         return;
       }
 
-      // 6. Success — close the postcard modal and show confirmation on home tab
+      // 6. Success — dismiss the postcard modal and show confirmation on home tab
       submittedRef.current = true;
       setJustSent(true);   // set BEFORE reset so all guards skip
       reset();
-      router.dismissAll();  // pop to root of postcard modal stack
-      router.dismiss();     // dismiss the modal itself, back to (tabs)
+      router.dismissAll();  // closes entire postcard modal stack, returns to (tabs)/index
       return; // component unmounts; don't call setSending in finally
     } catch (err: any) {
+      console.error('[handleSend] caught error:', err);
       Alert.alert('Something went wrong', err.message ?? 'Please try again.');
     } finally {
       setSending(false);
