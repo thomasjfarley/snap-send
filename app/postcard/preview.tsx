@@ -58,6 +58,7 @@ export default function PreviewScreen() {
   // 'rejected' = Vision API blocked the image
   // 'error'    = pre-init failed (payment sheet not ready)
   const [preloadStatus, setPreloadStatus] = useState<'checking' | 'ready' | 'rejected' | 'error'>('checking');
+
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
@@ -150,6 +151,13 @@ export default function PreviewScreen() {
   const overlay = FILTER_OVERLAYS[filterId];
   const isGrayscale = filterId === 'bw';
   const priceStr = `$${(POSTCARD_PRICE_CENTS / 100).toFixed(2)}`;
+
+  function toggleRejectedInfo() {
+    Alert.alert(
+      'Why can\'t this image be mailed?',
+      'Our mail carrier requires all postcards to meet postal content guidelines. This image was flagged and cannot be physically mailed. Please go back and choose a different photo.',
+    );
+  }
 
   async function handleSend() {
     if (!recipient) return;
@@ -333,20 +341,29 @@ export default function PreviewScreen() {
         </View>
 
         {/* Send button */}
-        <TouchableOpacity
-          style={[styles.sendBtn, (sending || preloadStatus === 'checking' || preloadStatus === 'rejected' || preloadStatus === 'error') && styles.sendBtnDisabled]}
-          onPress={handleSend}
-          disabled={sending || preloadStatus === 'checking' || preloadStatus === 'rejected' || preloadStatus === 'error'}
-        >
-          {sending || preloadStatus === 'checking'
-            ? <ActivityIndicator color="#fff" />
-            : <Text style={styles.sendBtnText}>
-                {preloadStatus === 'rejected' ? '🚫 Image cannot be mailed' :
-                 preloadStatus === 'error'    ? '⚠️ Unable to load payment' :
-                 `Send for ${priceStr} 📬`}
-              </Text>
-          }
-        </TouchableOpacity>
+        <View style={styles.sendBtnRow}>
+          <TouchableOpacity
+            style={[styles.sendBtn, (sending || preloadStatus === 'checking' || preloadStatus === 'rejected' || preloadStatus === 'error') && styles.sendBtnDisabled]}
+            onPress={handleSend}
+            disabled={sending || preloadStatus === 'checking' || preloadStatus === 'rejected' || preloadStatus === 'error'}
+          >
+            {sending || preloadStatus === 'checking'
+              ? <ActivityIndicator color="#fff" />
+              : <Text style={styles.sendBtnText}>
+                  {preloadStatus === 'rejected' ? '🚫 Image cannot be mailed' :
+                   preloadStatus === 'error'    ? '⚠️ Unable to load payment' :
+                   `Send for ${priceStr} 📬`}
+                </Text>
+            }
+          </TouchableOpacity>
+          {preloadStatus === 'rejected' && (
+            <TouchableOpacity style={styles.infoIconBtn} onPress={toggleRejectedInfo} hitSlop={8}>
+              <View style={styles.infoIconCircle}>
+                <Text style={styles.infoIconText}>?</Text>
+              </View>
+            </TouchableOpacity>
+          )}
+        </View>
 
         {Platform.OS === 'web' && (
           <Text style={styles.webNote}>⚠️ Payments require the iOS or Android app.</Text>
@@ -389,9 +406,15 @@ function makeStyles(colors: AppColors) {
     addrText: { fontSize: 10, color: '#444', lineHeight: 14 },
     stampBox: { width: 40, height: 48, borderWidth: 1.5, borderColor: '#CCC', alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-end', borderRadius: 2 },
     stampText: { fontSize: 7, color: '#BBB', letterSpacing: 1 },
-    sendBtn: { backgroundColor: colors.primary, borderRadius: 16, paddingVertical: SPACING.lg, alignItems: 'center', justifyContent: 'center', marginTop: SPACING.xl, minHeight: 56 },
+    sendBtn: { flex: 1, backgroundColor: colors.primary, borderRadius: 16, paddingVertical: SPACING.lg, alignItems: 'center', justifyContent: 'center', minHeight: 56 },
     sendBtnDisabled: { opacity: 0.6 },
     sendBtnText: { color: '#fff', fontSize: FONT_SIZE.lg, fontWeight: '700' },
+    sendBtnRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginTop: SPACING.xl },
+    infoIconBtn: {},
+    infoIconCircle: { width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: colors.textSecondary, alignItems: 'center', justifyContent: 'center' },
+    infoIconText: { fontSize: FONT_SIZE.md, fontWeight: '700', color: colors.textSecondary, lineHeight: 20 },
+    rejectedTooltip: { backgroundColor: colors.surface ?? colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: SPACING.md, marginTop: SPACING.sm },
+    rejectedTooltipText: { fontSize: FONT_SIZE.sm, color: colors.textSecondary, lineHeight: 20 },
     webNote: { textAlign: 'center', fontSize: FONT_SIZE.sm, color: '#B45309', backgroundColor: '#FEF3C7', padding: SPACING.md, borderRadius: 10 },
     sendNote: { fontSize: FONT_SIZE.xs, color: colors.textSecondary, textAlign: 'center' },
   });
