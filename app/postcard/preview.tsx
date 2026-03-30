@@ -122,6 +122,13 @@ export default function PreviewScreen() {
           paymentIntentClientSecret: piData.clientSecret,
           returnURL: 'snapsend://stripe-redirect',
           defaultBillingDetails: { name: profile?.full_name ?? '' },
+          googlePay: {
+            merchantCountryCode: 'US',
+            testEnv: (process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '').startsWith('pk_test_'),
+          },
+          applePay: {
+            merchantCountryCode: 'US',
+          },
         });
         if (cancelled) return;
         if (initError) {
