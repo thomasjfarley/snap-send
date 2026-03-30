@@ -34,7 +34,12 @@
     "plugins": [
       "expo-router",
       "expo-web-browser",
-      "@stripe/stripe-react-native"
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.snapsend.app"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": false
