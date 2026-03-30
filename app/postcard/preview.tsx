@@ -108,12 +108,19 @@ export default function PreviewScreen() {
       });
       if (safetyError) {
         const status = (safetyError as any)?.context?.status ?? 'unknown';
-        // 503 means Vision API is temporarily down — warn but allow through
-        if (status !== 503) {
+        if (status === 422) {
+          // Vision API flagged the image — show user-friendly rejection and abort
+          Alert.alert('Image rejected', 'This image cannot be mailed. Please choose a different photo.');
+          setSending(false);
+          return;
+        }
+        if (status === 503) {
+          // Vision API temporarily down — warn but allow through
+          console.warn('[check-image-safety] moderation unavailable, continuing');
+        } else {
           console.error('[check-image-safety] error', safetyError);
           throw new Error(`Safety check failed (${status}): ${safetyError.message}`);
         }
-        console.warn('[check-image-safety] moderation unavailable, continuing');
       } else if (safetyData?.safe === false) {
         Alert.alert('Image rejected', 'This image cannot be mailed. Please choose a different photo.');
         setSending(false);
