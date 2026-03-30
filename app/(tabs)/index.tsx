@@ -76,12 +76,12 @@ export default function HomeScreen() {
                 </View>
               ))}
             </View>
-            <TouchableOpacity style={styles.sheetBtn} onPress={() => setJustSent(false)}>
+            <TouchableOpacity style={styles.sheetBtn} onPress={() => setTimeout(() => setJustSent(false), 100)}>
               <Text style={styles.sheetBtnText}>Done</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.sheetBtnSecondary}
-              onPress={() => { setJustSent(false); router.push('/postcard'); }}
+              onPress={() => { setTimeout(() => { setJustSent(false); router.push('/postcard'); }, 100); }}
             >
               <Text style={styles.sheetBtnSecondaryText}>Send Another</Text>
             </TouchableOpacity>
