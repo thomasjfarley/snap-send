@@ -51,13 +51,53 @@ export default function PreviewScreen() {
   const submittedRef = useRef(false);
   const sendInProgressRef = useRef(false);
   const [sending, setSending] = useState(false);
+  const [safetyStatus, setSafetyStatus] = useState<'checking' | 'safe' | 'rejected' | 'error'>('checking');
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   useEffect(() => {
-    if (submittedRef.current) return; // success path — guard suppressed
+    if (submittedRef.current) return;
     if (!photoUri || !recipient) router.replace('/postcard');
   }, [photoUri, recipient]);
+
+  // Run the safety check as soon as the preview screen loads so the result
+  // is ready before the user taps Send, keeping payment presentation snappy.
+  useEffect(() => {
+    if (!photoUri || Platform.OS === 'web') {
+      setSafetyStatus('safe');
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: refreshData } = await supabase.auth.getSession();
+        const token = refreshData?.session?.access_token;
+        if (!token) { setSafetyStatus('safe'); return; } // fall through; handleSend will catch auth issues
+
+        const preCheck = await ImageManipulator.manipulateAsync(
+          photoUri,
+          [{ resize: { width: 800 } }],
+          { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+        );
+        const { error: safetyError } = await supabase.functions.invoke('check-image-safety', {
+          headers: { Authorization: `Bearer ${token}` },
+          body: { imageBase64: preCheck.base64 },
+        });
+        if (cancelled) return;
+        const status = (safetyError as any)?.context?.status ?? null;
+        if (status === 422) {
+          setSafetyStatus('rejected');
+        } else if (safetyError && status !== 503) {
+          setSafetyStatus('error'); // non-blocking — allow send anyway
+        } else {
+          setSafetyStatus('safe');
+        }
+      } catch {
+        if (!cancelled) setSafetyStatus('error');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [photoUri]);
 
   if (!photoUri || !recipient) {
     return null;
@@ -81,6 +121,13 @@ export default function PreviewScreen() {
       return;
     }
 
+    // Safety check runs on mount; block if it already came back rejected.
+    if (safetyStatus === 'rejected') {
+      Alert.alert('Image rejected', 'This image cannot be mailed. Please choose a different photo.');
+      sendInProgressRef.current = false;
+      return;
+    }
+
     setSending(true);
     try {
       // 0. Force-refresh the access token so the gateway never sees a stale JWT.
@@ -97,41 +144,7 @@ export default function PreviewScreen() {
       }
       console.log('[handleSend] session refreshed ok');
 
-      // 1. Pre-payment safety check — encode the raw photo and run Vision SafeSearch
-      //    before showing the payment sheet so we never charge for a rejected image.
-      console.log('[handleSend] running pre-payment safety check...');
-      const preCheck = await ImageManipulator.manipulateAsync(
-        photoUri!,
-        [{ resize: { width: 800 } }],
-        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true },
-      );
-      const { data: safetyData, error: safetyError } = await supabase.functions.invoke('check-image-safety', {
-        headers: { Authorization: `Bearer ${freshToken}` },
-        body: { imageBase64: preCheck.base64 },
-      });
-      if (safetyError) {
-        const status = (safetyError as any)?.context?.status ?? 'unknown';
-        if (status === 422) {
-          // Vision API flagged the image — show user-friendly rejection and abort
-          Alert.alert('Image rejected', 'This image cannot be mailed. Please choose a different photo.');
-          setSending(false);
-          return;
-        }
-        if (status === 503) {
-          // Vision API temporarily down — warn but allow through
-          console.warn('[check-image-safety] moderation unavailable, continuing');
-        } else {
-          console.error('[check-image-safety] error', safetyError);
-          throw new Error(`Safety check failed (${status}): ${safetyError.message}`);
-        }
-      } else if (safetyData?.safe === false) {
-        Alert.alert('Image rejected', 'This image cannot be mailed. Please choose a different photo.');
-        setSending(false);
-        return;
-      }
-      console.log('[check-image-safety] ok');
-
-      // 2. Create PaymentIntent
+      // 1. Create PaymentIntent
       console.log('[handleSend] calling create-payment-intent...');
       const { data: piData, error: piError } = await supabase.functions.invoke('create-payment-intent', {
         headers: { Authorization: `Bearer ${freshToken}` },
@@ -296,10 +309,16 @@ export default function PreviewScreen() {
         </View>
 
         {/* Send button */}
-        <TouchableOpacity style={[styles.sendBtn, sending && styles.sendBtnDisabled]} onPress={handleSend} disabled={sending}>
-          {sending
+        <TouchableOpacity
+          style={[styles.sendBtn, (sending || safetyStatus === 'checking' || safetyStatus === 'rejected') && styles.sendBtnDisabled]}
+          onPress={handleSend}
+          disabled={sending || safetyStatus === 'checking' || safetyStatus === 'rejected'}
+        >
+          {sending || safetyStatus === 'checking'
             ? <ActivityIndicator color="#fff" />
-            : <Text style={styles.sendBtnText}>Send for {priceStr} 📬</Text>
+            : <Text style={styles.sendBtnText}>
+                {safetyStatus === 'rejected' ? '🚫 Image cannot be mailed' : `Send for ${priceStr} 📬`}
+              </Text>
           }
         </TouchableOpacity>
 
