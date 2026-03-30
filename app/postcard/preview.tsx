@@ -50,8 +50,14 @@ export default function PreviewScreen() {
   const cardFrontRef = useRef<View>(null);
   const submittedRef = useRef(false);
   const sendInProgressRef = useRef(false);
+  const paymentIntentIdRef = useRef<string | null>(null);
+  const sheetInitializedRef = useRef(false);
   const [sending, setSending] = useState(false);
-  const [safetyStatus, setSafetyStatus] = useState<'checking' | 'safe' | 'rejected' | 'error'>('checking');
+  // 'checking' = safety check + payment sheet init in progress
+  // 'ready'    = payment sheet initialized, tap Send to present immediately
+  // 'rejected' = Vision API blocked the image
+  // 'error'    = pre-init failed (payment sheet not ready)
+  const [preloadStatus, setPreloadStatus] = useState<'checking' | 'ready' | 'rejected' | 'error'>('checking');
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
@@ -60,20 +66,28 @@ export default function PreviewScreen() {
     if (!photoUri || !recipient) router.replace('/postcard');
   }, [photoUri, recipient]);
 
-  // Run the safety check as soon as the preview screen loads so the result
-  // is ready before the user taps Send, keeping payment presentation snappy.
+  // On screen load: run safety check then pre-initialize the Stripe payment sheet.
+  // By the time the user reads the preview and taps Send, the sheet is already
+  // ready and presentPaymentSheet() is called with essentially zero async delay —
+  // satisfying iOS's requirement that native payment UI be presented close to the
+  // user's touch gesture.
   useEffect(() => {
     if (!photoUri || Platform.OS === 'web') {
-      setSafetyStatus('safe');
+      setPreloadStatus('ready'); // web payment path is handled separately in handleSend
       return;
     }
     let cancelled = false;
     (async () => {
       try {
-        const { data: refreshData } = await supabase.auth.getSession();
-        const token = refreshData?.session?.access_token;
-        if (!token) { setSafetyStatus('safe'); return; } // fall through; handleSend will catch auth issues
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token;
+        if (!token) {
+          // No session — let handleSend handle the auth error path
+          setPreloadStatus('ready');
+          return;
+        }
 
+        // Step 1: Safety check
         const preCheck = await ImageManipulator.manipulateAsync(
           photoUri,
           [{ resize: { width: 800 } }],
@@ -84,16 +98,45 @@ export default function PreviewScreen() {
           body: { imageBase64: preCheck.base64 },
         });
         if (cancelled) return;
-        const status = (safetyError as any)?.context?.status ?? null;
-        if (status === 422) {
-          setSafetyStatus('rejected');
-        } else if (safetyError && status !== 503) {
-          setSafetyStatus('error'); // non-blocking — allow send anyway
-        } else {
-          setSafetyStatus('safe');
+        const safetyHttpStatus = (safetyError as any)?.context?.status ?? null;
+        if (safetyHttpStatus === 422) {
+          setPreloadStatus('rejected');
+          return;
         }
-      } catch {
-        if (!cancelled) setSafetyStatus('error');
+        // 503 = Vision API unavailable, allow through; other errors are non-blocking
+
+        // Step 2: Create PaymentIntent and initialize the sheet
+        const { data: piData, error: piError } = await supabase.functions.invoke('create-payment-intent', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (cancelled) return;
+        if (piError || !piData?.clientSecret) {
+          console.error('[preview] pre-init: create-payment-intent failed', piError);
+          setPreloadStatus('error');
+          return;
+        }
+
+        const { error: initError } = await initPaymentSheet({
+          merchantDisplayName: 'Snap Send',
+          paymentIntentClientSecret: piData.clientSecret,
+          returnURL: 'snapsend://stripe-redirect',
+          defaultBillingDetails: { name: profile?.full_name ?? '' },
+        });
+        if (cancelled) return;
+        if (initError) {
+          console.error('[preview] pre-init: initPaymentSheet failed', initError);
+          setPreloadStatus('error');
+          return;
+        }
+
+        paymentIntentIdRef.current = piData.paymentIntentId;
+        sheetInitializedRef.current = true;
+        setPreloadStatus('ready');
+      } catch (err) {
+        if (!cancelled) {
+          console.error('[preview] pre-init error', err);
+          setPreloadStatus('error');
+        }
       }
     })();
     return () => { cancelled = true; };
@@ -114,61 +157,29 @@ export default function PreviewScreen() {
     sendInProgressRef.current = true;
     if (Platform.OS === 'web') {
       Alert.alert('Mobile only', 'Payments are available in the iOS and Android app.');
+      sendInProgressRef.current = false;
       return;
     }
     if (!personalAddress) {
       Alert.alert('Missing return address', 'Please add your personal address in Settings first.');
+      sendInProgressRef.current = false;
       return;
     }
-
-    // Safety check runs on mount; block if it already came back rejected.
-    if (safetyStatus === 'rejected') {
+    if (preloadStatus === 'rejected') {
       Alert.alert('Image rejected', 'This image cannot be mailed. Please choose a different photo.');
+      sendInProgressRef.current = false;
+      return;
+    }
+    if (!sheetInitializedRef.current) {
+      Alert.alert('Not ready', 'Please wait a moment and try again.');
       sendInProgressRef.current = false;
       return;
     }
 
     setSending(true);
     try {
-      // 0. Force-refresh the access token so the gateway never sees a stale JWT.
-      //    refreshSession() always hits the auth server and returns a brand-new
-      //    access token (unlike getSession() which returns the cached one).
-      //    We then pass the fresh token explicitly in every functions.invoke call.
-      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-      const freshToken = refreshData?.session?.access_token;
-      if (refreshError || !freshToken) {
-        console.error('[handleSend] session refresh failed', refreshError);
-        Alert.alert('Session expired', 'Please sign out and sign back in, then try again.');
-        setSending(false);
-        return;
-      }
-      console.log('[handleSend] session refreshed ok');
-
-      // 1. Create PaymentIntent
-      console.log('[handleSend] calling create-payment-intent...');
-      const { data: piData, error: piError } = await supabase.functions.invoke('create-payment-intent', {
-        headers: { Authorization: `Bearer ${freshToken}` },
-      });
-      if (piError || !piData?.clientSecret) {
-        const status = (piError as any)?.context?.status ?? 'unknown';
-        let body: unknown = null;
-        try { body = await (piError as any)?.context?.json(); } catch {}
-        console.error('[create-payment-intent] error', { status, message: piError?.message, body });
-        throw new Error(`create-payment-intent failed (${status}): ${JSON.stringify(body) || piError?.message}`);
-      }
-      console.log('[create-payment-intent] ok', { paymentIntentId: piData.paymentIntentId, amount: piData.amount });
-
-      // 3. Init Stripe PaymentSheet
-      const { error: initError } = await initPaymentSheet({
-        merchantDisplayName: 'Snap Send',
-        paymentIntentClientSecret: piData.clientSecret,
-        returnURL: 'snapsend://stripe-redirect',
-        defaultBillingDetails: { name: profile?.full_name ?? '' },
-      });
-      if (initError) throw new Error(`initPaymentSheet: ${initError.message}`);
-
-      // 4. Present PaymentSheet — must happen before captureRef so the native
-      //    view-shot snapshot doesn't disrupt the iOS view controller hierarchy
+      // Present the payment sheet immediately — it was initialized on screen load
+      // so there is no async work between this tap and the native UI presentation.
       const { error: payError } = await presentPaymentSheet();
       if (payError) {
         if (payError.code !== 'Canceled') {
@@ -176,11 +187,24 @@ export default function PreviewScreen() {
           Alert.alert('Payment failed', payError.message);
         }
         setSending(false);
+        sendInProgressRef.current = false;
         return;
       }
       console.log('[presentPaymentSheet] payment confirmed');
 
-      // 5. Capture and resize image after payment is confirmed
+      // Payment confirmed — now we can do async work freely.
+      // Refresh the token for the submit call.
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      const freshToken = refreshData?.session?.access_token;
+      if (refreshError || !freshToken) {
+        console.error('[handleSend] session refresh failed', refreshError);
+        Alert.alert('Submission error', 'Payment was taken but we couldn\'t submit your postcard. Please contact support with your order details.');
+        setSending(false);
+        return;
+      }
+      console.log('[handleSend] session refreshed ok');
+
+      // Capture and resize image
       const tmpUri = await captureRef(cardFrontRef, { format: 'jpg', quality: 0.9 });
       const resized = await ImageManipulator.manipulateAsync(
         tmpUri,
@@ -190,7 +214,7 @@ export default function PreviewScreen() {
       const base64 = resized.base64!;
       console.log('[handleSend] image captured, base64 length:', base64.length);
 
-      // 6. Submit postcard via Edge Function
+      // Submit postcard via Edge Function
       console.log('[handleSend] calling submit-postcard...');
       const { data: submitData, error: submitError } = await supabase.functions.invoke('submit-postcard', {
         headers: { Authorization: `Bearer ${freshToken}` },
@@ -209,7 +233,7 @@ export default function PreviewScreen() {
             state: recipient.state,
             zip: recipient.zip,
           },
-          paymentIntentId: piData.paymentIntentId,
+          paymentIntentId: paymentIntentIdRef.current,
         },
       });
 
@@ -310,14 +334,16 @@ export default function PreviewScreen() {
 
         {/* Send button */}
         <TouchableOpacity
-          style={[styles.sendBtn, (sending || safetyStatus === 'checking' || safetyStatus === 'rejected') && styles.sendBtnDisabled]}
+          style={[styles.sendBtn, (sending || preloadStatus === 'checking' || preloadStatus === 'rejected' || preloadStatus === 'error') && styles.sendBtnDisabled]}
           onPress={handleSend}
-          disabled={sending || safetyStatus === 'checking' || safetyStatus === 'rejected'}
+          disabled={sending || preloadStatus === 'checking' || preloadStatus === 'rejected' || preloadStatus === 'error'}
         >
-          {sending || safetyStatus === 'checking'
+          {sending || preloadStatus === 'checking'
             ? <ActivityIndicator color="#fff" />
             : <Text style={styles.sendBtnText}>
-                {safetyStatus === 'rejected' ? '🚫 Image cannot be mailed' : `Send for ${priceStr} 📬`}
+                {preloadStatus === 'rejected' ? '🚫 Image cannot be mailed' :
+                 preloadStatus === 'error'    ? '⚠️ Unable to load payment' :
+                 `Send for ${priceStr} 📬`}
               </Text>
           }
         </TouchableOpacity>
