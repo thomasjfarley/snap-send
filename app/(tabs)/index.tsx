@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,6 +12,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { profile } = useProfileStore();
   const { justSent, setJustSent } = usePostcardStore();
+  const heroBlockedRef = useRef(false);
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const firstName = profile?.full_name?.split(' ')[0] ?? 'there';
@@ -27,7 +28,7 @@ export default function HomeScreen() {
         </View>
 
         {/* Hero CTA */}
-        <TouchableOpacity style={styles.heroCta} onPress={() => router.push('/postcard')}>
+        <TouchableOpacity style={styles.heroCta} onPress={() => { if (!heroBlockedRef.current) router.push('/postcard'); }}>
           <Text style={styles.heroEmoji}>📬</Text>
           <Text style={styles.heroTitle}>Create a Postcard</Text>
           <Text style={styles.heroSub}>Take a photo, add a message, and we'll mail it.</Text>
@@ -76,7 +77,11 @@ export default function HomeScreen() {
                 </View>
               ))}
             </View>
-            <TouchableOpacity style={styles.sheetBtn} onPress={() => setTimeout(() => setJustSent(false), 100)}>
+            <TouchableOpacity style={styles.sheetBtn} onPress={() => {
+              heroBlockedRef.current = true;
+              setJustSent(false);
+              setTimeout(() => { heroBlockedRef.current = false; }, 600);
+            }}>
               <Text style={styles.sheetBtnText}>Done</Text>
             </TouchableOpacity>
             <TouchableOpacity
