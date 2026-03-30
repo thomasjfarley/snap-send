@@ -155,7 +155,8 @@ export default function PreviewScreen() {
       submittedRef.current = true;
       setJustSent(true);   // set BEFORE reset so all guards skip
       reset();
-      router.dismissAll();  // unmount entire postcard modal stack, return to (tabs)
+      router.dismissAll();  // pop to root of postcard modal stack
+      router.dismiss();     // dismiss the modal itself, back to (tabs)
       return; // component unmounts; don't call setSending in finally
     } catch (err: any) {
       Alert.alert('Something went wrong', err.message ?? 'Please try again.');
