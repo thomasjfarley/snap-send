@@ -269,7 +269,7 @@ export default function PreviewScreen() {
       submittedRef.current = true;
       setJustSent(true);   // set BEFORE reset so all guards skip
       reset();
-      router.dismissAll();  // closes entire postcard modal stack, returns to (tabs)/index
+      router.navigate('/(tabs)');  // dismiss modal and land on home screen where confirmation sheet shows
       return; // component unmounts; don't call setSending in finally
     } catch (err: any) {
       console.error('[handleSend] caught error:', err);
