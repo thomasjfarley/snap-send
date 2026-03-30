@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View, Text, Image, TouchableOpacity, ScrollView,
   StyleSheet, Dimensions,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { usePostcardStore } from '@/store/postcard.store';
@@ -32,9 +32,11 @@ export default function EditorScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [rotating, setRotating] = useState(false);
 
-  useEffect(() => {
-    if (!photoUri && !justSent) router.replace('/postcard');
-  }, [photoUri, justSent]);
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!photoUri && !justSent) router.replace('/postcard');
+    }, [photoUri, justSent]),
+  );
 
   if (!photoUri) {
     return null;
