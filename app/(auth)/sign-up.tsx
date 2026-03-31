@@ -166,6 +166,14 @@ export default function SignUpScreen() {
         <TouchableOpacity onPress={() => router.replace('/(auth)/sign-in')}>
           <Text style={styles.switchText}>Already have an account? <Text style={styles.link}>Sign in</Text></Text>
         </TouchableOpacity>
+
+        <Text style={styles.legalText}>
+          By creating an account, you agree to our{' '}
+          <Text style={styles.legalLink} onPress={() => router.push('/terms-of-service')}>Terms of Service</Text>
+          {' '}and{' '}
+          <Text style={styles.legalLink} onPress={() => router.push('/privacy-policy')}>Privacy Policy</Text>
+          .
+        </Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -206,5 +214,7 @@ function makeStyles(colors: AppColors) {
     appleBtn: { height: 50 },
     switchText: { textAlign: 'center', color: colors.textSecondary, fontSize: FONT_SIZE.sm, marginTop: SPACING.sm },
     link: { color: colors.primary, fontWeight: '600' },
+    legalText: { textAlign: 'center', color: colors.textSecondary, fontSize: FONT_SIZE.xs, lineHeight: 18, marginTop: SPACING.xs },
+    legalLink: { color: colors.primary, fontWeight: '600' },
   });
 }
