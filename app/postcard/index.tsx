@@ -2,6 +2,7 @@ import React, { useMemo, useState, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import * as MediaLibrary from 'expo-media-library';
 import { usePostcardStore } from '@/store/postcard.store';
 import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
@@ -86,6 +87,16 @@ export default function PostcardPhotoScreen() {
       quality: 0.9,
     });
     if (!result.canceled && result.assets[0]) {
+      // Save original (unedited) photo to the device camera roll.
+      // Permission denial is non-fatal — the app continues normally.
+      try {
+        const { status: mediaStatus } = await MediaLibrary.requestPermissionsAsync();
+        if (mediaStatus === 'granted') {
+          await MediaLibrary.saveToLibraryAsync(result.assets[0].uri);
+        }
+      } catch (err) {
+        // non-fatal
+      }
       setPhoto(result.assets[0].uri);
       return;
     }
