@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet,
+  View, Text, Image, TouchableOpacity, StyleSheet,
   ScrollView, ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
+import { useThumbnailsStore } from '@/store/thumbnails.store';
 import type { Postcard } from '@/lib/database.types';
 import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
@@ -35,6 +36,7 @@ export default function OrderDetailScreen() {
   const [postcard, setPostcard] = useState<Postcard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { getThumbnailPath } = useThumbnailsStore();
 
   useEffect(() => {
     if (!id) return;
@@ -77,6 +79,7 @@ export default function OrderDetailScreen() {
   const status = STATUS_INFO[postcard.status];
   const isFailed = postcard.status === 'failed';
   const currentStepIndex = STATUS_STEPS.indexOf(postcard.status as any);
+  const thumbUri = getThumbnailPath(postcard.id);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -89,6 +92,10 @@ export default function OrderDetailScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
+        {/* Postcard thumbnail — only shown when a local copy was saved */}
+        {thumbUri && (
+          <Image source={{ uri: thumbUri }} style={styles.postcardThumb} resizeMode="cover" />
+        )}
         {/* Status banner */}
         <View style={[styles.statusBanner, { backgroundColor: status.bg }]}>
           <Text style={[styles.statusLabel, { color: status.color }]}>{status.label}</Text>
@@ -175,6 +182,7 @@ function makeStyles(colors: AppColors) {
     backText: { fontSize: FONT_SIZE.md, color: colors.textSecondary },
     title: { fontSize: FONT_SIZE.lg, fontWeight: '700', color: colors.textPrimary },
     scroll: { padding: SPACING.xl, gap: SPACING.lg, paddingBottom: 60 },
+    postcardThumb: { width: '100%', aspectRatio: 4 / 3, borderRadius: 12, backgroundColor: colors.border },
     statusBanner: { borderRadius: 14, padding: SPACING.md, gap: 4 },
     statusLabel: { fontSize: FONT_SIZE.lg, fontWeight: '800' },
     statusDesc: { fontSize: FONT_SIZE.sm },

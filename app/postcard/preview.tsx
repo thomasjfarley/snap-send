@@ -9,6 +9,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { usePostcardStore } from '@/store/postcard.store';
 import { useProfileStore } from '@/store/profile.store';
 import { useAddressStore } from '@/store/address.store';
+import { useThumbnailsStore } from '@/store/thumbnails.store';
 import { FRAMES } from '@/constants/editor';
 import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
@@ -45,6 +46,7 @@ export default function PreviewScreen() {
   const { photoUri, filterId, frameId, message, recipient, reset, setJustSent } = usePostcardStore();
   const { profile } = useProfileStore();
   const { addresses } = useAddressStore();
+  const { setThumbnail } = useThumbnailsStore();
   const personalAddress = addresses.find((a) => a.is_personal);
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const cardFrontRef = useRef<View>(null);
@@ -273,6 +275,26 @@ export default function PreviewScreen() {
       }
 
       console.log('[submit-postcard] ok', submitData);
+
+      // Create a small thumbnail data URI and store it in memory for order history/details.
+      // Uses expo-image-manipulator (already compiled) — no filesystem access needed.
+      // Non-fatal: the postcard is already sent if this fails.
+      try {
+        const postcardId: string | null = submitData?.postcardId ?? null;
+        if (postcardId) {
+          const thumb = await ImageManipulator.manipulateAsync(
+            resized.uri,
+            [{ resize: { width: 200 } }],
+            { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+          );
+          if (thumb.base64) {
+            setThumbnail(postcardId, `data:image/jpeg;base64,${thumb.base64}`);
+          }
+        }
+      } catch (thumbErr) {
+        // non-fatal
+      }
+
       submittedRef.current = true;
       setJustSent(true);   // set BEFORE reset so all guards skip
       reset();
