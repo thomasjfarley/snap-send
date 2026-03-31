@@ -77,7 +77,7 @@ function AppearancePicker() {
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { user, signOut } = useAuthStore();
+  const { user, signOut, deleteAccount } = useAuthStore();
   const { profile, update: updateProfile } = useProfileStore();
   const { addresses, fetch: fetchAddresses, loading: addressesLoading } = useAddressStore();
   const { colors } = useTheme();
@@ -133,10 +133,23 @@ export default function SettingsScreen() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: async () => {
+          onPress: () => {
             Alert.alert(
-              'Contact support',
-              'To delete your account, email support@snapsend.app and we will process it within 48 hours.',
+              'Are you sure?',
+              'Your account and all associated data will be permanently deleted.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Yes, delete my account',
+                  style: 'destructive',
+                  onPress: async () => {
+                    const { error } = await deleteAccount();
+                    if (error) {
+                      Alert.alert('Error', error);
+                    }
+                  },
+                },
+              ],
             );
           },
         },
@@ -240,11 +253,11 @@ export default function SettingsScreen() {
           <SettingsRow label="Version" value={APP_VERSION} />
           <SettingsRow
             label="Privacy Policy"
-            onPress={() => Alert.alert('Coming soon', 'Privacy policy will be available before launch.')}
+            onPress={() => router.push('/privacy-policy')}
           />
           <SettingsRow
             label="Terms of Service"
-            onPress={() => Alert.alert('Coming soon', 'Terms of service will be available before launch.')}
+            onPress={() => router.push('/terms-of-service')}
           />
           <SettingsRow
             label="Rate Snap Send ⭐"

@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.snapsend.app"
+      "bundleIdentifier": "com.snapsend.live"
     },
     "android": {
       "adaptiveIcon": {
@@ -25,7 +25,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.snapsend.app"
+      "package": "com.snapsend.live"
     },
     "web": {
       "bundler": "metro",
@@ -37,7 +37,7 @@
       [
         "@stripe/stripe-react-native",
         {
-          "merchantIdentifier": "merchant.com.snapsend.app"
+          "merchantIdentifier": "merchant.com.snapsend.live"
         }
       ]
     ],

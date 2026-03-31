@@ -13,6 +13,7 @@ interface AuthState {
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: string | null }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<{ error: string | null }>;
   resetPassword: (email: string, redirectTo?: string) => Promise<{ error: string | null }>;
   updatePassword: (newPassword: string) => Promise<{ error: string | null }>;
   clearPasswordRecovery: () => void;
@@ -64,6 +65,25 @@ export const useAuthStore = create<AuthState>((set) => {
     set({ loading: true });
     await supabase.auth.signOut();
     set({ user: null, session: null, loading: false });
+  },
+
+  deleteAccount: async () => {
+    set({ loading: true });
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      set({ loading: false });
+      return { error: 'Not signed in' };
+    }
+    const { error } = await supabase.functions.invoke('delete-account', {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (error) {
+      set({ loading: false });
+      return { error: error.message ?? 'Failed to delete account' };
+    }
+    await supabase.auth.signOut();
+    set({ user: null, session: null, loading: false });
+    return { error: null };
   },
 
   resetPassword: async (email, redirectTo) => {
