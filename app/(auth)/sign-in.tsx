@@ -13,6 +13,7 @@ import {
 import { useRouter } from 'expo-router';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as WebBrowser from 'expo-web-browser';
+import * as Crypto from 'expo-crypto';
 import { makeRedirectUri } from 'expo-auth-session';
 import { useAuthStore } from '@/store/auth.store';
 import { supabase } from '@/lib/supabase';
@@ -79,17 +80,23 @@ export default function SignInScreen() {
 
   async function handleAppleSignIn() {
     try {
+      const rawNonce = Crypto.randomUUID();
+      const hashedNonce = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        rawNonce
+      );
       const credential = await AppleAuthentication.signInAsync({
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
         ],
+        nonce: hashedNonce,
       });
       if (!credential.identityToken) throw new Error('No identity token');
       const { error } = await supabase.auth.signInWithIdToken({
         provider: 'apple',
         token: credential.identityToken,
-        nonce: undefined,
+        nonce: rawNonce,
       });
       if (error) Alert.alert('Apple sign-in failed', error.message);
     } catch (e: any) {
