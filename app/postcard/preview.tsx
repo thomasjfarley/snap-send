@@ -128,9 +128,11 @@ export default function PreviewScreen() {
             merchantCountryCode: 'US',
             testEnv: (process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '').startsWith('pk_test_'),
           },
-          applePay: {
-            merchantCountryCode: 'US',
-          },
+          ...(Platform.OS === 'ios' && {
+            applePay: {
+              merchantCountryCode: 'US',
+            },
+          }),
         });
         if (cancelled) return;
         if (initError) {

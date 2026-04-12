@@ -173,13 +173,15 @@ export default function SignUpScreen() {
           <Text style={styles.btnSocialText}>🔵  Continue with Google</Text>
         </TouchableOpacity>
 
-        <AppleAuthentication.AppleAuthenticationButton
-          buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP}
-          buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-          cornerRadius={14}
-          style={styles.appleBtn}
-          onPress={handleAppleSignUp}
-        />
+        {Platform.OS === 'ios' && (
+          <AppleAuthentication.AppleAuthenticationButton
+            buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP}
+            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+            cornerRadius={14}
+            style={styles.appleBtn}
+            onPress={handleAppleSignUp}
+          />
+        )}
 
         <TouchableOpacity onPress={() => router.replace('/(auth)/sign-in')}>
           <Text style={styles.switchText}>Already have an account? <Text style={styles.link}>Sign in</Text></Text>
