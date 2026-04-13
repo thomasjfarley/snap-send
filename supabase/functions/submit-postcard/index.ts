@@ -113,7 +113,7 @@ serve(async (req) => {
 
     // ── 6. Send postcard via Lob ──────────────────────────────────────────────
     const lobCredentials = btoa(`${LOB_API_KEY}:`);
-    const normalizedMessage = (message ?? '').trim().replace(/\n{3,}/g, '\n\n');
+    const normalizedMessage = (message ?? '').trim().replace(/\n{2,}/g, '\n');
     const safeMessage = normalizedMessage.replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
     const lobBody = {
