@@ -61,7 +61,7 @@ export default function PostcardPhotoScreen() {
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [4, 3],
-      quality: 0.9,
+      quality: 1,
     });
     if (!result.canceled && result.assets[0]) {
       setPhoto(result.assets[0].uri);
@@ -84,7 +84,7 @@ export default function PostcardPhotoScreen() {
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
       aspect: [4, 3],
-      quality: 0.9,
+      quality: 1,
     });
     if (!result.canceled && result.assets[0]) {
       // Save original (unedited) photo to the device camera roll.
