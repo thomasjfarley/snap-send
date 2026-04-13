@@ -120,7 +120,7 @@ serve(async (req) => {
       size: '4x6',
       use_type: 'operational',
       front: frontUrl,
-      back: `<html><body style="margin:0;padding:20px;font-family:Helvetica,Arial,sans-serif"><p style="font-size:13px;line-height:1.5;color:#333">${safeMessage}</p></body></html>`,
+      back: `<html><body style="margin:0;padding:0;font-family:Helvetica,Arial,sans-serif"><div style="width:38%;padding:20px"><p style="font-size:13px;line-height:1.5;color:#333;margin:0;white-space:pre-wrap">${safeMessage}</p></div></body></html>`,
       to: {
         name: recipientSnapshot.full_name,
         address_line1: recipientSnapshot.line1,
