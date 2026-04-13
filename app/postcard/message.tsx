@@ -10,7 +10,7 @@ import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
 import { FONT_SIZE, SPACING } from '@/constants/theme';
 
-const MAX_CHARS = 300;
+const MAX_CHARS = 500;
 
 export default function MessageScreen() {
   const router = useRouter();
