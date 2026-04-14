@@ -6,7 +6,6 @@ import {
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImageManipulator from 'expo-image-manipulator';
-import * as FileSystem from 'expo-file-system';
 import { usePostcardStore } from '@/store/postcard.store';
 import { useProfileStore } from '@/store/profile.store';
 import { useAddressStore } from '@/store/address.store';
@@ -295,19 +294,19 @@ export default function PreviewScreen() {
 
       console.log('[submit-postcard] ok', submitData);
 
-      // Save a full-quality copy of the image to app storage for order history display.
+      // Save a high-quality thumbnail as a base64 data URI for order history display.
       // Non-fatal: the postcard is already sent if this fails.
       try {
         const postcardId: string | null = submitData?.postcardId ?? null;
         if (postcardId) {
-          const thumbDir = `${FileSystem.documentDirectory}thumbnails/`;
-          const thumbPath = `${thumbDir}${postcardId}.jpg`;
-          const dirInfo = await FileSystem.getInfoAsync(thumbDir);
-          if (!dirInfo.exists) {
-            await FileSystem.makeDirectoryAsync(thumbDir, { intermediates: true });
+          const thumb = await ImageManipulator.manipulateAsync(
+            resized.uri,
+            [{ resize: { width: 800 } }],
+            { compress: 1, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+          );
+          if (thumb.base64) {
+            setThumbnail(postcardId, `data:image/jpeg;base64,${thumb.base64}`);
           }
-          await FileSystem.copyAsync({ from: resized.uri, to: thumbPath });
-          setThumbnail(postcardId, thumbPath);
         }
       } catch (thumbErr) {
         // non-fatal
