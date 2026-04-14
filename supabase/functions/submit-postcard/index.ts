@@ -107,8 +107,28 @@ serve(async (req) => {
     let imageBytes: Uint8Array;
     try {
       const img = await Image.decode(rawImageBytes);
+
+      // Sample average brightness before correction (R channel, first 1000 pixels)
+      let sumBefore = 0;
+      const sampleCount = Math.min(1000, img.width * img.height);
+      for (let i = 0; i < sampleCount; i++) {
+        const [r] = img.getPixelAt(i % img.width, Math.floor(i / img.width));
+        sumBefore += r;
+      }
+      const avgBefore = (sumBefore / sampleCount).toFixed(1);
+
       img.gamma(1.6);
       img.saturation(0.82);
+
+      let sumAfter = 0;
+      for (let i = 0; i < sampleCount; i++) {
+        const [r] = img.getPixelAt(i % img.width, Math.floor(i / img.width));
+        sumAfter += r;
+      }
+      const avgAfter = (sumAfter / sampleCount).toFixed(1);
+
+      console.log(`[print-correction] avg brightness before=${avgBefore} after=${avgAfter} delta=${(+avgAfter - +avgBefore).toFixed(1)} size=${img.width}x${img.height}`);
+
       imageBytes = await img.encode(1, 95); // JPEG at quality 95
     } catch (correctionErr) {
       console.warn('[submit-postcard] print correction failed, using original bytes:', correctionErr);
