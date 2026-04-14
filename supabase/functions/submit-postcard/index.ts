@@ -102,34 +102,32 @@ serve(async (req) => {
     // Apply print-compensating corrections before sending to Lob.
     // Lob's CMYK pre-press rendering crushes shadows and oversaturates warm
     // tones relative to the screen-calibrated source image. We pre-correct:
-    //   • gamma 1.6  — aggressively lifts dark tones, recovering shadow detail
-    //   • saturation 0.82 — −18% chroma, normalises skin tones
+    //   • gamma 1.6  — lifts dark tones, recovering shadow detail (applied
+    //     directly to bitmap: out = (in/255)^(1/1.6) * 255)
+    //   • saturation 0.82 — −18% chroma, normalises skin tones (via HSL)
     let imageBytes: Uint8Array;
     try {
       const img = await Image.decode(rawImageBytes);
 
-      // Sample average brightness before correction (R channel, first 1000 pixels)
-      let sumBefore = 0;
-      const sampleCount = Math.min(1000, img.width * img.height);
-      for (let i = 0; i < sampleCount; i++) {
-        const [r] = img.getPixelAt(i % img.width, Math.floor(i / img.width));
-        sumBefore += r;
+      // Gamma correction: apply power curve directly to RGB channels.
+      // imagescript has no built-in gamma(); we manipulate bitmap bytes.
+      const GAMMA = 1.6;
+      const EXP = 1 / GAMMA; // 0.625
+      // Build a 256-entry LUT so we only compute Math.pow 256 times.
+      const lut = new Uint8ClampedArray(256);
+      for (let v = 0; v < 256; v++) lut[v] = Math.round(Math.pow(v / 255, EXP) * 255);
+      const bmp = img.bitmap;
+      for (let i = 0; i < bmp.length; i += 4) {
+        bmp[i]     = lut[bmp[i]];     // R
+        bmp[i + 1] = lut[bmp[i + 1]]; // G
+        bmp[i + 2] = lut[bmp[i + 2]]; // B
+        // i+3 is alpha — leave unchanged
       }
-      const avgBefore = (sumBefore / sampleCount).toFixed(1);
 
-      img.gamma(1.6);
+      // Saturation reduction via imagescript's HSL-based saturation()
       img.saturation(0.82);
 
-      let sumAfter = 0;
-      for (let i = 0; i < sampleCount; i++) {
-        const [r] = img.getPixelAt(i % img.width, Math.floor(i / img.width));
-        sumAfter += r;
-      }
-      const avgAfter = (sumAfter / sampleCount).toFixed(1);
-
-      console.log(`[print-correction] avg brightness before=${avgBefore} after=${avgAfter} delta=${(+avgAfter - +avgBefore).toFixed(1)} size=${img.width}x${img.height}`);
-
-      imageBytes = await img.encode(1, 95); // JPEG at quality 95
+      imageBytes = await img.encodeJPEG(95);
     } catch (correctionErr) {
       console.warn('[submit-postcard] print correction failed, using original bytes:', correctionErr);
       imageBytes = rawImageBytes;
