@@ -102,16 +102,16 @@ serve(async (req) => {
     // Apply print-compensating corrections before sending to Lob.
     // Lob's CMYK pre-press rendering crushes shadows and oversaturates warm
     // tones relative to the screen-calibrated source image. We pre-correct:
-    //   • gamma 1.6  — lifts dark tones, recovering shadow detail (applied
-    //     directly to bitmap: out = (in/255)^(1/1.6) * 255)
-    //   • saturation 0.82 — −18% chroma, normalises skin tones (via HSL)
+    //   • gamma 1.3  — lifts dark tones, recovering shadow detail (applied
+    //     directly to bitmap: out = (in/255)^(1/1.3) * 255)
+    //   • saturation 0.88 — −12% chroma, normalises skin tones (via HSL)
     let imageBytes: Uint8Array;
     try {
       const img = await Image.decode(rawImageBytes);
 
       // Gamma correction: apply power curve directly to RGB channels.
       // imagescript has no built-in gamma(); we manipulate bitmap bytes.
-      const GAMMA = 1.6;
+      const GAMMA = 1.3;
       const EXP = 1 / GAMMA; // 0.625
       // Build a 256-entry LUT so we only compute Math.pow 256 times.
       const lut = new Uint8ClampedArray(256);
@@ -125,7 +125,7 @@ serve(async (req) => {
       }
 
       // Saturation reduction via imagescript's HSL-based saturation()
-      img.saturation(0.82);
+      img.saturation(0.88);
 
       imageBytes = await img.encodeJPEG(95);
     } catch (correctionErr) {
