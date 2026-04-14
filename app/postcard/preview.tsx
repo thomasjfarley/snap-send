@@ -359,7 +359,12 @@ export default function PreviewScreen() {
         <Text style={styles.sideLabel}>BACK</Text>
         <View style={styles.cardBack}>
           <View style={styles.backMessage}>
-            <Text style={styles.backMessageText}>{message}</Text>
+            <Text
+              style={styles.backMessageText}
+              adjustsFontSizeToFit
+              minimumFontScale={0.4}
+              numberOfLines={30}
+            >{message}</Text>
           </View>
           <View style={styles.backDivider} />
           <View style={styles.backRight}>
@@ -438,13 +443,14 @@ function makeStyles(colors: AppColors) {
     sideLabel: { fontSize: FONT_SIZE.xs, fontWeight: '700', color: colors.textSecondary, letterSpacing: 2, textTransform: 'uppercase' },
     cardFront: { width: CARD_W, overflow: 'hidden', borderRadius: 4 },
     cardBack: {
-      width: CARD_W, minHeight: CARD_H,
+      width: CARD_W, height: CARD_H,
       backgroundColor: '#FFFEF0', borderRadius: 4,
       borderWidth: 1, borderColor: '#E0DCC8',
       flexDirection: 'row', padding: SPACING.md,
+      overflow: 'hidden',
     },
     backMessage: { flex: 3, paddingRight: SPACING.sm },
-    backMessageText: { fontSize: FONT_SIZE.sm, color: '#333', lineHeight: 22 },
+    backMessageText: { fontSize: FONT_SIZE.sm, color: '#333' },
     backDivider: { width: 1, backgroundColor: '#D0CCAA', marginHorizontal: SPACING.sm },
     backRight: { flex: 2, justifyContent: 'space-between' },
     backAddresses: { gap: SPACING.md, flex: 1, justifyContent: 'center' },
