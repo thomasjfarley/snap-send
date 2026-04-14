@@ -102,13 +102,13 @@ serve(async (req) => {
     // Apply print-compensating corrections before sending to Lob.
     // Lob's CMYK pre-press rendering crushes shadows and oversaturates warm
     // tones relative to the screen-calibrated source image. We pre-correct:
-    //   • gamma 1.2  — lifts dark tones, recovering shadow detail
-    //   • saturation 0.9 — −10% chroma, normalises skin tones
+    //   • gamma 1.6  — aggressively lifts dark tones, recovering shadow detail
+    //   • saturation 0.82 — −18% chroma, normalises skin tones
     let imageBytes: Uint8Array;
     try {
       const img = await Image.decode(rawImageBytes);
-      img.gamma(1.2);
-      img.saturation(0.9);
+      img.gamma(1.6);
+      img.saturation(0.82);
       imageBytes = await img.encode(1, 95); // JPEG at quality 95
     } catch (correctionErr) {
       console.warn('[submit-postcard] print correction failed, using original bytes:', correctionErr);
