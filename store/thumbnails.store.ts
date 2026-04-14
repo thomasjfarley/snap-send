@@ -3,8 +3,8 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface ThumbnailsState {
-  paths: Record<string, string>; // postcardId → data URI (data:image/jpeg;base64,...)
-  setThumbnail: (postcardId: string, dataUri: string) => void;
+  paths: Record<string, string>; // postcardId → file URI (file://...)
+  setThumbnail: (postcardId: string, uri: string) => void;
   getThumbnailPath: (postcardId: string) => string | undefined;
 }
 
