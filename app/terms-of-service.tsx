@@ -86,6 +86,7 @@ export default function TermsOfServiceScreen() {
             By using Snap Send, you agree not to submit postcard content that:
           </Para>
           <Bullet>Is illegal, obscene, pornographic, defamatory, threatening, or harassing</Bullet>
+          <Bullet>Contains hate speech or content that promotes discrimination, violence, or hostility toward any individual or group based on race, ethnicity, religion, gender, sexual orientation, disability, or national origin</Bullet>
           <Bullet>Infringes on any third party's intellectual property or privacy rights</Bullet>
           <Bullet>Contains spam, advertising, or unsolicited commercial messages</Bullet>
           <Bullet>Depicts minors in any inappropriate manner</Bullet>
