@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  KeyboardAvoidingView, Platform, ScrollView,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -25,7 +25,7 @@ export default function MessageScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
             <Text style={styles.navText}>← Back</Text>
@@ -36,41 +36,29 @@ export default function MessageScreen() {
           </TouchableOpacity>
         </View>
 
-        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-          {/* Postcard back mockup */}
-          <View style={styles.postcardBack}>
-            <View style={styles.messageArea}>
-              <Text style={styles.postcardHint}>Your message</Text>
-              <TextInput
-                style={styles.messageInput}
-                multiline
-                placeholder="Write something heartfelt..."
-                placeholderTextColor="#aaa"
-                value={message}
-                onChangeText={(t) => setMessage(t.slice(0, MAX_CHARS))}
-                maxLength={MAX_CHARS}
-                autoFocus
-              />
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.addressArea}>
-              <View style={styles.addressLines}>
-                <View style={styles.addressLine} />
-                <View style={styles.addressLine} />
-                <View style={styles.addressLine} />
-              </View>
-              <View style={styles.stampBox}>
-                <Text style={styles.stampText}>STAMP</Text>
-              </View>
-            </View>
+        <View style={styles.body}>
+          <View style={styles.labelRow}>
+            <Text style={styles.label}>Your message</Text>
+            <Text style={[styles.charCount, message.length > MAX_CHARS * 0.9 && { color: colors.error }]}>
+              {message.length}/{MAX_CHARS}
+            </Text>
           </View>
 
-          <Text style={[styles.charCount, message.length > MAX_CHARS * 0.9 && { color: colors.error }]}>
-            {message.length}/{MAX_CHARS}
-          </Text>
+          <TextInput
+            style={styles.messageInput}
+            multiline
+            scrollEnabled
+            placeholder="Write something heartfelt..."
+            placeholderTextColor={colors.textSecondary}
+            value={message}
+            onChangeText={(t) => setMessage(t.slice(0, MAX_CHARS))}
+            maxLength={MAX_CHARS}
+            textAlignVertical="top"
+            autoFocus
+          />
 
           <Text style={styles.tip}>✉️ Your message will appear on the back of the postcard, just like a real one.</Text>
-        </ScrollView>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -88,28 +76,21 @@ function makeStyles(colors: AppColors) {
     },
     navText: { fontSize: FONT_SIZE.md, color: colors.textSecondary },
     title: { fontSize: FONT_SIZE.lg, fontWeight: '700', color: colors.textPrimary },
-    body: { padding: SPACING.xl, gap: SPACING.md },
-    postcardBack: {
-      backgroundColor: '#FFFEF0', borderRadius: 12, borderWidth: 1, borderColor: '#E0DCC8',
-      padding: SPACING.md, flexDirection: 'row', minHeight: 200, gap: 0,
-    },
-    messageArea: { flex: 3, paddingRight: SPACING.sm },
-    postcardHint: { fontSize: 9, color: '#999', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
+    body: { flex: 1, padding: SPACING.xl, gap: SPACING.md },
+    labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+    label: { fontSize: FONT_SIZE.sm, fontWeight: '600', color: colors.textPrimary },
+    charCount: { fontSize: FONT_SIZE.xs, color: colors.textSecondary },
     messageInput: {
-      flex: 1, fontSize: FONT_SIZE.sm, color: '#333',
-      fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
-      lineHeight: 22, minHeight: 140, textAlignVertical: 'top',
+      flex: 1,
+      fontSize: FONT_SIZE.md,
+      color: colors.textPrimary,
+      lineHeight: 24,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 12,
+      padding: SPACING.md,
+      backgroundColor: colors.surface ?? colors.background,
     },
-    divider: { width: 1, backgroundColor: '#D0CCAA', marginHorizontal: SPACING.sm },
-    addressArea: { flex: 2, justifyContent: 'space-between' },
-    addressLines: { flex: 1, gap: 8, paddingTop: SPACING.sm, justifyContent: 'center' },
-    addressLine: { height: 1, backgroundColor: '#CCC', borderRadius: 1 },
-    stampBox: {
-      width: 48, height: 56, borderWidth: 1.5, borderColor: '#CCC',
-      alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-end', borderRadius: 3,
-    },
-    stampText: { fontSize: 8, color: '#BBB', letterSpacing: 1 },
-    charCount: { textAlign: 'right', fontSize: FONT_SIZE.xs, color: colors.textSecondary },
-    tip: { fontSize: FONT_SIZE.sm, color: colors.textSecondary, textAlign: 'center', lineHeight: 20, marginTop: SPACING.md },
+    tip: { fontSize: FONT_SIZE.sm, color: colors.textSecondary, textAlign: 'center', lineHeight: 20 },
   });
 }
