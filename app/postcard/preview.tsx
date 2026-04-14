@@ -220,19 +220,30 @@ export default function PreviewScreen() {
       // Process the original full-resolution photo for Lob's required bleed
       // dimensions (1875×1275 px = 4×6 in at 300 DPI + 1/8" bleed).
       //
-      // Two-step approach to avoid aspect-ratio stretch artifacts:
-      //   1. Scale down to 1875px wide, preserving native aspect ratio.
-      //   2. Center-crop to exactly 1275px tall so Lob gets the required size.
-      // This way no pixel is ever interpolated to fill a mismatched dimension.
-      const step1 = await ImageManipulator.manipulateAsync(
+      // "Cover" resize: scale so the image fills the target frame on both axes
+      // (no letterboxing, no stretching), then center-crop to exactly 1875×1275.
+      //   - If photo is taller than the Lob ratio (e.g. 4:3): constrain width → crop height
+      //   - If photo is wider than the Lob ratio (e.g. 3:2, 16:9): constrain height → crop width
+      const LOB_W = 1875;
+      const LOB_H = 1275;
+      let step1 = await ImageManipulator.manipulateAsync(
         photoUri!,
-        [{ resize: { width: 1875 } }],
+        [{ resize: { width: LOB_W } }],
         { compress: 1, format: ImageManipulator.SaveFormat.JPEG },
       );
-      const cropOriginY = Math.max(0, Math.round((step1.height - 1275) / 2));
+      // If constraining width produced a height shorter than needed, flip and constrain height instead
+      if (step1.height < LOB_H) {
+        step1 = await ImageManipulator.manipulateAsync(
+          photoUri!,
+          [{ resize: { height: LOB_H } }],
+          { compress: 1, format: ImageManipulator.SaveFormat.JPEG },
+        );
+      }
+      const cropX = Math.max(0, Math.round((step1.width - LOB_W) / 2));
+      const cropY = Math.max(0, Math.round((step1.height - LOB_H) / 2));
       const resized = await ImageManipulator.manipulateAsync(
         step1.uri,
-        [{ crop: { originX: 0, originY: cropOriginY, width: 1875, height: Math.min(step1.height, 1275) } }],
+        [{ crop: { originX: cropX, originY: cropY, width: LOB_W, height: LOB_H } }],
         { compress: 0.97, format: ImageManipulator.SaveFormat.JPEG, base64: true },
       );
       const base64 = resized.base64!;

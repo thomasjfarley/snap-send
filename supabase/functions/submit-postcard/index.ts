@@ -154,8 +154,9 @@ serve(async (req) => {
     tempImagePath = null;
 
     if (!lobRes.ok) {
-      console.error('Lob error', lobRes.status, JSON.stringify(lobData));
-      return jsonResponse({ error: 'Failed to create postcard', detail: lobData }, 502);
+      const lobErr = `Lob ${lobRes.status}: ${JSON.stringify(lobData)}`;
+      console.error(lobErr);
+      return jsonResponse({ error: 'Failed to create postcard', lob_status: lobRes.status, lob_detail: lobData }, 502);
     }
 
     // ── 7. Record in database ─────────────────────────────────────────────────
