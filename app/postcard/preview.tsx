@@ -217,16 +217,22 @@ export default function PreviewScreen() {
       }
       console.log('[handleSend] session refreshed ok');
 
-      // Process the original full-resolution photo — downscale to Lob's required
-      // bleed dimensions (1875×1275 px = 4×6 in at 300 DPI + 1/8" bleed).
-      // Using the original photoUri avoids the quality loss that came from
-      // screen-capturing a small rendered view and then upscaling it.
-      // Resize to 1875px wide (Lob's bleed width at 300 DPI) while preserving
-      // the photo's native aspect ratio. Forcing both width AND height would
-      // stretch the image and smear colors via interpolation artifacts.
-      const resized = await ImageManipulator.manipulateAsync(
+      // Process the original full-resolution photo for Lob's required bleed
+      // dimensions (1875×1275 px = 4×6 in at 300 DPI + 1/8" bleed).
+      //
+      // Two-step approach to avoid aspect-ratio stretch artifacts:
+      //   1. Scale down to 1875px wide, preserving native aspect ratio.
+      //   2. Center-crop to exactly 1275px tall so Lob gets the required size.
+      // This way no pixel is ever interpolated to fill a mismatched dimension.
+      const step1 = await ImageManipulator.manipulateAsync(
         photoUri!,
         [{ resize: { width: 1875 } }],
+        { compress: 1, format: ImageManipulator.SaveFormat.JPEG },
+      );
+      const cropOriginY = Math.max(0, Math.round((step1.height - 1275) / 2));
+      const resized = await ImageManipulator.manipulateAsync(
+        step1.uri,
+        [{ crop: { originX: 0, originY: cropOriginY, width: 1875, height: Math.min(step1.height, 1275) } }],
         { compress: 0.97, format: ImageManipulator.SaveFormat.JPEG, base64: true },
       );
       const base64 = resized.base64!;
