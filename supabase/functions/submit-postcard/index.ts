@@ -1,6 +1,7 @@
 // Edge Function: submit-postcard
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { Image } from 'https://deno.land/x/imagescript@1.3.0/mod.ts';
 
 const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')!;
 const LOB_API_KEY = Deno.env.get('LOB_API_KEY')!;
@@ -96,7 +97,23 @@ serve(async (req) => {
     // ── 5. Upload image to Storage so Lob can fetch via URL ───────────────────
     // Lob's inline HTML limit is 10,000 chars; base64 images far exceed that.
     tempImagePath = `temp/${user.id}/${Date.now()}.jpg`;
-    const imageBytes = Uint8Array.from(atob(imageBase64), (c) => c.charCodeAt(0));
+    const rawImageBytes = Uint8Array.from(atob(imageBase64), (c) => c.charCodeAt(0));
+
+    // Apply print-compensating corrections before sending to Lob.
+    // Lob's CMYK pre-press rendering crushes shadows and oversaturates warm
+    // tones relative to the screen-calibrated source image. We pre-correct:
+    //   • gamma 1.2  — lifts dark tones, recovering shadow detail
+    //   • saturation 0.9 — −10% chroma, normalises skin tones
+    let imageBytes: Uint8Array;
+    try {
+      const img = await Image.decode(rawImageBytes);
+      img.gamma(1.2);
+      img.saturation(0.9);
+      imageBytes = await img.encode(1, 95); // JPEG at quality 95
+    } catch (correctionErr) {
+      console.warn('[submit-postcard] print correction failed, using original bytes:', correctionErr);
+      imageBytes = rawImageBytes;
+    }
 
     const { error: uploadError } = await supabase.storage
       .from('postcard-fronts')
