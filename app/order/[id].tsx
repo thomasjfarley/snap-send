@@ -129,7 +129,12 @@ export default function OrderDetailScreen() {
         <Text style={styles.sectionTitle}>Message</Text>
         <View style={styles.postcardBack}>
           <View style={styles.backLeft}>
-            <Text style={styles.messageText}>{postcard.message}</Text>
+            <Text
+              style={styles.messageText}
+              adjustsFontSizeToFit
+              minimumFontScale={0.4}
+              numberOfLines={15}
+            >{postcard.message}</Text>
           </View>
           <View style={styles.backDivider} />
           <View style={styles.backRight}>
@@ -196,10 +201,11 @@ function makeStyles(colors: AppColors) {
     postcardBack: {
       backgroundColor: '#FFFEF0', borderRadius: 12,
       borderWidth: 1, borderColor: '#E0DCC8',
-      flexDirection: 'row', padding: SPACING.md, minHeight: 120,
+      flexDirection: 'row', padding: SPACING.md, height: 140,
+      overflow: 'hidden',
     },
     backLeft: { flex: 3, paddingRight: SPACING.sm },
-    messageText: { fontSize: FONT_SIZE.sm, color: '#333', lineHeight: 20 },
+    messageText: { fontSize: FONT_SIZE.sm, color: '#333' },
     backDivider: { width: 1, backgroundColor: '#D0CCAA', marginHorizontal: SPACING.sm },
     backRight: { flex: 2, justifyContent: 'center' },
     addrBlock: { gap: 2 },
