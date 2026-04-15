@@ -39,6 +39,12 @@
       "expo-apple-authentication",
       "expo-contacts",
       [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Snap Send uses your location to suggest nearby places for your postcard."
+        }
+      ],
+      [
         "@stripe/stripe-react-native",
         {
           "merchantIdentifier": "merchant.com.snapsend.live"

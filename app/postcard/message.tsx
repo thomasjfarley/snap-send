@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Location from 'expo-location';
 import { usePostcardStore } from '@/store/postcard.store';
 import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
@@ -41,10 +42,38 @@ export default function MessageScreen() {
   const [locationLoading, setLocationLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const gpsCoords = useRef<{ lat: number; lon: number } | null>(null);
 
   function handleNext() {
     if (message.trim().length === 0) return;
     router.push('/postcard/recipient');
+  }
+
+  async function handleLocationFocus() {
+    // Only fetch GPS suggestions if the field is empty
+    if (locationQuery.trim()) return;
+    setLocationLoading(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const { latitude: lat, longitude: lon } = pos.coords;
+      gpsCoords.current = { lat, lon };
+      // Reverse geocode to get nearby place names
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?lat=${lat}&lon=${lon}&format=json&limit=5&addressdetails=1`,
+        { headers: { 'User-Agent': 'SnapSend/1.0 (snapsend.live)' } },
+      );
+      const data: NominatimResult[] = await res.json();
+      if (data.length > 0) {
+        setLocationResults(data);
+        setShowDropdown(true);
+      }
+    } catch {
+      // GPS is optional — silently skip
+    } finally {
+      setLocationLoading(false);
+    }
   }
 
   function handleLocationChange(text: string) {
@@ -62,8 +91,13 @@ export default function MessageScreen() {
   async function searchLocation(query: string) {
     setLocationLoading(true);
     try {
+      const coords = gpsCoords.current;
+      // If we have GPS coords, add a soft geographic bias without restricting global results
+      const biasParam = coords
+        ? `&viewbox=${coords.lon - 5},${coords.lat + 5},${coords.lon + 5},${coords.lat - 5}&bounded=0`
+        : '';
       const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&addressdetails=1`,
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&addressdetails=1${biasParam}`,
         { headers: { 'User-Agent': 'SnapSend/1.0 (snapsend.live)' } },
       );
       const data: NominatimResult[] = await res.json();
@@ -135,6 +169,7 @@ export default function MessageScreen() {
                 placeholderTextColor={colors.textSecondary}
                 value={locationQuery}
                 onChangeText={handleLocationChange}
+                onFocus={handleLocationFocus}
                 returnKeyType="search"
                 autoCorrect={false}
               />
