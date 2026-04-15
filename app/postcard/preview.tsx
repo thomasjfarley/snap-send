@@ -162,6 +162,15 @@ export default function PreviewScreen() {
   const isGrayscale = filterId === 'bw';
   const priceStr = `$${(POSTCARD_PRICE_CENTS / 100).toFixed(2)}`;
 
+  const messageFontSize = useMemo(() => {
+    const len = (message ?? '').length;
+    if (len < 60)  return 18;
+    if (len < 120) return 16;
+    if (len < 200) return 14;
+    if (len < 300) return 12;
+    return 10;
+  }, [message]);
+
   function toggleRejectedInfo() {
     Alert.alert(
       'Why can\'t this image be mailed?',
@@ -364,9 +373,9 @@ export default function PreviewScreen() {
         <View style={styles.cardBack}>
           <View style={styles.backMessage}>
             <Text
-              style={styles.backMessageText}
+              style={[styles.backMessageText, { fontSize: messageFontSize }]}
               adjustsFontSizeToFit
-              minimumFontScale={0.4}
+              minimumFontScale={0.75}
               numberOfLines={30}
             >{message}</Text>
           </View>
