@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as Contacts from 'expo-contacts';
 import { useAuthStore } from '@/store/auth.store';
 import { useAddressStore } from '@/store/address.store';
 import { AddressForm } from '@/components/AddressForm';
@@ -38,6 +39,33 @@ export default function NewAddressScreen() {
 
   const [form, setForm] = useState<AddressFormData>(EMPTY_FORM);
   const [verified, setVerified] = useState<boolean | null>(null);
+
+  async function handleImportFromContacts() {
+    const { status } = await Contacts.requestPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please allow access to your contacts.');
+      return;
+    }
+    const contact = await Contacts.presentContactPickerAsync();
+    if (!contact) return;
+
+    const fullName = [contact.firstName, contact.lastName].filter(Boolean).join(' ')
+      || contact.name
+      || '';
+
+    const addr = contact.addresses?.[0];
+    setForm({
+      label: 'Friend',
+      full_name: fullName,
+      line1: addr?.street ?? '',
+      line2: '',
+      city: addr?.city ?? '',
+      state: addr?.region ?? '',
+      zip: addr?.postalCode ?? '',
+      country: 'US',
+    });
+    setVerified(null);
+  }
 
   function handleChange(field: keyof AddressFormData, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -85,7 +113,9 @@ export default function NewAddressScreen() {
             <Text style={styles.cancel}>Cancel</Text>
           </TouchableOpacity>
           <Text style={styles.title}>New Recipient</Text>
-          <View style={{ width: 60 }} />
+          <TouchableOpacity onPress={handleImportFromContacts}>
+            <Text style={[styles.cancel, { color: colors.primary }]}>Import</Text>
+          </TouchableOpacity>
         </View>
 
         <AddressForm

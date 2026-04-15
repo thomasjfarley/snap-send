@@ -37,6 +37,7 @@
       "expo-router",
       "expo-web-browser",
       "expo-apple-authentication",
+      "expo-contacts",
       [
         "@stripe/stripe-react-native",
         {
