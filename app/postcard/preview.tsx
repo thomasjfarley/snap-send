@@ -37,7 +37,7 @@ const CARD_H = CARD_W * (3 / 4);
 
 export default function PreviewScreen() {
   const router = useRouter();
-  const { photoUri, filterId, frameId, message, recipient, reset, setJustSent } = usePostcardStore();
+  const { photoUri, filterId, frameId, message, location, recipient, reset, setJustSent } = usePostcardStore();
   const { profile } = useProfileStore();
   const { addresses } = useAddressStore();
   const { setThumbnail } = useThumbnailsStore();
@@ -270,6 +270,7 @@ export default function PreviewScreen() {
         body: {
           imageBase64: base64,
           message,
+          location: location ?? null,
           frame: frameId,
           filter: filterId,
           fromAddressId: personalAddress.id,
@@ -378,6 +379,9 @@ export default function PreviewScreen() {
               minimumFontScale={0.75}
               numberOfLines={30}
             >{message}</Text>
+            {!!location && (
+              <Text style={styles.backLocationText} numberOfLines={1}>📍 {location}</Text>
+            )}
           </View>
           <View style={styles.backDivider} />
           <View style={styles.backRight}>
@@ -464,6 +468,7 @@ function makeStyles(colors: AppColors) {
     },
     backMessage: { flex: 3, paddingRight: SPACING.sm },
     backMessageText: { fontSize: FONT_SIZE.sm, color: '#333' },
+    backLocationText: { fontSize: 7, color: '#888', marginTop: 6 },
     backDivider: { width: 1, backgroundColor: '#D0CCAA', marginHorizontal: SPACING.sm },
     backRight: { flex: 2, justifyContent: 'space-between' },
     backAddresses: { gap: SPACING.md, flex: 1, justifyContent: 'center' },

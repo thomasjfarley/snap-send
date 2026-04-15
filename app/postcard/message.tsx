@@ -1,7 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  KeyboardAvoidingView, Platform,
+  KeyboardAvoidingView, Platform, ActivityIndicator, FlatList,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,15 +12,83 @@ import { FONT_SIZE, SPACING } from '@/constants/theme';
 
 const MAX_CHARS = 500;
 
+interface NominatimResult {
+  place_id: number;
+  display_name: string;
+  address?: {
+    city?: string; town?: string; village?: string;
+    county?: string; state?: string; country?: string;
+  };
+}
+
+function formatLocationLabel(item: NominatimResult): string {
+  const parts = item.display_name.split(', ');
+  const name = parts[0];
+  const addr = item.address ?? {};
+  const city = addr.city ?? addr.town ?? addr.village ?? addr.county ?? parts[1] ?? '';
+  const state = addr.state ?? '';
+  return [name, city, state].filter(Boolean).join(', ');
+}
+
 export default function MessageScreen() {
   const router = useRouter();
-  const { message, setMessage } = usePostcardStore();
+  const { message, setMessage, location, setLocation } = usePostcardStore();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+
+  const [locationQuery, setLocationQuery] = useState(location ?? '');
+  const [locationResults, setLocationResults] = useState<NominatimResult[]>([]);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function handleNext() {
     if (message.trim().length === 0) return;
     router.push('/postcard/recipient');
+  }
+
+  function handleLocationChange(text: string) {
+    setLocationQuery(text);
+    if (!text.trim()) {
+      setLocation(null);
+      setLocationResults([]);
+      setShowDropdown(false);
+      return;
+    }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => searchLocation(text), 400);
+  }
+
+  async function searchLocation(query: string) {
+    setLocationLoading(true);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&addressdetails=1`,
+        { headers: { 'User-Agent': 'SnapSend/1.0 (snapsend.live)' } },
+      );
+      const data: NominatimResult[] = await res.json();
+      setLocationResults(data);
+      setShowDropdown(data.length > 0);
+    } catch {
+      // silently fail — location is optional
+    } finally {
+      setLocationLoading(false);
+    }
+  }
+
+  function selectLocation(item: NominatimResult) {
+    const label = formatLocationLabel(item);
+    setLocation(label);
+    setLocationQuery(label);
+    setShowDropdown(false);
+    setLocationResults([]);
+  }
+
+  function clearLocation() {
+    setLocation(null);
+    setLocationQuery('');
+    setShowDropdown(false);
+    setLocationResults([]);
   }
 
   return (
@@ -57,6 +125,42 @@ export default function MessageScreen() {
             autoFocus
           />
 
+          {/* Location picker */}
+          <View style={styles.locationWrapper}>
+            <View style={styles.locationRow}>
+              <Text style={styles.locationPin}>📍</Text>
+              <TextInput
+                style={styles.locationInput}
+                placeholder="Add a location (optional)"
+                placeholderTextColor={colors.textSecondary}
+                value={locationQuery}
+                onChangeText={handleLocationChange}
+                returnKeyType="search"
+                autoCorrect={false}
+              />
+              {locationLoading && <ActivityIndicator size="small" color={colors.textSecondary} style={{ marginRight: SPACING.sm }} />}
+              {!!locationQuery && !locationLoading && (
+                <TouchableOpacity onPress={clearLocation} hitSlop={8}>
+                  <Text style={styles.locationClear}>✕</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            {showDropdown && (
+              <FlatList
+                style={styles.dropdown}
+                data={locationResults}
+                keyExtractor={(item) => String(item.place_id)}
+                keyboardShouldPersistTaps="handled"
+                scrollEnabled={false}
+                renderItem={({ item }) => (
+                  <TouchableOpacity style={styles.dropdownItem} onPress={() => selectLocation(item)}>
+                    <Text style={styles.dropdownText} numberOfLines={1}>{formatLocationLabel(item)}</Text>
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+          </View>
+
           <Text style={styles.tip}>✉️ Your message will appear on the back of the postcard, just like a real one.</Text>
         </View>
       </KeyboardAvoidingView>
@@ -91,6 +195,27 @@ function makeStyles(colors: AppColors) {
       padding: SPACING.md,
       backgroundColor: colors.surface ?? colors.background,
     },
+    locationWrapper: { gap: 0 },
+    locationRow: {
+      flexDirection: 'row', alignItems: 'center',
+      borderWidth: 1, borderColor: colors.border, borderRadius: 10,
+      paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
+      backgroundColor: colors.surface ?? colors.background,
+    },
+    locationPin: { fontSize: FONT_SIZE.md, marginRight: SPACING.sm },
+    locationInput: { flex: 1, fontSize: FONT_SIZE.sm, color: colors.textPrimary },
+    locationClear: { fontSize: FONT_SIZE.sm, color: colors.textSecondary, paddingLeft: SPACING.sm },
+    dropdown: {
+      borderWidth: 1, borderTopWidth: 0, borderColor: colors.border,
+      borderBottomLeftRadius: 10, borderBottomRightRadius: 10,
+      backgroundColor: colors.surface ?? colors.background,
+      overflow: 'hidden',
+    },
+    dropdownItem: {
+      paddingHorizontal: SPACING.md, paddingVertical: 10,
+      borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border,
+    },
+    dropdownText: { fontSize: FONT_SIZE.sm, color: colors.textPrimary },
     tip: { fontSize: FONT_SIZE.sm, color: colors.textSecondary, textAlign: 'center', lineHeight: 20 },
   });
 }

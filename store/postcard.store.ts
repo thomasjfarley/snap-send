@@ -7,6 +7,7 @@ interface PostcardState {
   filterId: FilterId;
   frameId: FrameId;
   message: string;
+  location: string | null;
   recipient: Address | null;
   justSent: boolean;
   openedFromChooser: boolean;
@@ -14,6 +15,7 @@ interface PostcardState {
   setFilter: (id: FilterId) => void;
   setFrame: (id: FrameId) => void;
   setMessage: (msg: string) => void;
+  setLocation: (loc: string | null) => void;
   setRecipient: (address: Address) => void;
   setJustSent: (v: boolean) => void;
   setOpenedFromChooser: (v: boolean) => void;
@@ -25,6 +27,7 @@ export const usePostcardStore = create<PostcardState>((set) => ({
   filterId: 'none',
   frameId: 'none',
   message: '',
+  location: null,
   recipient: null,
   justSent: false,
   openedFromChooser: false,
@@ -32,9 +35,10 @@ export const usePostcardStore = create<PostcardState>((set) => ({
   setFilter: (id) => set({ filterId: id }),
   setFrame: (id) => set({ frameId: id }),
   setMessage: (msg) => set({ message: msg }),
+  setLocation: (loc) => set({ location: loc }),
   setRecipient: (address) => set({ recipient: address }),
   setJustSent: (v) => set({ justSent: v }),
   setOpenedFromChooser: (v) => set({ openedFromChooser: v }),
   // reset clears the postcard draft but NOT justSent
-  reset: () => set({ photoUri: null, filterId: 'none', frameId: 'none', message: '', recipient: null, openedFromChooser: false }),
+  reset: () => set({ photoUri: null, filterId: 'none', frameId: 'none', message: '', location: null, recipient: null, openedFromChooser: false }),
 }));
