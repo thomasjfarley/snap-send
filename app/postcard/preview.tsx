@@ -125,6 +125,7 @@ export default function PreviewScreen() {
           ...(Platform.OS === 'ios' && {
             applePay: {
               merchantCountryCode: 'US',
+              merchantIdentifier: 'merchant.com.snapsend.live',
             },
           }),
         });

@@ -82,8 +82,6 @@ export default function PostcardPhotoScreen() {
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [3, 2],
       quality: 1,
     });
     if (!result.canceled && result.assets[0]) {
