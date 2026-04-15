@@ -153,15 +153,6 @@ export default function PreviewScreen() {
     return () => { cancelled = true; };
   }, [photoUri]);
 
-  if (!photoUri || !recipient) {
-    return null;
-  }
-
-  const activeFrame = FRAMES.find((f) => f.id === frameId)!;
-  const overlay = FILTER_OVERLAYS[filterId];
-  const isGrayscale = filterId === 'bw';
-  const priceStr = `$${(POSTCARD_PRICE_CENTS / 100).toFixed(2)}`;
-
   const messageFontSize = useMemo(() => {
     const len = (message ?? '').length;
     if (len < 60)  return 18;
@@ -170,6 +161,10 @@ export default function PreviewScreen() {
     if (len < 300) return 12;
     return 10;
   }, [message]);
+
+  if (!photoUri || !recipient) {
+    return null;
+  }
 
   function toggleRejectedInfo() {
     Alert.alert(

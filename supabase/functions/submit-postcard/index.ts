@@ -161,12 +161,22 @@ serve(async (req) => {
       ? `<p style="font-size:8px;color:#888;margin:8px 0 0 0">📍 ${safeLocation}</p>`
       : '';
 
+    // Build inline address blocks — {{from_address}}/{{to_address}} merge vars
+    // only work with Lob's Templates API, not inline HTML.
+    function addrBlock(label: string, a: { full_name: string; line1: string; line2?: string; city: string; state: string; zip: string }) {
+      const esc = (s: string) => s.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const line2 = a.line2 ? `<br>${esc(a.line2)}` : '';
+      return `<p style="font-size:7px;line-height:1.5;color:#555;margin:0"><span style="font-size:6px;color:#999;text-transform:uppercase;letter-spacing:1px">${label}</span><br><strong>${esc(a.full_name)}</strong><br>${esc(a.line1)}${line2}<br>${esc(a.city)}, ${esc(a.state)} ${esc(String(a.zip))}</p>`;
+    }
+    const fromHtml = addrBlock('FROM', fromAddress);
+    const toHtml = addrBlock('TO', recipientSnapshot);
+
     const lobBody = {
       description: 'Snap Send postcard',
       size: '4x6',
       use_type: 'operational',
       front: frontUrl,
-      back: `<html><body style="margin:0;padding:0;font-family:Helvetica,Arial,sans-serif"><table style="width:100%;height:100%;border-collapse:collapse;table-layout:fixed"><tr><td style="width:44%;vertical-align:top;padding:18px 14px;border-right:1px solid #ccc"><p style="font-size:${lobFontSize}px;line-height:1.5;color:#333;margin:0;white-space:pre-wrap">${safeMessage}</p>${locationHtml}</td><td style="width:56%;vertical-align:top;padding:0"><table style="width:100%;border-collapse:collapse"><tr><td style="text-align:center;padding:28px 14px 20px 14px"><p style="font-size:8px;font-weight:bold;color:#444;margin:0 0 8px 0;letter-spacing:2px;text-transform:uppercase">Snap Send</p><img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&color=222222&bgcolor=ffffff&data=https://snapsend.live" width="80" height="80" style="display:block;margin:0 auto" /><p style="font-size:8px;color:#888;margin:8px 0 0 0;letter-spacing:1px">Send Joy</p></td></tr><tr><td style="padding:0 14px"><hr style="border:none;border-top:1px solid #ddd;margin:0" /></td></tr><tr><td style="padding:10px 14px 0 14px">{{from_address}}</td></tr><tr><td style="padding:6px 14px 10px 14px">{{to_address}}</td></tr></table></td></tr></table></body></html>`,
+      back: `<html><body style="margin:0;padding:0;font-family:Helvetica,Arial,sans-serif"><table style="width:100%;height:100%;border-collapse:collapse;table-layout:fixed"><tr><td style="width:44%;vertical-align:top;padding:18px 14px;border-right:1px solid #ccc"><p style="font-size:${lobFontSize}px;line-height:1.5;color:#333;margin:0;white-space:pre-wrap">${safeMessage}</p>${locationHtml}</td><td style="width:56%;vertical-align:top;padding:0"><table style="width:100%;border-collapse:collapse"><tr><td style="text-align:center;padding:28px 14px 20px 14px"><p style="font-size:8px;font-weight:bold;color:#444;margin:0 0 8px 0;letter-spacing:2px;text-transform:uppercase">Snap Send</p><img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&color=222222&bgcolor=ffffff&data=https://snapsend.live" width="80" height="80" style="display:block;margin:0 auto" /><p style="font-size:8px;color:#888;margin:8px 0 0 0;letter-spacing:1px">Send Joy</p></td></tr><tr><td style="padding:0 14px"><hr style="border:none;border-top:1px solid #ddd;margin:0" /></td></tr><tr><td style="padding:10px 14px 4px 14px">${fromHtml}</td></tr><tr><td style="padding:4px 14px 10px 14px">${toHtml}</td></tr></table></td></tr></table></body></html>`,
       to: {
         name: recipientSnapshot.full_name,
         address_line1: recipientSnapshot.line1,
