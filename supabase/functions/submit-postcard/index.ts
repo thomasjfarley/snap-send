@@ -7,6 +7,7 @@ const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')!;
 const LOB_API_KEY = Deno.env.get('LOB_API_KEY')!;
 const GOOGLE_VISION_API_KEY = Deno.env.get('GOOGLE_VISION_API_KE');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const LOB_BASE_URL = 'https://api.lob.com/v1';
@@ -40,9 +41,12 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) return jsonResponse({ error: 'Unauthorized' }, 401);
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser(
-      authHeader.replace('Bearer ', ''),
-    );
+    // Use a user-context client so getUser() delegates verification to
+    // Supabase's auth server — supports both HS256 and ES256 JWT algorithms.
+    const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user }, error: authError } = await userClient.auth.getUser();
     if (authError || !user) return jsonResponse({ error: 'Unauthorized' }, 401);
 
     const {
