@@ -156,7 +156,7 @@ serve(async (req) => {
       size: '4x6',
       use_type: 'operational',
       front: frontUrl,
-      back: `<html><body style="margin:0;padding:0;font-family:Helvetica,Arial,sans-serif"><div style="width:38%;padding:20px"><p style="font-size:13px;line-height:1.5;color:#333;margin:0;white-space:pre-wrap">${safeMessage}</p></div></body></html>`,
+      back: `<html><body style="margin:0;padding:0;font-family:Helvetica,Arial,sans-serif"><table style="width:100%;height:100%;border-collapse:collapse;table-layout:fixed"><tr><td style="width:47%;vertical-align:top;padding:16px 12px;border-right:1px solid #ddd"><p style="font-size:13px;line-height:1.5;color:#333;margin:0;white-space:pre-wrap">${safeMessage}</p></td><td style="width:53%;vertical-align:top;padding:8px 14px"><table style="width:100%;border-collapse:collapse;margin-bottom:10px"><tr><td style="text-align:center;padding-bottom:3px"><span style="font-size:7px;font-weight:bold;color:#444;letter-spacing:1px;text-transform:uppercase">Snap Send</span></td></tr><tr><td style="text-align:center"><img src="https://api.qrserver.com/v1/create-qr-code/?size=70x70&color=333333&bgcolor=ffffff&data=https://snapsend.live" width="60" height="60" /></td></tr><tr><td style="text-align:center;padding-top:3px"><span style="font-size:7px;color:#666;letter-spacing:1px">Send Joy</span></td></tr></table><hr style="border:none;border-top:1px solid #ddd;margin:8px 0" />{{to_address}}{{from_address}}</td></tr></table></body></html>`,
       to: {
         name: recipientSnapshot.full_name,
         address_line1: recipientSnapshot.line1,
