@@ -98,6 +98,10 @@ export default function PreviewScreen() {
         const safetyHttpStatus = (safetyError as any)?.context?.status ?? null;
         if (safetyHttpStatus === 422) {
           setPreloadStatus('rejected');
+          Alert.alert(
+            'Why can\'t this image be mailed?',
+            'Our mail carrier requires all postcards to meet postal content guidelines. This image was flagged and cannot be physically mailed. Please go back and choose a different photo.',
+          );
           return;
         }
         // 503 = Vision API unavailable, allow through; other errors are non-blocking
