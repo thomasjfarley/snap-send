@@ -170,6 +170,8 @@ export default function PreviewScreen() {
   const overlay = FILTER_OVERLAYS[filterId];
   const isGrayscale = filterId === 'bw';
   const priceStr = `$${(POSTCARD_PRICE_CENTS / 100).toFixed(2)}`;
+
+  function toggleRejectedInfo() {
     Alert.alert(
       'Why can\'t this image be mailed?',
       'Our mail carrier requires all postcards to meet postal content guidelines. This image was flagged and cannot be physically mailed. Please go back and choose a different photo.',
