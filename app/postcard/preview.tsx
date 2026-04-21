@@ -35,6 +35,24 @@ const { width: SCREEN_W } = Dimensions.get('window');
 const CARD_W = SCREEN_W - SPACING.xl * 2;
 const CARD_H = CARD_W * (3 / 4);
 
+// Draws a location pin shape (circle head + tapered tail) to match server-side rendering.
+function PinIcon({ height, color = '#fff' }: { height: number; color?: string }) {
+  const r = Math.round(height * 0.32);
+  const circleD = r * 2;
+  const tailH = height - r;
+  return (
+    <View style={{ width: circleD, height, alignItems: 'center' }}>
+      <View style={{ width: circleD, height: circleD, borderRadius: r, backgroundColor: color, position: 'absolute', top: 0 }} />
+      <View style={{
+        width: 0, height: 0,
+        borderLeftWidth: r, borderRightWidth: r, borderTopWidth: tailH,
+        borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: color,
+        position: 'absolute', top: r,
+      }} />
+    </View>
+  );
+}
+
 export default function PreviewScreen() {
   const router = useRouter();
   const { photoUri, filterId, frameId, message, location, recipient, reset, setJustSent } = usePostcardStore();
@@ -349,7 +367,8 @@ export default function PreviewScreen() {
             {overlay && <View style={[StyleSheet.absoluteFill, { backgroundColor: overlay.color, opacity: overlay.opacity }]} />}
             {!!location && (
               <View style={styles.locationBadge}>
-                <Text style={styles.locationBadgeText} numberOfLines={1}>📍 {location}</Text>
+                <PinIcon height={11} />
+                <Text style={styles.locationBadgeText} numberOfLines={1}>{location}</Text>
               </View>
             )}
           </View>
@@ -453,9 +472,10 @@ function makeStyles(colors: AppColors) {
     backMessageText: { fontSize: FONT_SIZE.sm, color: '#333' },
     backLocationText: { fontSize: 7, color: '#888', marginTop: 6 },
     locationBadge: {
-      position: 'absolute', bottom: 8, left: 8,
-      backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 4,
-      paddingHorizontal: 6, paddingVertical: 3, maxWidth: '80%',
+      position: 'absolute', bottom: 24, left: 24,
+      backgroundColor: 'rgba(0,0,0,0.65)', borderRadius: 100,
+      paddingHorizontal: 10, paddingVertical: 6,
+      maxWidth: '80%', flexDirection: 'row', alignItems: 'center', gap: 4,
     },
     locationBadgeText: { fontSize: 9, color: '#fff' },
     backDivider: { width: 1, backgroundColor: '#D0CCAA', marginHorizontal: SPACING.sm },

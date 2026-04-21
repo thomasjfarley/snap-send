@@ -62,6 +62,58 @@ async function getFont(): Promise<Uint8Array | null> {
   return null;
 }
 
+// ── Helper: round the corners of an imagescript Image via pixel masking ──────
+// imagescript has no native rounded-rect fill; we mask corner pixels manually.
+// Coordinates are 1-indexed (imagescript convention).
+function roundCorners(image: InstanceType<typeof Image>, radius: number): void {
+  const w = image.width, h = image.height;
+  for (let y = 1; y <= h; y++) {
+    for (let x = 1; x <= w; x++) {
+      const xi = x - 1, yi = y - 1;
+      const inCorner =
+        (xi < radius && yi < radius) ||
+        (xi >= w - radius && yi < radius) ||
+        (xi < radius && yi >= h - radius) ||
+        (xi >= w - radius && yi >= h - radius);
+      if (inCorner) {
+        const cx = xi < radius ? radius : w - 1 - radius;
+        const cy = yi < radius ? radius : h - 1 - radius;
+        if (Math.sqrt((xi - cx) ** 2 + (yi - cy) ** 2) > radius) {
+          image.setPixelAt(x, y, 0); // fully transparent
+        }
+      }
+    }
+  }
+}
+
+// ── Helper: draw a white location-pin icon (circle head + tapered tail) ───────
+// Uses the same proportions as the React Native PinIcon component in preview.tsx
+// so the badge looks consistent between the in-app preview and the Lob print.
+// All coordinates use imagescript's 1-indexed convention.
+function createPinIcon(h: number): InstanceType<typeof Image> {
+  const r = Math.round(h * 0.32);
+  const w = r * 2 + 2;   // +2 so the circle doesn't clip at edges
+  const cx = w / 2;       // circle center x (0-indexed float)
+  const cy = r + 1;       // circle center y (0-indexed float)
+  const icon = new Image(w, h);
+  for (let iy = 1; iy <= h; iy++) {
+    for (let ix = 1; ix <= w; ix++) {
+      const px = ix - 0.5;  // pixel center, 0-indexed
+      const py = iy - 0.5;
+      const inCircle = (px - cx) ** 2 + (py - cy) ** 2 <= r * r;
+      let inTail = false;
+      if (!inCircle && py > cy) {
+        const t = (py - cy) / (h - cy);
+        inTail = Math.abs(px - cx) <= r * (1 - t);
+      }
+      if (inCircle || inTail) {
+        icon.setPixelAt(ix, iy, 0xFFFFFFFF);
+      }
+    }
+  }
+  return icon;
+}
+
 // ── Helper: parse #RRGGBB hex → 32-bit RGBA (imagescript format) ──────────────
 function hexToRGBA(hex: string, alpha = 255): number {
   const h = hex.replace('#', '');
@@ -250,27 +302,43 @@ serve(async (req) => {
         console.error('[submit-postcard] cover resize failed:', stepErr);
       }
 
-      // ── Location badge: semi-translucent black pill bottom-left ───────────
-      // Drawn LAST, sized against the final 1875×1275 canvas, so gamma/
-      // saturation/resize cannot dull, crop, or distort it. Mirrors the
-      // Preview screen's `locationBadge` style.
+      // ── Location badge: Instagram-style pill, bottom-left ────────────────
+      // White pin icon + location text on a dark semi-translucent background.
+      // Drawn LAST so it's unaffected by any earlier color corrections.
+      // Mirrors the PinIcon component + locationBadge style in preview.tsx.
       if (location) {
         try {
           const font = await getFont();
           if (!font) {
             console.error('[submit-postcard] location badge skipped: font unavailable');
           } else {
-            const badgeFontSize = Math.round(img.width * 0.022); // ~41px on 1875-wide
-            const badgePad = Math.round(badgeFontSize * 0.55);
-            const inset = Math.round(img.width * 0.012);         // ~22px margin
+            const badgeFontSize = Math.round(img.width * 0.022);    // ~41px on 1875-wide
+            const badgePad     = Math.round(badgeFontSize * 0.55);  // ~22px
+            const inset        = Math.round(img.width * 0.040);     // ~75px — matches reference positioning
+            const iconGap      = Math.round(badgePad * 0.4);        // gap between pin and text
+
             const textImg = await Image.renderText(font, badgeFontSize, String(location), 0xFFFFFFFF);
-            const badgeW = textImg.width + badgePad * 2;
+            const iconH   = Math.round(badgeFontSize * 1.3);
+            const pinIcon = createPinIcon(iconH);
+            const iconW   = pinIcon.width;
+
             const badgeH = textImg.height + badgePad * 2;
-            // Semi-translucent black background (alpha 0xB3 ≈ 70%) for legibility
-            // on bright photos; matches Preview visual weight.
+            const badgeW = badgePad + iconW + iconGap + textImg.width + badgePad;
+
             const badge = new Image(badgeW, badgeH);
-            badge.fill(0x000000B3);
-            badge.composite(textImg, badgePad, badgePad);
+            badge.fill(0x000000A6);  // ~65% opacity — matches rgba(0,0,0,0.65) in preview
+
+            // Composite pin icon: vertically centered
+            const iconY = Math.max(1, Math.round((badgeH - iconH) / 2));
+            badge.composite(pinIcon, badgePad, iconY);
+
+            // Composite text: vertically centered
+            const textY = Math.max(1, Math.round((badgeH - textImg.height) / 2));
+            badge.composite(textImg, badgePad + iconW + iconGap, textY);
+
+            // Full pill shape
+            roundCorners(badge, Math.round(badgeH / 2));
+
             img.composite(badge, inset, img.height - badgeH - inset);
           }
         } catch (badgeErr) {
