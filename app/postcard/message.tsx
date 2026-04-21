@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ActivityIndicator, FlatList,
@@ -23,6 +23,16 @@ interface NominatimResult {
   };
 }
 
+interface ReverseResult {
+  display_name: string;
+  address?: {
+    neighbourhood?: string; suburb?: string; hamlet?: string; quarter?: string;
+    city?: string; town?: string; village?: string; county?: string; state?: string;
+  };
+}
+
+interface LocationOption { id: number; label: string }
+
 function formatLocationLabel(item: NominatimResult): string {
   const parts = item.display_name.split(', ');
   const name = parts[0];
@@ -39,11 +49,25 @@ export default function MessageScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [locationQuery, setLocationQuery] = useState(location ?? '');
-  const [locationResults, setLocationResults] = useState<NominatimResult[]>([]);
+  const [locationResults, setLocationResults] = useState<LocationOption[]>([]);
   const [locationLoading, setLocationLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gpsCoords = useRef<{ lat: number; lon: number } | null>(null);
+
+  // Fetch GPS on mount so coords are ready before the user starts typing
+  useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') return;
+        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        gpsCoords.current = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+      } catch {
+        // GPS is optional — silently skip
+      }
+    })();
+  }, []);
 
   function handleNext() {
     if (message.trim().length === 0) return;
@@ -51,23 +75,29 @@ export default function MessageScreen() {
   }
 
   async function handleLocationFocus() {
-    // Only fetch GPS suggestions if the field is empty
-    if (locationQuery.trim()) return;
+    // Only show GPS suggestions when field is empty and coords are available
+    if (locationQuery.trim() || !gpsCoords.current) return;
+    const { lat, lon } = gpsCoords.current;
     setLocationLoading(true);
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
-      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const { latitude: lat, longitude: lon } = pos.coords;
-      gpsCoords.current = { lat, lon };
-      // Reverse geocode to get nearby place names
       const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?lat=${lat}&lon=${lon}&format=json&limit=5&addressdetails=1`,
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=10&addressdetails=1`,
         { headers: { 'User-Agent': 'SnapSend/1.0 (snapsend.live)' } },
       );
-      const data: NominatimResult[] = await res.json();
-      if (data.length > 0) {
-        setLocationResults(data);
+      const data: ReverseResult = await res.json();
+      const addr = data.address ?? {};
+      const neighbourhood = addr.neighbourhood ?? addr.suburb ?? addr.hamlet ?? addr.quarter ?? '';
+      const city = addr.city ?? addr.town ?? addr.village ?? addr.county ?? '';
+      const state = addr.state ?? '';
+
+      const variants: string[] = [];
+      if (neighbourhood && city) variants.push([neighbourhood, city, state].filter(Boolean).join(', '));
+      if (city) variants.push([city, state].filter(Boolean).join(', '));
+      if (addr.county && addr.county !== city && state) variants.push([addr.county, state].filter(Boolean).join(', '));
+
+      const unique = [...new Set(variants)];
+      if (unique.length > 0) {
+        setLocationResults(unique.map((label, i) => ({ id: -(i + 1), label })));
         setShowDropdown(true);
       }
     } catch {
@@ -102,7 +132,7 @@ export default function MessageScreen() {
         { headers: { 'User-Agent': 'SnapSend/1.0 (snapsend.live)' } },
       );
       const data: NominatimResult[] = await res.json();
-      setLocationResults(data);
+      setLocationResults(data.map((r) => ({ id: r.place_id, label: formatLocationLabel(r) })));
       setShowDropdown(data.length > 0);
     } catch {
       // silently fail — location is optional
@@ -111,8 +141,7 @@ export default function MessageScreen() {
     }
   }
 
-  function selectLocation(item: NominatimResult) {
-    const label = formatLocationLabel(item);
+  function selectLocation(label: string) {
     setLocation(label);
     setLocationQuery(label);
     setShowDropdown(false);
@@ -189,12 +218,12 @@ export default function MessageScreen() {
               <FlatList
                 style={styles.dropdown}
                 data={locationResults}
-                keyExtractor={(item) => String(item.place_id)}
+                keyExtractor={(item) => String(item.id)}
                 keyboardShouldPersistTaps="handled"
                 scrollEnabled={false}
                 renderItem={({ item }) => (
-                  <TouchableOpacity style={styles.dropdownItem} onPress={() => selectLocation(item)}>
-                    <Text style={styles.dropdownText} numberOfLines={1}>{formatLocationLabel(item)}</Text>
+                  <TouchableOpacity style={styles.dropdownItem} onPress={() => selectLocation(item.label)}>
+                    <Text style={styles.dropdownText} numberOfLines={1}>{item.label}</Text>
                   </TouchableOpacity>
                 )}
               />

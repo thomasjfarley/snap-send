@@ -347,6 +347,11 @@ export default function PreviewScreen() {
             <Image source={{ uri: photoUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
             {isGrayscale && <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(128,128,128,0.55)' }]} />}
             {overlay && <View style={[StyleSheet.absoluteFill, { backgroundColor: overlay.color, opacity: overlay.opacity }]} />}
+            {!!location && (
+              <View style={styles.locationBadge}>
+                <Text style={styles.locationBadgeText} numberOfLines={1}>📍 {location}</Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -360,9 +365,6 @@ export default function PreviewScreen() {
               minimumFontScale={0.75}
               numberOfLines={30}
             >{message}</Text>
-            {!!location && (
-              <Text style={styles.backLocationText} numberOfLines={1}>📍 {location}</Text>
-            )}
           </View>
           <View style={styles.backDivider} />
           <View style={styles.backRight}>
@@ -450,6 +452,12 @@ function makeStyles(colors: AppColors) {
     backMessage: { flex: 3, paddingRight: SPACING.sm },
     backMessageText: { fontSize: FONT_SIZE.sm, color: '#333' },
     backLocationText: { fontSize: 7, color: '#888', marginTop: 6 },
+    locationBadge: {
+      position: 'absolute', bottom: 8, left: 8,
+      backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 4,
+      paddingHorizontal: 6, paddingVertical: 3, maxWidth: '80%',
+    },
+    locationBadgeText: { fontSize: 9, color: '#fff' },
     backDivider: { width: 1, backgroundColor: '#D0CCAA', marginHorizontal: SPACING.sm },
     backRight: { flex: 2, justifyContent: 'space-between' },
     backAddresses: { gap: SPACING.md, flex: 1, justifyContent: 'center' },

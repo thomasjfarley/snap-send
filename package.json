@@ -8,7 +8,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "eslint . --ext .ts,.tsx",
-    "format": "prettier --write \"**/*.{ts,tsx,json,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
+    "deploy:functions": "npx supabase functions deploy submit-postcard --no-verify-jwt"
   },
   "dependencies": {
     "@expo/metro-runtime": "^55.0.6",
