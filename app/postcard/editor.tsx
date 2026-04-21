@@ -1,9 +1,9 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import {
   View, Text, Image, TouchableOpacity, ScrollView,
-  StyleSheet, Dimensions, BackHandler, Platform,
+  StyleSheet, Dimensions, BackHandler,
 } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePostcardStore } from '@/store/postcard.store';
@@ -27,7 +27,7 @@ const PHOTO_H = PHOTO_W * (3 / 4);
 
 export default function EditorScreen() {
   const router = useRouter();
-  const { photoUri, filterId, frameId, setFilter, setFrame, justSent, reset, openedFromChooser, setOpenedFromChooser } = usePostcardStore();
+  const { photoUri, filterId, frameId, setFilter, setFrame, reset, openedFromChooser, setOpenedFromChooser } = usePostcardStore();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
@@ -39,55 +39,26 @@ export default function EditorScreen() {
       // If we have a previous route, prefer going back so navigation stack behaves naturally.
       if ((navigation as any)?.canGoBack && (navigation as any).canGoBack()) {
         (navigation as any).goBack();
-        setTimeout(() => { try { if (openedFromChooser) setOpenedFromChooser(false); reset(); } catch (e) {} }, 250);
+        setTimeout(() => { try { if (openedFromChooser) setOpenedFromChooser(false); reset(); } catch {} }, 250);
         return;
       }
 
       // Otherwise, explicitly navigate to the chooser. If this flow originated from the chooser,
       // clear the flag and reset the draft after a short delay to avoid triggering listeners during navigation.
       router.push('/postcard');
-      setTimeout(() => { try { if (openedFromChooser) setOpenedFromChooser(false); reset(); } catch (e) {} }, 250);
-    } catch (err) {
-      try { router.replace('/postcard'); } catch (_e) {}
-      setTimeout(() => { try { if (openedFromChooser) setOpenedFromChooser(false); reset(); } catch (e) {} }, 250);
+      setTimeout(() => { try { if (openedFromChooser) setOpenedFromChooser(false); reset(); } catch {} }, 250);
+    } catch {
+      try { router.replace('/postcard'); } catch {}
+      setTimeout(() => { try { if (openedFromChooser) setOpenedFromChooser(false); reset(); } catch {} }, 250);
     }
   }, [navigation, router, openedFromChooser, setOpenedFromChooser, reset]);
 
-  // When the editor mounts/unmounts, log navigation state to help debug stack issues
   React.useEffect(() => {
-    try {
-      const state = (navigation as any)?.getState?.();
-      console.log('[Editor] mount navigation state:', state);
-      try {
-        const fs = require('fs');
-        const path = require('path');
-        const p = path.resolve(__dirname, '..', '..', '.session-state', 'nav-logs.txt');
-        fs.appendFileSync(p, JSON.stringify({ when: 'mount', state, ts: Date.now() }) + "\n");
-      } catch (err) {
-        // noop
-      }
-    } catch (err) {
-      // noop
-    }
     return () => {
       try {
-        const state = (navigation as any)?.getState?.();
-        console.log('[Editor] unmount navigation state:', state);
-        try {
-          const fs = require('fs');
-          const path = require('path');
-          const p = path.resolve(__dirname, '..', '..', '.session-state', 'nav-logs.txt');
-          fs.appendFileSync(p, JSON.stringify({ when: 'unmount', state, ts: Date.now() }) + "\n");
-        } catch (err) {
-          // noop
-        }
-      } catch (err) {
-        // noop
-      }
-      try {
         // Clear store on unmount but do it safely (not synchronously during nav events)
-        setTimeout(() => { try { reset(); } catch (e) {} }, 50);
-      } catch (err) {
+        setTimeout(() => { try { reset(); } catch {} }, 50);
+      } catch {
         // noop
       }
     };

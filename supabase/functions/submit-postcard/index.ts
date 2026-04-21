@@ -7,7 +7,6 @@ const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')!;
 const LOB_API_KEY = Deno.env.get('LOB_API_KEY')!;
 const GOOGLE_VISION_API_KEY = Deno.env.get('GOOGLE_VISION_API_KE');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const LOB_BASE_URL = 'https://api.lob.com/v1';
@@ -41,12 +40,9 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) return jsonResponse({ error: 'Unauthorized' }, 401);
 
-    // Use a user-context client so getUser() delegates verification to
-    // Supabase's auth server — supports both HS256 and ES256 JWT algorithms.
-    const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user }, error: authError } = await userClient.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      authHeader.replace('Bearer ', ''),
+    );
     if (authError || !user) return jsonResponse({ error: 'Unauthorized' }, 401);
 
     const {
@@ -156,7 +152,10 @@ serve(async (req) => {
     const safeMessage = normalizedMessage.replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const safeLocation = location ? String(location).replace(/</g, '&lt;').replace(/>/g, '&gt;') : null;
     const msgLen = normalizedMessage.length;
-    const lobFontSize = msgLen < 100 ? 16 : msgLen < 250 ? 15 : msgLen < 400 ? 14 : 13;
+    const lineCount = safeMessage.split('\n').length;
+    const sizeByChars = msgLen < 100 ? 16 : msgLen < 250 ? 15 : msgLen < 400 ? 14 : 13;
+    const sizeByLines = lineCount <= 6 ? 16 : lineCount <= 10 ? 15 : lineCount <= 14 ? 14 : 13;
+    const lobFontSize = Math.min(sizeByChars, sizeByLines);
     const locationHtml = safeLocation
       ? `<p style="font-size:8px;color:#888;margin:8px 0 0 0">📍 ${safeLocation}</p>`
       : '';
@@ -176,7 +175,7 @@ serve(async (req) => {
       size: '4x6',
       use_type: 'operational',
       front: frontUrl,
-      back: `<html><body style="margin:0;padding:0;font-family:Helvetica,Arial,sans-serif"><table style="width:100%;height:100%;border-collapse:collapse;table-layout:fixed"><tr><td style="width:44%;vertical-align:top;padding:18px 14px;border-right:1px solid #ccc"><p style="font-size:${lobFontSize}px;line-height:1.5;color:#333;margin:0;white-space:pre-wrap">${safeMessage}</p>${locationHtml}</td><td style="width:56%;vertical-align:top;padding:0"><table style="width:100%;border-collapse:collapse"><tr><td style="text-align:center;padding:28px 14px 20px 14px"><p style="font-size:8px;font-weight:bold;color:#444;margin:0 0 8px 0;letter-spacing:2px;text-transform:uppercase">Snap Send</p><img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&color=222222&bgcolor=ffffff&data=https://snapsend.live" width="80" height="80" style="display:block;margin:0 auto" /><p style="font-size:8px;color:#888;margin:8px 0 0 0;letter-spacing:1px">Send Joy</p></td></tr><tr><td style="padding:0 14px"><hr style="border:none;border-top:1px solid #ddd;margin:0" /></td></tr><tr><td style="padding:10px 14px 4px 14px">${fromHtml}</td></tr><tr><td style="padding:4px 14px 10px 14px">${toHtml}</td></tr></table></td></tr></table></body></html>`,
+      back: `<html><body style="margin:0;padding:0;font-family:Helvetica,Arial,sans-serif"><table style="width:100%;height:100%;border-collapse:collapse;table-layout:fixed"><tr><td style="width:44%;vertical-align:top;padding:24px 10px 24px 24px"><p style="font-size:${lobFontSize}px;line-height:1.5;color:#333;margin:0;white-space:pre-wrap">${safeMessage}</p>${locationHtml}</td><td style="width:56%;vertical-align:top;padding:0"><table style="width:100%;border-collapse:collapse"><tr><td style="text-align:center;padding:28px 14px 20px 14px"><p style="font-size:8px;font-weight:bold;color:#444;margin:0 0 8px 0;letter-spacing:2px;text-transform:uppercase">Snap Send</p><img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&color=222222&bgcolor=ffffff&data=https://snapsend.live" width="80" height="80" style="display:block;margin:0 auto" /><p style="font-size:8px;color:#888;margin:8px 0 0 0;letter-spacing:1px">Send Joy</p></td></tr><tr><td style="padding:0 14px"><hr style="border:none;border-top:1px solid #ddd;margin:0" /></td></tr><tr><td style="padding:10px 14px 4px 14px">${fromHtml}</td></tr><tr><td style="padding:4px 14px 10px 14px">${toHtml}</td></tr></table></td></tr></table></body></html>`,
       to: {
         name: recipientSnapshot.full_name,
         address_line1: recipientSnapshot.line1,

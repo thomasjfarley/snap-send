@@ -217,21 +217,8 @@ export default function PreviewScreen() {
         sendInProgressRef.current = false;
         return;
       }
-      console.log('[presentPaymentSheet] payment confirmed');
-
       // Payment confirmed — now we can do async work freely.
-      // Refresh the token for the submit call.
-      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-      const freshToken = refreshData?.session?.access_token;
-      if (refreshError || !freshToken) {
-        console.error('[handleSend] session refresh failed', refreshError);
-        Alert.alert('Submission error', 'Payment was taken but we couldn\'t submit your postcard. Please contact support with your order details.');
-        setSending(false);
-        return;
-      }
-      console.log('[handleSend] session refreshed ok');
-
-      // Process the original full-resolution photo for Lob's required bleed
+      // Process the original full-resolution photofor Lob's required bleed
       // dimensions (1875×1275 px = 4×6 in at 300 DPI + 1/8" bleed).
       //
       // "Cover" resize: scale so the image fills the target frame on both axes
@@ -261,12 +248,8 @@ export default function PreviewScreen() {
         { compress: 0.97, format: ImageManipulator.SaveFormat.JPEG, base64: true },
       );
       const base64 = resized.base64!;
-      console.log('[handleSend] image captured, base64 length:', base64.length);
-
       // Submit postcard via Edge Function
-      console.log('[handleSend] calling submit-postcard...');
       const { data: submitData, error: submitError } = await supabase.functions.invoke('submit-postcard', {
-        headers: { Authorization: `Bearer ${freshToken}` },
         body: {
           imageBase64: base64,
           message,
@@ -307,8 +290,6 @@ export default function PreviewScreen() {
         throw new Error(`submit-postcard failed (${status}): ${detail}`);
       }
 
-      console.log('[submit-postcard] ok', submitData);
-
       // Save a high-quality thumbnail as a base64 data URI for order history display.
       // Non-fatal: the postcard is already sent if this fails.
       try {
@@ -323,7 +304,7 @@ export default function PreviewScreen() {
             setThumbnail(postcardId, `data:image/jpeg;base64,${thumb.base64}`);
           }
         }
-      } catch (thumbErr) {
+      } catch {
         // non-fatal
       }
 

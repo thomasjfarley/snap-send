@@ -28,7 +28,6 @@ export default function PostcardPhotoScreen() {
     if (prevPhotoRef.current === photoUri) return;
     prevPhotoRef.current = photoUri;
 
-    console.log('[Chooser] handoff — ensuring chooser then pushing editor for', photoUri);
     (async () => {
       try {
         // Ensure chooser exists in the stack: replace current route with chooser so next push places editor above it
@@ -92,7 +91,7 @@ export default function PostcardPhotoScreen() {
         if (mediaStatus === 'granted') {
           await MediaLibrary.saveToLibraryAsync(result.assets[0].uri);
         }
-      } catch (err) {
+      } catch {
         // non-fatal
       }
       setPhoto(result.assets[0].uri);

@@ -12,6 +12,7 @@ import type { AppColors } from '@/constants/theme';
 import { FONT_SIZE, SPACING } from '@/constants/theme';
 
 const MAX_CHARS = 500;
+const MAX_LINES = 18;
 
 interface NominatimResult {
   place_id: number;
@@ -142,7 +143,7 @@ export default function MessageScreen() {
           <View style={styles.labelRow}>
             <Text style={styles.label}>Your message</Text>
             <Text style={[styles.charCount, message.length > MAX_CHARS * 0.9 && { color: colors.error }]}>
-              {message.length}/{MAX_CHARS}
+              {message.length}/{MAX_CHARS} · {message.split('\n').length}/{MAX_LINES} lines
             </Text>
           </View>
 
@@ -153,7 +154,11 @@ export default function MessageScreen() {
             placeholder="Write something heartfelt..."
             placeholderTextColor={colors.textSecondary}
             value={message}
-            onChangeText={(t) => setMessage(t.slice(0, MAX_CHARS))}
+            onChangeText={(t) => {
+              const lines = t.split('\n');
+              const clamped = lines.slice(0, MAX_LINES).join('\n');
+              setMessage(clamped.slice(0, MAX_CHARS));
+            }}
             maxLength={MAX_CHARS}
             textAlignVertical="top"
             autoFocus
