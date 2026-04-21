@@ -435,6 +435,7 @@ serve(async (req) => {
       .insert({
         user_id: userId, message,
         frame: frame ?? 'none', filter: filter ?? 'none',
+        location: location ?? null,
         from_address_id: fromAddressId, to_address_id: toAddressId,
         recipient_snapshot: recipientSnapshot, status: 'submitted',
         lob_id: lobData.id, stripe_payment_intent_id: paymentIntentId,
