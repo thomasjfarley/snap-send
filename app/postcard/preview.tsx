@@ -357,8 +357,11 @@ export default function PreviewScreen() {
           ]}
         >
           <View style={{ position: 'relative', width: CARD_W - activeFrame.borderWidth * 2 - activeFrame.padding * 2, height: CARD_H - activeFrame.borderWidth * 2 - activeFrame.padding * 2 }}>
-            <Image source={{ uri: photoUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-            {isGrayscale && <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(128,128,128,0.55)' }]} />}
+            <Image
+              source={{ uri: photoUri }}
+              style={[StyleSheet.absoluteFill, isGrayscale && { filter: [{ grayscale: 1 }] }]}
+              resizeMode="cover"
+            />
             {overlay && <View style={[StyleSheet.absoluteFill, { backgroundColor: overlay.color, opacity: overlay.opacity }]} />}
             {!!location && (
               <View style={styles.locationBadge}>
