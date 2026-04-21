@@ -6,6 +6,7 @@ import {
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImageManipulator from 'expo-image-manipulator';
+import { captureRef } from 'react-native-view-shot';
 import { usePostcardStore } from '@/store/postcard.store';
 import { useProfileStore } from '@/store/profile.store';
 import { useAddressStore } from '@/store/address.store';
@@ -58,7 +59,7 @@ export default function PreviewScreen() {
   const { photoUri, filterId, frameId, message, location, recipient, reset, setJustSent } = usePostcardStore();
   const { profile } = useProfileStore();
   const { addresses } = useAddressStore();
-  const { setThumbnail } = useThumbnailsStore();
+  const { saveThumbnail } = useThumbnailsStore();
   const personalAddress = addresses.find((a) => a.is_personal);
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const cardFrontRef = useRef<View>(null); // used only for visual layout; no longer used for image capture
@@ -308,19 +309,13 @@ export default function PreviewScreen() {
         throw new Error(`submit-postcard failed (${status}): ${detail}`);
       }
 
-      // Save a high-quality thumbnail as a base64 data URI for order history display.
-      // Non-fatal: the postcard is already sent if this fails.
+      // Capture the rendered card front (with frame, filter, and location badge)
+      // as a thumbnail for order history. Non-fatal if it fails.
       try {
         const postcardId: string | null = submitData?.postcardId ?? null;
-        if (postcardId) {
-          const thumb = await ImageManipulator.manipulateAsync(
-            resized.uri,
-            [{ resize: { width: 800 } }],
-            { compress: 1, format: ImageManipulator.SaveFormat.JPEG, base64: true },
-          );
-          if (thumb.base64) {
-            setThumbnail(postcardId, `data:image/jpeg;base64,${thumb.base64}`);
-          }
+        if (postcardId && cardFrontRef.current) {
+          const capturedUri = await captureRef(cardFrontRef, { format: 'jpg', quality: 0.85 });
+          await saveThumbnail(postcardId, capturedUri);
         }
       } catch {
         // non-fatal
@@ -362,8 +357,11 @@ export default function PreviewScreen() {
           ]}
         >
           <View style={{ position: 'relative', width: CARD_W - activeFrame.borderWidth * 2 - activeFrame.padding * 2, height: CARD_H - activeFrame.borderWidth * 2 - activeFrame.padding * 2 }}>
-            <Image source={{ uri: photoUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-            {isGrayscale && <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(128,128,128,0.55)' }]} />}
+            <Image
+              source={{ uri: photoUri }}
+              style={[StyleSheet.absoluteFill, isGrayscale && { filter: [{ grayscale: 1 }] }]}
+              resizeMode="cover"
+            />
             {overlay && <View style={[StyleSheet.absoluteFill, { backgroundColor: overlay.color, opacity: overlay.opacity }]} />}
             {!!location && (
               <View style={styles.locationBadge}>

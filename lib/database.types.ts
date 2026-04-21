@@ -81,6 +81,7 @@ export interface Database {
           message: string;
           frame: string;
           filter: string;
+          location: string | null;
           from_address_id: string | null;
           to_address_id: string | null;
           recipient_snapshot: Json;
@@ -97,6 +98,7 @@ export interface Database {
           message?: string;
           frame?: string;
           filter?: string;
+          location?: string | null;
           from_address_id?: string | null;
           to_address_id?: string | null;
           recipient_snapshot?: Json;

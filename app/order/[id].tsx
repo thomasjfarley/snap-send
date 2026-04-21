@@ -155,6 +155,7 @@ export default function OrderDetailScreen() {
           <Row label="Amount" value={`$${(postcard.price_cents / 100).toFixed(2)}`} />
           <Row label="Frame" value={postcard.frame} />
           <Row label="Filter" value={postcard.filter} />
+          {postcard.location && <Row label="Location" value={postcard.location} />}
           {postcard.lob_id && <Row label="Tracking ID" value={postcard.lob_id} mono />}
           {postcard.mailed_at && <Row label="Mailed" value={formatDate(postcard.mailed_at)} />}
         </View>
