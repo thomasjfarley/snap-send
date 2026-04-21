@@ -85,7 +85,6 @@ export default function EditorScreen() {
 
   const activeFrame = FRAMES.find((f) => f.id === frameId)!;
   const overlay = FILTER_OVERLAYS[filterId];
-  const isGrayscale = filterId === 'bw';
 
   return (
     <SafeAreaView style={styles.container}>
@@ -113,12 +112,9 @@ export default function EditorScreen() {
           <View style={{ position: 'relative', width: PHOTO_W - activeFrame.borderWidth * 2 - activeFrame.padding * 2, height: PHOTO_H - activeFrame.borderWidth * 2 - activeFrame.padding * 2 }}>
             <Image
               source={{ uri: photoUri }}
-              style={StyleSheet.absoluteFill}
+              style={[StyleSheet.absoluteFill, filterId === 'bw' && { filter: [{ grayscale: 1 }] }]}
               resizeMode="cover"
             />
-            {isGrayscale && (
-              <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(128,128,128,0.55)' }]} />
-            )}
             {overlay && (
               <View style={[StyleSheet.absoluteFill, { backgroundColor: overlay.color, opacity: overlay.opacity }]} />
             )}
@@ -140,9 +136,8 @@ export default function EditorScreen() {
                 onPress={() => setFilter(f.id)}
               >
                 <View style={styles.thumbImg}>
-                  <Image source={{ uri: photoUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                  <Image source={{ uri: photoUri }} style={[StyleSheet.absoluteFill, f.id === 'bw' && { filter: [{ grayscale: 1 }] }]} resizeMode="cover" />
                   {ov && <View style={[StyleSheet.absoluteFill, { backgroundColor: ov.color, opacity: ov.opacity }]} />}
-                  {f.id === 'bw' && <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(128,128,128,0.55)' }]} />}
                 </View>
                 <Text style={[styles.thumbLabel, selected && { color: colors.primary }]}>{f.label}</Text>
               </TouchableOpacity>
