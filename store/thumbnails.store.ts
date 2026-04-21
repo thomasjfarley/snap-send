@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { documentDirectory, getInfoAsync, makeDirectoryAsync, copyAsync } from 'expo-file-system';
+import { documentDirectory, getInfoAsync, makeDirectoryAsync, copyAsync } from 'expo-file-system/legacy';
 
 const THUMB_DIR = (documentDirectory ?? '') + 'thumbnails/';
 
