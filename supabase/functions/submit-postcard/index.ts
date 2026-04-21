@@ -36,15 +36,6 @@ serve(async (req) => {
   let tempImagePath: string | null = null;
 
   try {
-    // ── 1. Auth ───────────────────────────────────────────────────────────────
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) return jsonResponse({ error: 'Unauthorized' }, 401);
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser(
-      authHeader.replace('Bearer ', ''),
-    );
-    if (authError || !user) return jsonResponse({ error: 'Unauthorized' }, 401);
-
     const {
       imageBase64, message, location, frame, filter,
       fromAddressId, toAddressId, recipientSnapshot, paymentIntentId,
@@ -54,16 +45,17 @@ serve(async (req) => {
       return jsonResponse({ error: 'Missing required fields' }, 400);
     }
 
-    // ── 2. Verify Stripe payment ──────────────────────────────────────────────
+    // ── 1. Verify Stripe payment and extract user identity ────────────────────
     const piRes = await fetch(`https://api.stripe.com/v1/payment_intents/${paymentIntentId}`, {
       headers: { Authorization: `Bearer ${STRIPE_SECRET_KEY}` },
     });
     const pi = await piRes.json();
-    if (!piRes.ok || pi.status !== 'succeeded' || pi.metadata?.user_id !== user.id) {
+    if (!piRes.ok || pi.status !== 'succeeded' || !pi.metadata?.user_id) {
       return jsonResponse({ error: 'Payment not confirmed' }, 402);
     }
+    const userId = pi.metadata.user_id;
 
-    // ── 3. SafeSearch (LEGAL REQUIREMENT — 18 U.S.C. § 1461) ─────────────────
+    // ── 2. SafeSearch (LEGAL REQUIREMENT — 18 U.S.C. § 1461) ─────────────────
     if (GOOGLE_VISION_API_KEY) {
       const visionRes = await fetch(
         `https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_VISION_API_KEY}`,
@@ -88,15 +80,15 @@ serve(async (req) => {
       console.warn('GOOGLE_VISION_API_KEY not set — skipping SafeSearch (dev only)');
     }
 
-    // ── 4. Fetch sender address ───────────────────────────────────────────────
+    // ── 3. Fetch sender address ───────────────────────────────────────────────
     const { data: fromAddress, error: fromErr } = await supabase
       .from('addresses').select('*')
-      .eq('id', fromAddressId).eq('user_id', user.id).single();
+      .eq('id', fromAddressId).eq('user_id', userId).single();
     if (fromErr || !fromAddress) return jsonResponse({ error: 'Sender address not found' }, 404);
 
-    // ── 5. Upload image to Storage so Lob can fetch via URL ───────────────────
+    // ── 4. Upload image to Storage so Lob can fetch via URL ───────────────────
     // Lob's inline HTML limit is 10,000 chars; base64 images far exceed that.
-    tempImagePath = `temp/${user.id}/${Date.now()}.jpg`;
+    tempImagePath = `temp/${userId}/${Date.now()}.jpg`;
     const rawImageBytes = Uint8Array.from(atob(imageBase64), (c) => c.charCodeAt(0));
 
     // Apply print-compensating corrections before sending to Lob.
@@ -146,7 +138,7 @@ serve(async (req) => {
       .from('postcard-fronts')
       .getPublicUrl(tempImagePath);
 
-    // ── 6. Send postcard via Lob ──────────────────────────────────────────────
+    // ── 5. Send postcard via Lob ──────────────────────────────────────────────
     const lobCredentials = btoa(`${LOB_API_KEY}:`);
     const normalizedMessage = (message ?? '').trim().replace(/\n{2,}/g, '\n');
     const safeMessage = normalizedMessage.replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -213,11 +205,11 @@ serve(async (req) => {
       return jsonResponse({ error: 'Failed to create postcard', lob_status: lobRes.status, lob_detail: lobData }, 502);
     }
 
-    // ── 7. Record in database ─────────────────────────────────────────────────
+    // ── 6. Record in database ─────────────────────────────────────────────────
     const { data: postcard, error: insertErr } = await supabase
       .from('postcards')
       .insert({
-        user_id: user.id, message,
+        user_id: userId, message,
         frame: frame ?? 'none', filter: filter ?? 'none',
         from_address_id: fromAddressId, to_address_id: toAddressId,
         recipient_snapshot: recipientSnapshot, status: 'submitted',
@@ -232,7 +224,7 @@ serve(async (req) => {
     }
 
     await supabase.from('orders').insert({
-      user_id: user.id, postcard_id: postcard.id,
+      user_id: userId, postcard_id: postcard.id,
       stripe_payment_intent_id: paymentIntentId,
       amount_cents: pi.amount, status: 'succeeded',
     });
