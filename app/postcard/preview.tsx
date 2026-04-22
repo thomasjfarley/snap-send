@@ -67,6 +67,7 @@ export default function PreviewScreen() {
   const sendInProgressRef = useRef(false);
   const paymentIntentIdRef = useRef<string | null>(null);
   const sheetInitializedRef = useRef(false);
+  const lobBase64Ref = useRef<string | null>(null);
   const [sending, setSending] = useState(false);
   // 'checking' = safety check + payment sheet init in progress
   // 'ready'    = payment sheet initialized, tap Send to present immediately
@@ -103,15 +104,35 @@ export default function PreviewScreen() {
           return;
         }
 
-        // Step 1: Safety check
-        const preCheck = await ImageManipulator.manipulateAsync(
+        // Step 1: Process to Lob print dimensions once — reused for both the pre-payment
+        // safety check and the final submit so Vision always scores the exact same image.
+        const LOB_W = 1875;
+        const LOB_H = 1275;
+        let lobStep = await ImageManipulator.manipulateAsync(
           photoUri,
-          [{ resize: { width: 800 } }],
-          { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+          [{ resize: { width: LOB_W } }],
+          { compress: 1, format: ImageManipulator.SaveFormat.JPEG },
         );
+        if (lobStep.height < LOB_H) {
+          lobStep = await ImageManipulator.manipulateAsync(
+            photoUri,
+            [{ resize: { height: LOB_H } }],
+            { compress: 1, format: ImageManipulator.SaveFormat.JPEG },
+          );
+        }
+        const lobCropX = Math.max(0, Math.round((lobStep.width - LOB_W) / 2));
+        const lobCropY = Math.max(0, Math.round((lobStep.height - LOB_H) / 2));
+        const lobResized = await ImageManipulator.manipulateAsync(
+          lobStep.uri,
+          [{ crop: { originX: lobCropX, originY: lobCropY, width: LOB_W, height: LOB_H } }],
+          { compress: 0.97, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+        );
+        lobBase64Ref.current = lobResized.base64!;
+
+        // Step 2: Safety check using the exact Lob image — matches submit-postcard
         const { error: safetyError } = await supabase.functions.invoke('check-image-safety', {
           headers: { Authorization: `Bearer ${token}` },
-          body: { imageBase64: preCheck.base64 },
+          body: { imageBase64: lobBase64Ref.current },
         });
         if (cancelled) return;
         const safetyHttpStatus = (safetyError as any)?.context?.status ?? null;
@@ -236,37 +257,9 @@ export default function PreviewScreen() {
         sendInProgressRef.current = false;
         return;
       }
-      // Payment confirmed — now we can do async work freely.
-      // Process the original full-resolution photofor Lob's required bleed
-      // dimensions (1875×1275 px = 4×6 in at 300 DPI + 1/8" bleed).
-      //
-      // "Cover" resize: scale so the image fills the target frame on both axes
-      // (no letterboxing, no stretching), then center-crop to exactly 1875×1275.
-      //   - If photo is taller than the Lob ratio (e.g. 4:3): constrain width → crop height
-      //   - If photo is wider than the Lob ratio (e.g. 3:2, 16:9): constrain height → crop width
-      const LOB_W = 1875;
-      const LOB_H = 1275;
-      let step1 = await ImageManipulator.manipulateAsync(
-        photoUri!,
-        [{ resize: { width: LOB_W } }],
-        { compress: 1, format: ImageManipulator.SaveFormat.JPEG },
-      );
-      // If constraining width produced a height shorter than needed, flip and constrain height instead
-      if (step1.height < LOB_H) {
-        step1 = await ImageManipulator.manipulateAsync(
-          photoUri!,
-          [{ resize: { height: LOB_H } }],
-          { compress: 1, format: ImageManipulator.SaveFormat.JPEG },
-        );
-      }
-      const cropX = Math.max(0, Math.round((step1.width - LOB_W) / 2));
-      const cropY = Math.max(0, Math.round((step1.height - LOB_H) / 2));
-      const resized = await ImageManipulator.manipulateAsync(
-        step1.uri,
-        [{ crop: { originX: cropX, originY: cropY, width: LOB_W, height: LOB_H } }],
-        { compress: 0.97, format: ImageManipulator.SaveFormat.JPEG, base64: true },
-      );
-      const base64 = resized.base64!;
+      // Payment confirmed. The Lob image was already processed during preload
+      // (same dimensions and quality as the pre-payment safety check).
+      const base64 = lobBase64Ref.current!;
       // Submit postcard via Edge Function
       const { data: submitData, error: submitError } = await supabase.functions.invoke('submit-postcard', {
         body: {
