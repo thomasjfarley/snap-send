@@ -324,8 +324,10 @@ export default function PreviewScreen() {
       submittedRef.current = true;
       setJustSent(true);   // set BEFORE reset so all guards skip
       reset();
-      // Dismiss the entire postcard modal stack and return to tabs.
-      router.dismissAll();
+      // Navigate to the tabs root. This bubbles up to the root Stack
+      // (the postcard internal Stack can't handle it), pops the postcard
+      // modal, and lands on the home tab — without any raw React Navigation APIs.
+      router.navigate('/(tabs)');
       return; // component unmounts; don't call setSending in finally
     } catch (err: any) {
       console.error('[handleSend] caught error:', err);
