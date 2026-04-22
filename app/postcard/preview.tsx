@@ -4,7 +4,6 @@ import {
   ScrollView, Dimensions, Alert, Platform, ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useNavigation, StackActions } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { captureRef } from 'react-native-view-shot';
@@ -57,7 +56,6 @@ function PinIcon({ height, color = '#fff' }: { height: number; color?: string })
 
 export default function PreviewScreen() {
   const router = useRouter();
-  const navigation = useNavigation();
   const { photoUri, filterId, frameId, message, location, recipient, reset, setJustSent } = usePostcardStore();
   const { profile } = useProfileStore();
   const { addresses } = useAddressStore();
@@ -326,9 +324,10 @@ export default function PreviewScreen() {
       submittedRef.current = true;
       setJustSent(true);   // set BEFORE reset so all guards skip
       reset();
-      // Dismiss the postcard modal via the root navigator so the entire modal
-      // (and its nested screens) is removed from history in one step.
-      navigation.getParent()?.dispatch(StackActions.pop(1));
+      // Dismiss the postcard modal and return to the home tab.
+      // dismissTo uses POP_TO (not NAVIGATE), so it pops the root Stack back
+      // to (tabs) without adding a history entry — no extra swipes needed.
+      router.dismissTo('/(tabs)');
       return; // component unmounts; don't call setSending in finally
     } catch (err: any) {
       console.error('[handleSend] caught error:', err);
