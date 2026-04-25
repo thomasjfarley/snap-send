@@ -13,6 +13,15 @@ import { FONT_SIZE, SPACING } from '@/constants/theme';
 
 const MAX_CHARS = 500;
 const MAX_LINES = 18;
+// Approximate characters that fit on one visual line of the printed card
+// (13px Helvetica in the 44%-wide message area at Lob's render resolution)
+const CHARS_PER_LINE = 32;
+
+function countVisualLines(text: string): number {
+  return text
+    .split('\n')
+    .reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / CHARS_PER_LINE)), 0);
+}
 
 interface NominatimResult {
   place_id: number;
@@ -184,7 +193,9 @@ export default function MessageScreen() {
             placeholderTextColor={colors.textSecondary}
             value={message}
             onChangeText={(t) => {
-              if (t.split('\n').length > MAX_LINES) return;
+              const lines = t.split('\n');
+              if (lines.length > MAX_LINES) return;
+              if (countVisualLines(t) > MAX_LINES) return;
               setMessage(t.slice(0, MAX_CHARS));
             }}
             maxLength={MAX_CHARS}
