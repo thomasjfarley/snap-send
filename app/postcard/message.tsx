@@ -14,8 +14,8 @@ import { FONT_SIZE, SPACING } from '@/constants/theme';
 const MAX_CHARS = 500;
 const MAX_LINES = 18;
 // Approximate characters that fit on one visual line of the printed card
-// (13px Helvetica in the 44%-wide message area at Lob's render resolution)
-const CHARS_PER_LINE = 32;
+// (13px Helvetica in the 48%-wide message area at Lob's render resolution)
+const CHARS_PER_LINE = 35;
 
 function countVisualLines(text: string): number {
   return text
