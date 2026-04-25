@@ -13,14 +13,16 @@ import { FONT_SIZE, SPACING } from '@/constants/theme';
 
 const MAX_CHARS = 500;
 const MAX_LINES = 18;
-// Approximate characters that fit on one visual line of the printed card
-// (13px Helvetica in the 48%-wide message area at Lob's render resolution)
-const CHARS_PER_LINE = 35;
+// Lob renders at 10px min, 219px content width. At 0.5 avg char width: 43 chars/line.
+// Using 40 as a conservative safety margin.
+const LOB_CHARS_PER_LINE = 40;
+// At 10px with 1.5 line-height, 336px content height fits 22 visual lines.
+const LOB_MAX_VISUAL = 22;
 
-function countVisualLines(text: string): number {
+function countLobVisualLines(text: string): number {
   return text
     .split('\n')
-    .reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / CHARS_PER_LINE)), 0);
+    .reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / LOB_CHARS_PER_LINE)), 0);
 }
 
 interface NominatimResult {
@@ -181,7 +183,7 @@ export default function MessageScreen() {
           <View style={styles.labelRow}>
             <Text style={styles.label}>Your message</Text>
             <Text style={[styles.charCount, message.length > MAX_CHARS * 0.9 && { color: colors.error }]}>
-              {message.length}/{MAX_CHARS} · {message.split('\n').length}/{MAX_LINES} lines
+              {message.length}/{MAX_CHARS} · {countLobVisualLines(message.trim())}/{LOB_MAX_VISUAL} lines
             </Text>
           </View>
 
@@ -193,9 +195,8 @@ export default function MessageScreen() {
             placeholderTextColor={colors.textSecondary}
             value={message}
             onChangeText={(t) => {
-              const lines = t.split('\n');
-              if (lines.length > MAX_LINES) return;
-              if (countVisualLines(t) > MAX_LINES) return;
+              if (t.split('\n').length > MAX_LINES) return;
+              if (countLobVisualLines(t.trim()) > LOB_MAX_VISUAL) return;
               setMessage(t.slice(0, MAX_CHARS));
             }}
             maxLength={MAX_CHARS}

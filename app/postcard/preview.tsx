@@ -194,11 +194,17 @@ export default function PreviewScreen() {
   }, [photoUri]);
 
   const messageFontSize = useMemo(() => {
-    const len = (message ?? '').length;
-    const lines = (message ?? '').split('\n').length;
-    const byChars = len < 60 ? 18 : len < 120 ? 16 : len < 200 ? 14 : len < 300 ? 12 : 10;
-    const byLines = lines <= 4 ? 18 : lines <= 8 ? 16 : lines <= 12 ? 14 : lines <= 16 ? 12 : 10;
-    return Math.min(byChars, byLines);
+    const trimmed = (message ?? '').trim();
+    const len = trimmed.length;
+    const lines = trimmed.split('\n').length;
+    const LOB_CHARS_PER_LINE = 40;
+    const visualLines = trimmed
+      .split('\n')
+      .reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / LOB_CHARS_PER_LINE)), 0);
+    const byChars = len < 80 ? 18 : len < 200 ? 16 : len < 350 ? 14 : 12;
+    const byLines = lines <= 5 ? 18 : lines <= 9 ? 16 : lines <= 13 ? 14 : 12;
+    const byVisual = visualLines <= 7 ? 18 : visualLines <= 12 ? 16 : visualLines <= 17 ? 14 : 12;
+    return Math.min(byChars, byLines, byVisual);
   }, [message]);
 
   if (!photoUri || !recipient) {
@@ -372,7 +378,7 @@ export default function PreviewScreen() {
         <View style={styles.cardBack}>
           <View style={styles.backMessage}>
             <Text
-              style={[styles.backMessageText, { fontSize: messageFontSize }]}
+              style={[styles.backMessageText, { fontSize: messageFontSize, lineHeight: messageFontSize * 1.5 }]}
               adjustsFontSizeToFit
               minimumFontScale={0.75}
               numberOfLines={30}
@@ -461,7 +467,7 @@ function makeStyles(colors: AppColors) {
       flexDirection: 'row', padding: SPACING.md,
       overflow: 'hidden',
     },
-    backMessage: { flex: 3, paddingRight: SPACING.sm },
+    backMessage: { width: Math.round(CARD_W * 0.44), flexShrink: 0, paddingRight: SPACING.sm },
     backMessageText: { fontSize: FONT_SIZE.sm, color: '#333' },
     backLocationText: { fontSize: 7, color: '#888', marginTop: 6 },
     locationBadge: {
@@ -472,7 +478,7 @@ function makeStyles(colors: AppColors) {
     },
     locationBadgeText: { fontSize: 9, color: '#fff' },
     backDivider: { width: 1, backgroundColor: '#D0CCAA', marginHorizontal: SPACING.sm },
-    backRight: { flex: 2, justifyContent: 'space-between' },
+    backRight: { flex: 1, justifyContent: 'space-between' },
     backAddresses: { gap: SPACING.md, flex: 1, justifyContent: 'center' },
     addressBlock: { gap: 2 },
     addrLabel: { fontSize: 8, fontWeight: '700', color: '#999', letterSpacing: 1 },
