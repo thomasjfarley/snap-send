@@ -195,11 +195,10 @@ export default function PreviewScreen() {
 
   const messageFontSize = useMemo(() => {
     const len = (message ?? '').length;
-    if (len < 60)  return 18;
-    if (len < 120) return 16;
-    if (len < 200) return 14;
-    if (len < 300) return 12;
-    return 10;
+    const lines = (message ?? '').split('\n').length;
+    const byChars = len < 60 ? 18 : len < 120 ? 16 : len < 200 ? 14 : len < 300 ? 12 : 10;
+    const byLines = lines <= 4 ? 18 : lines <= 8 ? 16 : lines <= 12 ? 14 : lines <= 16 ? 12 : 10;
+    return Math.min(byChars, byLines);
   }, [message]);
 
   if (!photoUri || !recipient) {
