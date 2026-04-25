@@ -186,7 +186,12 @@ export default function MessageScreen() {
             onChangeText={(t) => {
               const lines = t.split('\n');
               const clamped = lines.slice(0, MAX_LINES).join('\n');
-              setMessage(clamped.slice(0, MAX_CHARS));
+              const trimmed = clamped.slice(0, MAX_CHARS);
+              // At max lines, only allow deletions/replacements that shorten the text
+              if (trimmed.split('\n').length >= MAX_LINES && trimmed.length > message.length) {
+                return;
+              }
+              setMessage(trimmed);
             }}
             maxLength={MAX_CHARS}
             textAlignVertical="top"
