@@ -204,7 +204,10 @@ export default function PreviewScreen() {
     const byChars = len < 80 ? 18 : len < 200 ? 16 : len < 350 ? 14 : 12;
     const byLines = lines <= 5 ? 18 : lines <= 9 ? 16 : lines <= 13 ? 14 : 12;
     const byVisual = visualLines <= 7 ? 18 : visualLines <= 12 ? 16 : visualLines <= 17 ? 14 : 12;
-    return Math.min(byChars, byLines, byVisual);
+    // Ensure all lines fit vertically within the preview card height
+    const availableH = CARD_H - SPACING.md * 2;
+    const byFit = visualLines > 0 ? Math.floor(availableH / (visualLines * 1.5)) : 18;
+    return Math.min(byChars, byLines, byVisual, byFit);
   }, [message]);
 
   if (!photoUri || !recipient) {
