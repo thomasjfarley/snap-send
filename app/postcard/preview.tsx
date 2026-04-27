@@ -379,9 +379,6 @@ export default function PreviewScreen() {
           <View style={styles.backMessage}>
             <Text
               style={[styles.backMessageText, { fontSize: messageFontSize, lineHeight: messageFontSize * 1.5 }]}
-              adjustsFontSizeToFit
-              minimumFontScale={0.75}
-              numberOfLines={30}
             >{message}</Text>
           </View>
           <View style={styles.backDivider} />

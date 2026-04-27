@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, Image, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator,
+  ScrollView, ActivityIndicator, Dimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,6 +11,11 @@ import type { Postcard } from '@/lib/database.types';
 import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
 import { FONT_SIZE, SPACING } from '@/constants/theme';
+
+const { width: SCREEN_W } = Dimensions.get('window');
+const CARD_W = SCREEN_W - SPACING.xl * 2;
+const CARD_H = CARD_W * (3 / 4);
+const LOB_CHARS_PER_LINE = 40;
 
 const STATUS_STEPS: Postcard['status'][] = ['pending', 'paid', 'submitted', 'mailed'];
 
@@ -37,6 +42,19 @@ export default function OrderDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { getThumbnailPath } = useThumbnailsStore();
+
+  const messageFontSize = useMemo(() => {
+    const trimmed = (postcard?.message ?? '').trim();
+    const len = trimmed.length;
+    const lines = trimmed.split('\n').length;
+    const visualLines = trimmed
+      .split('\n')
+      .reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / LOB_CHARS_PER_LINE)), 0);
+    const byChars = len < 80 ? 18 : len < 200 ? 16 : len < 350 ? 14 : 12;
+    const byLines = lines <= 5 ? 18 : lines <= 9 ? 16 : lines <= 13 ? 14 : 12;
+    const byVisual = visualLines <= 7 ? 18 : visualLines <= 12 ? 16 : visualLines <= 17 ? 14 : 12;
+    return Math.min(byChars, byLines, byVisual);
+  }, [postcard?.message]);
 
   useEffect(() => {
     if (!id) return;
@@ -130,10 +148,7 @@ export default function OrderDetailScreen() {
         <View style={styles.postcardBack}>
           <View style={styles.backLeft}>
             <Text
-              style={styles.messageText}
-              adjustsFontSizeToFit
-              minimumFontScale={0.4}
-              numberOfLines={15}
+              style={[styles.messageText, { fontSize: messageFontSize, lineHeight: messageFontSize * 1.5 }]}
             >{postcard.message}</Text>
           </View>
           <View style={styles.backDivider} />
@@ -202,13 +217,13 @@ function makeStyles(colors: AppColors) {
     postcardBack: {
       backgroundColor: '#FFFEF0', borderRadius: 12,
       borderWidth: 1, borderColor: '#E0DCC8',
-      flexDirection: 'row', padding: SPACING.md, height: 140,
+      flexDirection: 'row', padding: SPACING.md, height: CARD_H,
       overflow: 'hidden',
     },
-    backLeft: { flex: 3, paddingRight: SPACING.sm },
-    messageText: { fontSize: FONT_SIZE.sm, color: '#333' },
+    backLeft: { width: Math.round(CARD_W * 0.44), flexShrink: 0, paddingRight: SPACING.sm },
+    messageText: { color: '#333' },
     backDivider: { width: 1, backgroundColor: '#D0CCAA', marginHorizontal: SPACING.sm },
-    backRight: { flex: 2, justifyContent: 'center' },
+    backRight: { flex: 1, justifyContent: 'center' },
     addrBlock: { gap: 2 },
     addrLabel: { fontSize: 8, fontWeight: '700', color: '#999', letterSpacing: 1 },
     addrName: { fontSize: 11, fontWeight: '600', color: '#333' },
