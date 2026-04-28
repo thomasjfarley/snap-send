@@ -244,7 +244,10 @@ serve(async (req) => {
         const frameDef = FRAMES_DATA.find((f) => f.id === frame);
         if (frameDef && frameDef.borderWidth > 0) {
           const scale = img.width / 327;
-          const borderPx = Math.round((frameDef.borderWidth + frameDef.padding) * scale);
+          // Lob bleeds 0.125" on each side (37.5px at 300 DPI on a 1875px image).
+          // We add that offset so the visible border after bleed matches the CSS preview.
+          const BLEED_PX = Math.round(0.125 * (img.width / 6.25)); // ~38px for 1875px images
+          const borderPx = Math.round((frameDef.borderWidth + frameDef.padding) * scale) + BLEED_PX;
           const rawColor = hexToRGBA(frameDef.borderColor === 'transparent' ? '#FFFFFF' : frameDef.borderColor);
           const fr = (rawColor >>> 24) & 0xFF;
           const fg = (rawColor >>> 16) & 0xFF;
