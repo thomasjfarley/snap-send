@@ -6,7 +6,6 @@ const config = getDefaultConfig(__dirname);
 // Redirect native-only packages to empty stubs when bundling for web
 const NATIVE_ONLY = [
   '@stripe/stripe-react-native',
-  'react-native-view-shot',
 ];
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {

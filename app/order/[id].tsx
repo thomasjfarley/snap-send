@@ -6,7 +6,6 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
-import { useThumbnailsStore } from '@/store/thumbnails.store';
 import type { Postcard } from '@/lib/database.types';
 import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
@@ -41,7 +40,6 @@ export default function OrderDetailScreen() {
   const [postcard, setPostcard] = useState<Postcard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { getThumbnailPath } = useThumbnailsStore();
 
   const messageFontSize = useMemo(() => {
     const trimmed = (postcard?.message ?? '').trim();
@@ -100,7 +98,6 @@ export default function OrderDetailScreen() {
   const status = STATUS_INFO[postcard.status];
   const isFailed = postcard.status === 'failed';
   const currentStepIndex = STATUS_STEPS.indexOf(postcard.status as any);
-  const thumbUri = getThumbnailPath(postcard.id);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -113,9 +110,9 @@ export default function OrderDetailScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Postcard thumbnail — only shown when a local copy was saved */}
-        {thumbUri && (
-          <Image source={{ uri: thumbUri }} style={styles.postcardThumb} resizeMode="cover" />
+        {/* Front image from Lob */}
+        {postcard.lob_front_url && (
+          <Image source={{ uri: postcard.lob_front_url }} style={styles.postcardThumb} resizeMode="cover" />
         )}
         {/* Status banner */}
         <View style={[styles.statusBanner, { backgroundColor: status.bg }]}>
@@ -146,25 +143,29 @@ export default function OrderDetailScreen() {
           </View>
         )}
 
-        {/* Postcard back preview */}
-        <Text style={styles.sectionTitle}>Message</Text>
-        <View style={styles.postcardBack}>
-          <View style={styles.backLeft}>
-            <Text
-              style={[styles.messageText, { fontSize: messageFontSize, lineHeight: messageFontSize * 1.5 }]}
-            >{postcard.message}</Text>
-          </View>
-          <View style={styles.backDivider} />
-          <View style={styles.backRight}>
-            <View style={styles.addrBlock}>
-              <Text style={styles.addrLabel}>TO</Text>
-              <Text style={styles.addrName}>{snapshot?.full_name}</Text>
-              <Text style={styles.addrLine}>{snapshot?.line1}</Text>
-              {snapshot?.line2 ? <Text style={styles.addrLine}>{snapshot.line2}</Text> : null}
-              <Text style={styles.addrLine}>{snapshot?.city}, {snapshot?.state} {snapshot?.zip}</Text>
+        {/* Back image from Lob, or native mockup for old orders */}
+        <Text style={styles.sectionTitle}>Back</Text>
+        {postcard.lob_back_url ? (
+          <Image source={{ uri: postcard.lob_back_url }} style={styles.postcardThumb} resizeMode="cover" />
+        ) : (
+          <View style={styles.postcardBack}>
+            <View style={styles.backLeft}>
+              <Text
+                style={[styles.messageText, { fontSize: messageFontSize, lineHeight: messageFontSize * 1.5 }]}
+              >{postcard.message}</Text>
+            </View>
+            <View style={styles.backDivider} />
+            <View style={styles.backRight}>
+              <View style={styles.addrBlock}>
+                <Text style={styles.addrLabel}>TO</Text>
+                <Text style={styles.addrName}>{snapshot?.full_name}</Text>
+                <Text style={styles.addrLine}>{snapshot?.line1}</Text>
+                {snapshot?.line2 ? <Text style={styles.addrLine}>{snapshot.line2}</Text> : null}
+                <Text style={styles.addrLine}>{snapshot?.city}, {snapshot?.state} {snapshot?.zip}</Text>
+              </View>
             </View>
           </View>
-        </View>
+        )}
 
         {/* Order metadata */}
         <Text style={styles.sectionTitle}>Order Info</Text>

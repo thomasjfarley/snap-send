@@ -6,11 +6,9 @@ import {
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { captureRef } from 'react-native-view-shot';
 import { usePostcardStore } from '@/store/postcard.store';
 import { useProfileStore } from '@/store/profile.store';
 import { useAddressStore } from '@/store/address.store';
-import { useThumbnailsStore } from '@/store/thumbnails.store';
 import { FRAMES } from '@/constants/editor';
 import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
@@ -59,10 +57,9 @@ export default function PreviewScreen() {
   const { photoUri, filterId, frameId, message, location, recipient, reset, setJustSent } = usePostcardStore();
   const { profile } = useProfileStore();
   const { addresses } = useAddressStore();
-  const { saveThumbnail } = useThumbnailsStore();
   const personalAddress = addresses.find((a) => a.is_personal);
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
-  const cardFrontRef = useRef<View>(null); // used only for visual layout; no longer used for image capture
+  const cardFrontRef = useRef<View>(null);
   const submittedRef = useRef(false);
   const sendInProgressRef = useRef(false);
   const paymentIntentIdRef = useRef<string | null>(null);
@@ -162,14 +159,9 @@ export default function PreviewScreen() {
           paymentIntentClientSecret: piData.clientSecret,
           returnURL: 'snapsend://stripe-redirect',
           defaultBillingDetails: { name: profile?.full_name ?? '' },
-          googlePay: {
-            merchantCountryCode: 'US',
-            testEnv: (process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '').startsWith('pk_test_'),
-          },
           ...(Platform.OS === 'ios' && {
             applePay: {
               merchantCountryCode: 'US',
-              merchantIdentifier: 'merchant.com.snapsend.live',
             },
           }),
         });
@@ -310,18 +302,6 @@ export default function PreviewScreen() {
         throw new Error(`submit-postcard failed (${status}): ${detail}`);
       }
 
-      // Capture the rendered card front (with frame, filter, and location badge)
-      // as a thumbnail for order history. Non-fatal if it fails.
-      try {
-        const postcardId: string | null = submitData?.postcardId ?? null;
-        if (postcardId && cardFrontRef.current) {
-          const capturedUri = await captureRef(cardFrontRef, { format: 'jpg', quality: 0.85 });
-          await saveThumbnail(postcardId, capturedUri);
-        }
-      } catch {
-        // non-fatal
-      }
-
       submittedRef.current = true;
       setJustSent(true);   // set BEFORE reset so all guards skip
       reset();
@@ -354,7 +334,6 @@ export default function PreviewScreen() {
         <Text style={styles.sideLabel}>FRONT</Text>
         <View
           ref={cardFrontRef}
-          collapsable={false}
           style={[
             styles.cardFront,
             { borderWidth: activeFrame.borderWidth, borderColor: activeFrame.borderColor, padding: activeFrame.padding },

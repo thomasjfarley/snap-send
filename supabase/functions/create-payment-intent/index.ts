@@ -53,6 +53,12 @@ serve(async (req) => {
         amount: String(POSTCARD_PRICE_CENTS),
         currency: 'usd',
         'automatic_payment_methods[enabled]': 'true',
+        // Prevent redirect-based payment methods (iDEAL, Bancontact, etc.).
+        // On Android, Expo's singleTask launch mode causes redirect flows to
+        // restart the activity rather than return an activity result, which
+        // causes presentPaymentSheet() to fail with "Failed to retrieve a
+        // PaymentSheetResult". Cards, Google Pay, and Apple Pay are unaffected.
+        'automatic_payment_methods[allow_redirects]': 'never',
         'metadata[user_id]': user.id,
       }),
     });

@@ -161,6 +161,7 @@ export default function RootLayout() {
   return (
     <StripeProvider
       publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ''}
+      merchantIdentifier="merchant.com.snapsend.live"
       urlScheme="snapsend"
     >
       <StatusBar style={isDark ? 'light' : 'dark'} />
