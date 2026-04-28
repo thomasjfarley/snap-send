@@ -71,6 +71,8 @@ export default function PreviewScreen() {
   // 'rejected' = Vision API blocked the image
   // 'error'    = pre-init failed (payment sheet not ready)
   const [preloadStatus, setPreloadStatus] = useState<'checking' | 'ready' | 'rejected' | 'error'>('checking');
+  const [totalAmountCents, setTotalAmountCents] = useState(POSTCARD_PRICE_CENTS);
+  const [taxAmountCents, setTaxAmountCents] = useState<number | null>(null);
 
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -146,10 +148,23 @@ export default function PreviewScreen() {
         // Step 2: Create PaymentIntent and initialize the sheet
         const { data: piData, error: piError } = await supabase.functions.invoke('create-payment-intent', {
           headers: { Authorization: `Bearer ${token}` },
+          body: personalAddress
+            ? {
+                customerAddress: {
+                  line1: personalAddress.line1,
+                  line2: personalAddress.line2 ?? undefined,
+                  city: personalAddress.city,
+                  state: personalAddress.state,
+                  postalCode: personalAddress.zip,
+                  country: personalAddress.country,
+                },
+              }
+            : undefined,
         });
         if (cancelled) return;
         if (piError || !piData?.clientSecret) {
-          console.error('[preview] pre-init: create-payment-intent failed', piError);
+          const errDetail = await (piError as any)?.context?.json?.().catch(() => null);
+          console.error('[preview] pre-init: create-payment-intent failed', piError, 'body:', JSON.stringify(errDetail));
           setPreloadStatus('error');
           return;
         }
@@ -179,6 +194,8 @@ export default function PreviewScreen() {
 
         paymentIntentIdRef.current = piData.paymentIntentId;
         sheetInitializedRef.current = true;
+        if (piData.amount) setTotalAmountCents(piData.amount);
+        if (typeof piData.taxAmountCents === 'number') setTaxAmountCents(piData.taxAmountCents);
         setPreloadStatus('ready');
       } catch (err) {
         if (!cancelled) {
@@ -214,7 +231,10 @@ export default function PreviewScreen() {
   const activeFrame = FRAMES.find((f) => f.id === frameId)!;
   const overlay = FILTER_OVERLAYS[filterId];
   const isGrayscale = filterId === 'bw';
-  const priceStr = `$${(POSTCARD_PRICE_CENTS / 100).toFixed(2)}`;
+  const basePriceStr = `$${(POSTCARD_PRICE_CENTS / 100).toFixed(2)}`;
+  const priceStr = taxAmountCents
+    ? `${basePriceStr} + $${(taxAmountCents / 100).toFixed(2)} tax`
+    : basePriceStr;
 
   function toggleRejectedInfo() {
     Alert.alert(
