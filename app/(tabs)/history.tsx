@@ -7,7 +7,6 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/store/auth.store';
 import { useOrderStore } from '@/store/order.store';
-import { useThumbnailsStore } from '@/store/thumbnails.store';
 import type { Postcard } from '@/lib/database.types';
 import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
@@ -29,7 +28,6 @@ export default function HistoryScreen() {
   const router = useRouter();
   const { user } = useAuthStore();
   const { postcards, loading, fetch } = useOrderStore();
-  const { paths: thumbnailPaths } = useThumbnailsStore();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
@@ -43,12 +41,11 @@ export default function HistoryScreen() {
     const snapshot = item.recipient_snapshot as any;
     const status = STATUS_CONFIG[item.status] ?? STATUS_CONFIG.pending;
     const price = `$${(item.price_cents / 100).toFixed(2)}`;
-    const thumbUri = thumbnailPaths[item.id];
 
     return (
       <TouchableOpacity style={styles.card} onPress={() => router.push(`/order/${item.id}`)}>
-        {thumbUri && (
-          <Image source={{ uri: thumbUri }} style={styles.thumbnail} resizeMode="cover" />
+        {item.lob_front_url && (
+          <Image source={{ uri: item.lob_front_url }} style={styles.thumbnail} resizeMode="cover" />
         )}
         <View style={styles.cardLeft}>
           <Text style={styles.recipient}>{snapshot?.full_name ?? 'Unknown recipient'}</Text>

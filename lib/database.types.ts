@@ -87,6 +87,8 @@ export interface Database {
           recipient_snapshot: Json;
           status: 'pending' | 'paid' | 'submitted' | 'mailed' | 'failed';
           lob_id: string | null;
+          lob_front_url: string | null;
+          lob_back_url: string | null;
           stripe_payment_intent_id: string | null;
           price_cents: number;
           created_at: string;
@@ -104,6 +106,8 @@ export interface Database {
           recipient_snapshot?: Json;
           status?: 'pending' | 'paid' | 'submitted' | 'mailed' | 'failed';
           lob_id?: string | null;
+          lob_front_url?: string | null;
+          lob_back_url?: string | null;
           stripe_payment_intent_id?: string | null;
           price_cents?: number;
           created_at?: string;

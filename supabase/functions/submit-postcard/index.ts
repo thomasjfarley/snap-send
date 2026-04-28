@@ -443,7 +443,10 @@ serve(async (req) => {
         location: location ?? null,
         from_address_id: fromAddressId, to_address_id: toAddressId,
         recipient_snapshot: recipientSnapshot, status: 'submitted',
-        lob_id: lobData.id, stripe_payment_intent_id: paymentIntentId,
+        lob_id: lobData.id,
+        lob_front_url: (lobData.thumbnails?.[0]?.medium ?? null) as string | null,
+        lob_back_url: (lobData.thumbnails?.[1]?.medium ?? null) as string | null,
+        stripe_payment_intent_id: paymentIntentId,
         price_cents: pi.amount,
       })
       .select().single();
