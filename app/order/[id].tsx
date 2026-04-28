@@ -207,7 +207,7 @@ function makeStyles(colors: AppColors) {
     backText: { fontSize: FONT_SIZE.md, color: colors.textSecondary },
     title: { fontSize: FONT_SIZE.lg, fontWeight: '700', color: colors.textPrimary },
     scroll: { padding: SPACING.xl, gap: SPACING.lg, paddingBottom: 60 },
-    postcardThumb: { width: '100%', aspectRatio: 4 / 3, borderRadius: 12, backgroundColor: colors.border },
+    postcardThumb: { width: '100%', aspectRatio: 3 / 2 },
     statusBanner: { borderRadius: 14, padding: SPACING.md, gap: 4 },
     statusLabel: { fontSize: FONT_SIZE.lg, fontWeight: '800' },
     statusDesc: { fontSize: FONT_SIZE.sm },
