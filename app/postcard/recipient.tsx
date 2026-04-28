@@ -26,8 +26,9 @@ export default function RecipientScreen() {
     }, [user])
   );
 
-  // Exclude personal address — you can't mail a postcard to yourself from this flow
+  // Exclude personal address from the general list
   const recipients = addresses.filter((a) => !a.is_personal);
+  const personalAddress = addresses.find((a) => a.is_personal && (a.country === 'US' || !a.country));
 
   function handleSelect(address: Address) {
     setRecipient(address);
@@ -50,6 +51,22 @@ export default function RecipientScreen() {
         data={recipients}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
+        ListHeaderComponent={personalAddress ? (
+          <TouchableOpacity
+            style={[styles.card, styles.selfCard, recipient?.id === personalAddress.id && styles.cardSelected]}
+            onPress={() => handleSelect(personalAddress)}
+          >
+            <View style={{ flex: 1 }}>
+              <View style={styles.selfRow}>
+                <Text style={styles.name}>{personalAddress.full_name}</Text>
+                <View style={styles.selfBadge}><Text style={styles.selfBadgeText}>Send to Myself</Text></View>
+              </View>
+              <Text style={styles.addr}>{personalAddress.line1}{personalAddress.line2 ? `, ${personalAddress.line2}` : ''}</Text>
+              <Text style={styles.addr}>{personalAddress.city}, {personalAddress.state} {personalAddress.zip}</Text>
+            </View>
+            {recipient?.id === personalAddress.id && <Text style={styles.checkmark}>✓</Text>}
+          </TouchableOpacity>
+        ) : null}
         renderItem={({ item }) => {
           const selected = recipient?.id === item.id;
           return (
@@ -105,6 +122,10 @@ function makeStyles(colors: AppColors) {
     label: { fontSize: FONT_SIZE.xs, color: colors.textSecondary, fontWeight: '500' },
     addr: { fontSize: FONT_SIZE.sm, color: colors.textSecondary },
     checkmark: { fontSize: 20, color: colors.primary, fontWeight: '700' },
+    selfCard: { borderStyle: 'dashed' },
+    selfRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, flexWrap: 'wrap' },
+    selfBadge: { backgroundColor: colors.primaryLight, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+    selfBadgeText: { fontSize: FONT_SIZE.xs, color: colors.primary, fontWeight: '600' },
     empty: { alignItems: 'center', gap: SPACING.md, paddingTop: 80 },
     emptyEmoji: { fontSize: 48 },
     emptyTitle: { fontSize: FONT_SIZE.xl, fontWeight: '700', color: colors.textPrimary },
