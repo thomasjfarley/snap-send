@@ -53,6 +53,7 @@ serve(async (req) => {
         amount: String(POSTCARD_PRICE_CENTS),
         currency: 'usd',
         'automatic_payment_methods[enabled]': 'true',
+        'automatic_tax[enabled]': 'true',
         'metadata[user_id]': user.id,
       }),
     });
