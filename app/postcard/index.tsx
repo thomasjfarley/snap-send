@@ -58,6 +58,8 @@ export default function PostcardPhotoScreen() {
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [4, 3],
       quality: 1,
     });
     if (!result.canceled && result.assets[0]) {
@@ -79,6 +81,8 @@ export default function PostcardPhotoScreen() {
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [4, 3],
       quality: 1,
     });
     if (!result.canceled && result.assets[0]) {

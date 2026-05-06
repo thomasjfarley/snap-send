@@ -39,8 +39,22 @@ export const useAuthStore = create<AuthState>((set) => {
   passwordRecovery: false,
 
   initialize: async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    set({ session, user: session?.user ?? null, initialized: true });
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) {
+        // Stale or revoked refresh token — wipe local session so the error
+        // doesn't repeat on the next cold start, then drop to the auth flow.
+        await supabase.auth.signOut({ scope: 'local' });
+        set({ session: null, user: null, initialized: true });
+        return;
+      }
+      set({ session, user: session?.user ?? null, initialized: true });
+    } catch {
+      // getSession() can throw when the persisted refresh token is invalid and
+      // autoRefreshToken attempts an eager refresh. Treat as signed-out.
+      await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+      set({ session: null, user: null, initialized: true });
+    }
   },
 
   signUp: async (email, password, fullName) => {
