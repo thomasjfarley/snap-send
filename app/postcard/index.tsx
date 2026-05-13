@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
@@ -36,7 +36,7 @@ export default function PostcardPhotoScreen() {
         } catch (err) {
           console.warn('[Chooser] replace to chooser failed (may already be on chooser)', err);
         }
-        await router.push('/postcard/editor');
+        await router.push(Platform.OS === 'ios' ? '/postcard/crop' : '/postcard/editor');
       } catch (err) {
         console.warn('[Chooser] push to editor failed', err);
       }
@@ -58,7 +58,9 @@ export default function PostcardPhotoScreen() {
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      allowsEditing: true,
+      // On iOS we use a custom crop screen to get the correct 4:3 ratio.
+      // iOS's native editing UI only supports square (1:1) crops and ignores the aspect prop.
+      allowsEditing: Platform.OS !== 'ios',
       aspect: [4, 3],
       quality: 1,
     });
@@ -81,7 +83,9 @@ export default function PostcardPhotoScreen() {
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
+      // On iOS we use a custom crop screen to get the correct 4:3 ratio.
+      // iOS's native editing UI only supports square (1:1) crops and ignores the aspect prop.
+      allowsEditing: Platform.OS !== 'ios',
       aspect: [4, 3],
       quality: 1,
     });
