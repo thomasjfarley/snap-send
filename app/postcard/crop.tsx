@@ -18,10 +18,6 @@ import type { AppColors } from '@/constants/theme';
 import { FONT_SIZE, SPACING } from '@/constants/theme';
 
 const { width: SCREEN_W } = Dimensions.get('window');
-// The 4:3 crop window is inset horizontally by SPACING.xl on each side
-const CROP_LEFT = SPACING.xl;
-const CROP_W = SCREEN_W - CROP_LEFT * 2;
-const CROP_H = CROP_W * (3 / 4);
 
 export default function CropScreen() {
   const router = useRouter();
@@ -34,7 +30,6 @@ export default function CropScreen() {
   const [bodyHeight, setBodyHeight] = useState(0);
   const [isCropping, setIsCropping] = useState(false);
 
-  // Track scroll position and zoom scale for crop math
   const scrollState = useRef({ x: 0, y: 0, zoomScale: 1 });
 
   useEffect(() => {
@@ -46,31 +41,44 @@ export default function CropScreen() {
     );
   }, [photoUri]);
 
-  // Cover scale fills the FULL viewport (SCREEN_W × bodyHeight) so the image
-  // is always larger than the viewport and scrollable in all directions.
-  const coverScale =
+  // Contain scale: shrink the image to fit entirely within the body (both axes visible).
+  const displayScale =
     imgSize && bodyHeight > 0
-      ? Math.max(SCREEN_W / imgSize.w, bodyHeight / imgSize.h)
+      ? Math.min(SCREEN_W / imgSize.w, bodyHeight / imgSize.h)
       : 1;
-  const displayedW = imgSize ? Math.round(imgSize.w * coverScale) : SCREEN_W;
-  const displayedH = imgSize && bodyHeight > 0 ? Math.round(imgSize.h * coverScale) : bodyHeight || SCREEN_W;
+  const displayedW = imgSize ? Math.round(imgSize.w * displayScale) : SCREEN_W;
+  const displayedH = imgSize && bodyHeight > 0 ? Math.round(imgSize.h * displayScale) : bodyHeight || SCREEN_W;
 
-  // The crop window sits in the vertical center of the body
-  const cropTop = bodyHeight > 0 ? (bodyHeight - CROP_H) / 2 : 0;
-  const cropBottom = bodyHeight > 0 ? bodyHeight - cropTop - CROP_H : 0;
+  // Dynamic 4:3 crop box: the largest 4:3 rectangle that fits within the displayed image.
+  const cropBoxW = Math.min(displayedW, Math.round(displayedH * 4 / 3));
+  const cropBoxH = Math.round(cropBoxW * 3 / 4);
+  // Crop box is centered in the viewport (fixed overlay position).
+  const cropBoxLeft = Math.round((SCREEN_W - cropBoxW) / 2);
+  const cropBoxTop = bodyHeight > 0 ? Math.round((bodyHeight - cropBoxH) / 2) : 0;
+  const cropBoxBottom = bodyHeight > 0 ? bodyHeight - cropBoxTop - cropBoxH : 0;
 
-  // Center the image on the viewport (and therefore the crop window) on first load
+  // The image's top-left is anchored at the crop box top-left in content space.
+  // This means at scroll (0,0) the image top-left lines up with the crop box top-left.
+  const imgOffsetX = cropBoxLeft;
+  const imgOffsetY = cropBoxTop;
+
+  // Content is larger than the viewport by exactly the amount the image overflows the crop
+  // box. This gives the user a scroll range that lets them pan from image-start to image-end
+  // within the crop box. At zoom=1, content = viewport when the image exactly fits (4:3 photo).
+  const contentW = SCREEN_W + Math.max(0, displayedW - cropBoxW);
+  const contentH = bodyHeight > 0 ? bodyHeight + Math.max(0, displayedH - cropBoxH) : 0;
+
+  // Initial scroll centers the image inside the crop box.
   useEffect(() => {
     if (!imgSize || bodyHeight === 0) return;
-    // Put the image center at the viewport center
-    const ix = Math.max(0, displayedW / 2 - SCREEN_W / 2);
-    const iy = Math.max(0, displayedH / 2 - bodyHeight / 2);
+    const ix = Math.max(0, Math.round((displayedW - cropBoxW) / 2));
+    const iy = Math.max(0, Math.round((displayedH - cropBoxH) / 2));
     scrollState.current = { x: ix, y: iy, zoomScale: 1 };
     const t = setTimeout(() => {
       scrollRef.current?.scrollTo({ x: ix, y: iy, animated: false });
-    }, 80);
+    }, 50);
     return () => clearTimeout(t);
-  }, [imgSize, bodyHeight, displayedW, displayedH]);
+  }, [imgSize, bodyHeight, displayedW, displayedH, cropBoxW, cropBoxH]);
 
   const handleScroll = useCallback((e: any) => {
     const { contentOffset, zoomScale } = e.nativeEvent;
@@ -85,21 +93,15 @@ export default function CropScreen() {
     if (!imgSize || isCropping || !photoUri || bodyHeight === 0) return;
     setIsCropping(true);
     try {
-      const { x, y, zoomScale } = scrollState.current;
+      const { x, y, zoomScale: z } = scrollState.current;
 
-      // totalScale maps original image pixels → displayed pixels at the current zoom level
-      const totalScale = coverScale * zoomScale;
-
-      // The crop window's top-left corner in content (image) space:
-      // scroll offset positions the viewport's top-left over the content,
-      // and the crop window is inset CROP_LEFT from left and cropTop from top within the viewport.
-      const contentX = x + CROP_LEFT;
-      const contentY = y + cropTop;
-
-      const originX = Math.max(0, Math.round(contentX / totalScale));
-      const originY = Math.max(0, Math.round(contentY / totalScale));
-      const cropW = Math.min(Math.round(CROP_W / totalScale), imgSize.w - originX);
-      const cropH = Math.min(Math.round(CROP_H / totalScale), imgSize.h - originY);
+      // contentOffset is in zoomed-content coordinates; dividing by z converts to original
+      // content coordinates. Subtracting the image's offset within the content view gives
+      // the pixel position within the image. Dividing by displayScale gives original pixels.
+      const originX = Math.max(0, Math.round(((x + cropBoxLeft) / z - imgOffsetX) / displayScale));
+      const originY = Math.max(0, Math.round(((y + cropBoxTop) / z - imgOffsetY) / displayScale));
+      const cropW = Math.min(Math.round(cropBoxW / (displayScale * z)), imgSize.w - originX);
+      const cropH = Math.min(Math.round(cropBoxH / (displayScale * z)), imgSize.h - originY);
 
       const cropped = await ImageManipulator.manipulateAsync(
         photoUri,
@@ -108,7 +110,6 @@ export default function CropScreen() {
       );
 
       setPhoto(cropped.uri);
-      // Replace crop in the stack so back from editor goes to the chooser
       router.replace('/postcard/editor');
     } catch (err) {
       console.warn('[Crop] crop failed, using original photo:', err);
@@ -116,7 +117,9 @@ export default function CropScreen() {
     } finally {
       setIsCropping(false);
     }
-  }, [imgSize, isCropping, photoUri, coverScale, bodyHeight, cropTop, setPhoto, router]);
+  }, [imgSize, isCropping, photoUri, displayScale, bodyHeight,
+      imgOffsetX, imgOffsetY, cropBoxLeft, cropBoxTop, cropBoxW, cropBoxH,
+      setPhoto, router]);
 
   if (!photoUri) {
     router.replace('/postcard');
@@ -144,50 +147,61 @@ export default function CropScreen() {
       </View>
 
       <View style={styles.body} onLayout={(e) => setBodyHeight(e.nativeEvent.layout.height)}>
-        {/* Full-body scrollable image — the user pans/pinches across the whole area */}
-        <ScrollView
-          ref={scrollRef}
-          style={StyleSheet.absoluteFill}
-          contentContainerStyle={{ width: displayedW, height: displayedH }}
-          maximumZoomScale={5}
-          minimumZoomScale={1}
-          showsHorizontalScrollIndicator={false}
-          showsVerticalScrollIndicator={false}
-          scrollEventThrottle={16}
-          onScroll={handleScroll}
-          onScrollEndDrag={handleScroll}
-          onMomentumScrollEnd={handleScroll}
-          bouncesZoom={false}
-          pinchGestureEnabled
-        >
-          <Image
-            source={{ uri: photoUri }}
-            style={{ width: displayedW, height: displayedH }}
-            resizeMode="cover"
-          />
-        </ScrollView>
+        {/* Full-body scrollable image. Content is wider/taller than the viewport by the
+            amount the image overflows the crop box, so the user can pan to any part of
+            the image. At zoom=1 a 4:3 photo exactly fills the crop and nothing scrolls. */}
+        {bodyHeight > 0 && (
+          <ScrollView
+            ref={scrollRef}
+            style={StyleSheet.absoluteFill}
+            contentContainerStyle={{ width: contentW, height: contentH }}
+            maximumZoomScale={5}
+            minimumZoomScale={1}
+            showsHorizontalScrollIndicator={false}
+            showsVerticalScrollIndicator={false}
+            scrollEventThrottle={16}
+            onScroll={handleScroll}
+            onScrollEndDrag={handleScroll}
+            onMomentumScrollEnd={handleScroll}
+            bouncesZoom={false}
+            pinchGestureEnabled
+          >
+            <View style={{ width: contentW, height: contentH }}>
+              <Image
+                source={{ uri: photoUri }}
+                style={{
+                  position: 'absolute',
+                  left: imgOffsetX,
+                  top: imgOffsetY,
+                  width: displayedW,
+                  height: displayedH,
+                }}
+                resizeMode="cover"
+              />
+            </View>
+          </ScrollView>
+        )}
 
-        {/* Dimming strips + corner markers — sit on top, non-interactive */}
+        {/* Dimming strips + corner brackets — non-interactive overlay */}
         {bodyHeight > 0 && (
           <View pointerEvents="none" style={StyleSheet.absoluteFill}>
             {/* Top */}
-            <View style={[styles.dim, { top: 0, left: 0, right: 0, height: cropTop }]} />
+            <View style={[styles.dim, { top: 0, left: 0, right: 0, height: cropBoxTop }]} />
             {/* Bottom */}
-            <View style={[styles.dim, { bottom: 0, left: 0, right: 0, height: cropBottom }]} />
+            <View style={[styles.dim, { bottom: 0, left: 0, right: 0, height: cropBoxBottom }]} />
             {/* Left */}
-            <View style={[styles.dim, { top: cropTop, left: 0, width: CROP_LEFT, height: CROP_H }]} />
+            <View style={[styles.dim, { top: cropBoxTop, left: 0, width: cropBoxLeft, height: cropBoxH }]} />
             {/* Right */}
-            <View style={[styles.dim, { top: cropTop, right: 0, width: CROP_LEFT, height: CROP_H }]} />
+            <View style={[styles.dim, { top: cropBoxTop, right: 0, width: cropBoxLeft, height: cropBoxH }]} />
 
-            {/* Corner brackets */}
-            <View style={[styles.corner, styles.cornerTL, { top: cropTop, left: CROP_LEFT }]} />
-            <View style={[styles.corner, styles.cornerTR, { top: cropTop, right: CROP_LEFT }]} />
-            <View style={[styles.corner, styles.cornerBL, { bottom: cropBottom, left: CROP_LEFT }]} />
-            <View style={[styles.corner, styles.cornerBR, { bottom: cropBottom, right: CROP_LEFT }]} />
+            <View style={[styles.corner, styles.cornerTL, { top: cropBoxTop, left: cropBoxLeft }]} />
+            <View style={[styles.corner, styles.cornerTR, { top: cropBoxTop, right: cropBoxLeft }]} />
+            <View style={[styles.corner, styles.cornerBL, { bottom: cropBoxBottom, left: cropBoxLeft }]} />
+            <View style={[styles.corner, styles.cornerBR, { bottom: cropBoxBottom, right: cropBoxLeft }]} />
           </View>
         )}
 
-        {!imgSize && (
+        {(!imgSize || bodyHeight === 0) && (
           <ActivityIndicator
             style={StyleSheet.absoluteFill}
             size="large"
