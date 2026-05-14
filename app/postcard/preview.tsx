@@ -374,11 +374,15 @@ export default function PreviewScreen() {
           ]}
         >
           <View style={{ position: 'relative', width: CARD_W - activeFrame.borderWidth * 2 - activeFrame.padding * 2, height: CARD_H - activeFrame.borderWidth * 2 - activeFrame.padding * 2 }}>
-            <Image
-              source={{ uri: photoUri }}
-              style={[StyleSheet.absoluteFill, isGrayscale && { filter: [{ grayscale: 1 }] }]}
-              resizeMode="cover"
-            />
+            {/* Wrap in View so the grayscale filter renders on both iOS and Android.
+                Applying filter directly to <Image> is unreliable on iOS. */}
+            <View style={[StyleSheet.absoluteFill, isGrayscale && { filter: [{ grayscale: 1 }] }]}>
+              <Image
+                source={{ uri: photoUri }}
+                style={StyleSheet.absoluteFill}
+                resizeMode="cover"
+              />
+            </View>
             {overlay && <View style={[StyleSheet.absoluteFill, { backgroundColor: overlay.color, opacity: overlay.opacity }]} />}
             {!!location && (
               <View style={styles.locationBadge}>
