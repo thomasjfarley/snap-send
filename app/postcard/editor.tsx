@@ -110,11 +110,9 @@ export default function EditorScreen() {
           }
         ]}>
           <View style={{ position: 'relative', width: PHOTO_W - activeFrame.borderWidth * 2 - activeFrame.padding * 2, height: PHOTO_H - activeFrame.borderWidth * 2 - activeFrame.padding * 2 }}>
-            <Image
-              source={{ uri: photoUri }}
-              style={[StyleSheet.absoluteFill, filterId === 'bw' && { filter: [{ grayscale: 1 }] }]}
-              resizeMode="cover"
-            />
+            <View style={[StyleSheet.absoluteFill, filterId === 'bw' && { filter: [{ grayscale: 1 }] }]}>
+              <Image source={{ uri: photoUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            </View>
             {overlay && (
               <View style={[StyleSheet.absoluteFill, { backgroundColor: overlay.color, opacity: overlay.opacity }]} />
             )}
@@ -136,7 +134,9 @@ export default function EditorScreen() {
                 onPress={() => setFilter(f.id)}
               >
                 <View style={styles.thumbImg}>
-                  <Image source={{ uri: photoUri }} style={[StyleSheet.absoluteFill, f.id === 'bw' && { filter: [{ grayscale: 1 }] }]} resizeMode="cover" />
+                  <View style={[StyleSheet.absoluteFill, f.id === 'bw' && { filter: [{ grayscale: 1 }] }]}>
+                    <Image source={{ uri: photoUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                  </View>
                   {ov && <View style={[StyleSheet.absoluteFill, { backgroundColor: ov.color, opacity: ov.opacity }]} />}
                 </View>
                 <Text style={[styles.thumbLabel, selected && { color: colors.primary }]}>{f.label}</Text>
