@@ -328,12 +328,21 @@ export default function PreviewScreen() {
       }
 
       submittedRef.current = true;
-      setJustSent(true);   // set BEFORE reset so all guards skip
       reset();
       // Dismiss the postcard modal and return to the home tab.
       // dismissTo uses POP_TO (not NAVIGATE), so it pops the root Stack back
       // to (tabs) without adding a history entry — no extra swipes needed.
       router.dismissTo('/(tabs)');
+      // iOS won't present a new modal while the postcard modal is still
+      // animating out — setJustSent(true) before dismissal causes the success
+      // sheet to be invisible but still intercept touches, freezing the home
+      // screen. Delay the flag on iOS so it fires after the dismiss animation
+      // (~400 ms) completes. Android is fine with the immediate path.
+      if (Platform.OS === 'ios') {
+        setTimeout(() => setJustSent(true), 500);
+      } else {
+        setJustSent(true);
+      }
       return; // component unmounts; don't call setSending in finally
     } catch (err: any) {
       console.error('[handleSend] caught error:', err);
