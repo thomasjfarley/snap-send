@@ -484,7 +484,10 @@ function makeStyles(colors: AppColors) {
     backMessageText: { fontSize: FONT_SIZE.sm, color: '#333' },
     backLocationText: { fontSize: 7, color: '#888', marginTop: 6 },
     locationBadge: {
-      position: 'absolute', bottom: 24, left: 24,
+      // Mirror the server: inset = img.width * 0.040 for both axes.
+      // Using CARD_W (the preview card width) gives the same proportional
+      // placement as the Lob print so the preview matches what gets mailed.
+      position: 'absolute', bottom: Math.round(CARD_W * 0.040), left: Math.round(CARD_W * 0.040),
       backgroundColor: 'rgba(0,0,0,0.65)', borderRadius: 100,
       paddingHorizontal: 10, paddingVertical: 6,
       maxWidth: '80%', flexDirection: 'row', alignItems: 'center', gap: 4,
