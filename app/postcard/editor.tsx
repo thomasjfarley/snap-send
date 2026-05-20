@@ -11,6 +11,7 @@ import { FILTERS, FRAMES } from '@/constants/editor';
 import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
 import { FONT_SIZE, SPACING } from '@/constants/theme';
+import { GrayscaleImage } from '@/components/GrayscaleImage';
 
 const FILTER_OVERLAYS: Record<string, { color: string; opacity: number } | null> = {
   none: null,
@@ -110,16 +111,7 @@ export default function EditorScreen() {
           }
         ]}>
           <View style={{ position: 'relative', width: PHOTO_W - activeFrame.borderWidth * 2 - activeFrame.padding * 2, height: PHOTO_H - activeFrame.borderWidth * 2 - activeFrame.padding * 2 }}>
-            {/* shouldRasterizeIOS pre-composites the whole view tree into a single
-                bitmap before iOS applies the CALayer filter. Without it, each native
-                child view (RCTImageView) renders on its own sublayer that bypasses
-                the parent's filter entirely. */}
-            <View
-              style={[StyleSheet.absoluteFill, filterId === 'bw' && { filter: [{ grayscale: 1 }] }]}
-              shouldRasterizeIOS={filterId === 'bw'}
-            >
-              <Image source={{ uri: photoUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-            </View>
+            <GrayscaleImage uri={photoUri} grayscale={filterId === 'bw'} />
             {overlay && (
               <View style={[StyleSheet.absoluteFill, { backgroundColor: overlay.color, opacity: overlay.opacity }]} />
             )}
@@ -141,12 +133,7 @@ export default function EditorScreen() {
                 onPress={() => setFilter(f.id)}
               >
                 <View style={styles.thumbImg}>
-                  <View
-                    style={[StyleSheet.absoluteFill, f.id === 'bw' && { filter: [{ grayscale: 1 }] }]}
-                    shouldRasterizeIOS={f.id === 'bw'}
-                  >
-                    <Image source={{ uri: photoUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-                  </View>
+                  <GrayscaleImage uri={photoUri} grayscale={f.id === 'bw'} />
                   {ov && <View style={[StyleSheet.absoluteFill, { backgroundColor: ov.color, opacity: ov.opacity }]} />}
                 </View>
                 <Text style={[styles.thumbLabel, selected && { color: colors.primary }]}>{f.label}</Text>

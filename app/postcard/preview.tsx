@@ -1,6 +1,6 @@
 import React, { useRef, useState, useMemo, useEffect } from 'react';
 import {
-  View, Text, Image, TouchableOpacity, StyleSheet,
+  View, Text, TouchableOpacity, StyleSheet,
   ScrollView, Dimensions, Alert, Platform, ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -15,6 +15,7 @@ import type { AppColors } from '@/constants/theme';
 import { FONT_SIZE, SPACING } from '@/constants/theme';
 import { POSTCARD_PRICE_CENTS } from '@/constants/config';
 import { supabase } from '@/lib/supabase';
+import { GrayscaleImage } from '@/components/GrayscaleImage';
 
 const useStripe: () => { initPaymentSheet: Function; presentPaymentSheet: Function } =
   Platform.OS !== 'web'
@@ -374,16 +375,7 @@ export default function PreviewScreen() {
           ]}
         >
           <View style={{ position: 'relative', width: CARD_W - activeFrame.borderWidth * 2 - activeFrame.padding * 2, height: CARD_H - activeFrame.borderWidth * 2 - activeFrame.padding * 2 }}>
-            {/* shouldRasterizeIOS pre-composites the whole view tree into a single
-                bitmap before iOS applies the CALayer filter. Without it, each native
-                child view (RCTImageView) renders on its own sublayer that bypasses
-                the parent's filter entirely. */}
-            <View
-              style={[StyleSheet.absoluteFill, isGrayscale && { filter: [{ grayscale: 1 }] }]}
-              shouldRasterizeIOS={isGrayscale}
-            >
-              <Image source={{ uri: photoUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-            </View>
+              <GrayscaleImage uri={photoUri} grayscale={isGrayscale} />
             {overlay && <View style={[StyleSheet.absoluteFill, { backgroundColor: overlay.color, opacity: overlay.opacity }]} />}
             {!!location && (
               <View style={styles.locationBadge}>
