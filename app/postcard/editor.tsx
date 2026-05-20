@@ -110,7 +110,14 @@ export default function EditorScreen() {
           }
         ]}>
           <View style={{ position: 'relative', width: PHOTO_W - activeFrame.borderWidth * 2 - activeFrame.padding * 2, height: PHOTO_H - activeFrame.borderWidth * 2 - activeFrame.padding * 2 }}>
-            <View style={[StyleSheet.absoluteFill, filterId === 'bw' && { filter: [{ grayscale: 1 }] }]}>
+            {/* shouldRasterizeIOS pre-composites the whole view tree into a single
+                bitmap before iOS applies the CALayer filter. Without it, each native
+                child view (RCTImageView) renders on its own sublayer that bypasses
+                the parent's filter entirely. */}
+            <View
+              style={[StyleSheet.absoluteFill, filterId === 'bw' && { filter: [{ grayscale: 1 }] }]}
+              shouldRasterizeIOS={filterId === 'bw'}
+            >
               <Image source={{ uri: photoUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
             </View>
             {overlay && (
@@ -134,7 +141,10 @@ export default function EditorScreen() {
                 onPress={() => setFilter(f.id)}
               >
                 <View style={styles.thumbImg}>
-                  <View style={[StyleSheet.absoluteFill, f.id === 'bw' && { filter: [{ grayscale: 1 }] }]}>
+                  <View
+                    style={[StyleSheet.absoluteFill, f.id === 'bw' && { filter: [{ grayscale: 1 }] }]}
+                    shouldRasterizeIOS={f.id === 'bw'}
+                  >
                     <Image source={{ uri: photoUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
                   </View>
                   {ov && <View style={[StyleSheet.absoluteFill, { backgroundColor: ov.color, opacity: ov.opacity }]} />}

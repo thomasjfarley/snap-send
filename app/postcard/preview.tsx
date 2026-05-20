@@ -374,14 +374,15 @@ export default function PreviewScreen() {
           ]}
         >
           <View style={{ position: 'relative', width: CARD_W - activeFrame.borderWidth * 2 - activeFrame.padding * 2, height: CARD_H - activeFrame.borderWidth * 2 - activeFrame.padding * 2 }}>
-            {/* Wrap in View so the grayscale filter renders on both iOS and Android.
-                Applying filter directly to <Image> is unreliable on iOS. */}
-            <View style={[StyleSheet.absoluteFill, isGrayscale && { filter: [{ grayscale: 1 }] }]}>
-              <Image
-                source={{ uri: photoUri }}
-                style={StyleSheet.absoluteFill}
-                resizeMode="cover"
-              />
+            {/* shouldRasterizeIOS pre-composites the whole view tree into a single
+                bitmap before iOS applies the CALayer filter. Without it, each native
+                child view (RCTImageView) renders on its own sublayer that bypasses
+                the parent's filter entirely. */}
+            <View
+              style={[StyleSheet.absoluteFill, isGrayscale && { filter: [{ grayscale: 1 }] }]}
+              shouldRasterizeIOS={isGrayscale}
+            >
+              <Image source={{ uri: photoUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
             </View>
             {overlay && <View style={[StyleSheet.absoluteFill, { backgroundColor: overlay.color, opacity: overlay.opacity }]} />}
             {!!location && (
