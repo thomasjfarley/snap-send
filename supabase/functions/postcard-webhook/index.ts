@@ -10,14 +10,16 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const LOB_WEBHOOK_SECRET = Deno.env.get('LOB_WEBHOOK_SECRET')!;
 
 // Lob event → postcard status mapping
-const EVENT_STATUS_MAP: Record<string, 'submitted' | 'mailed' | 'failed'> = {
+const EVENT_STATUS_MAP: Record<string, 'submitted' | 'mailed' | 'delivered' | 'failed'> = {
   'postcard.created': 'submitted',
   'postcard.rendered_pdf': 'submitted',
   'postcard.rendered_thumbnails': 'submitted',
-  'postcard.mailed': 'mailed',
   'postcard.in_transit': 'mailed',
   'postcard.in_local_area': 'mailed',
+  'postcard.processed_for_delivery': 'delivered',
+  'postcard.delivered': 'delivered',
   'postcard.failed': 'failed',
+  'postcard.returned_to_sender': 'failed',
 };
 
 serve(async (req) => {
@@ -43,6 +45,9 @@ serve(async (req) => {
     const updateData: Record<string, unknown> = { status: newStatus };
     if (newStatus === 'mailed') {
       updateData.mailed_at = new Date().toISOString();
+    }
+    if (newStatus === 'delivered') {
+      updateData.delivered_at = new Date().toISOString();
     }
 
     const { error } = await supabase
