@@ -37,7 +37,26 @@
       "expo-router",
       "expo-web-browser",
       "expo-apple-authentication",
-      "expo-contacts",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Snap Send uses your photos to choose an image for your postcard.",
+          "cameraPermission": "Snap Send uses your camera to take a photo for your postcard."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Snap Send saves photos you take to your camera roll.",
+          "savePhotosPermission": "Snap Send saves photos you take to your camera roll."
+        }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Snap Send uses your contacts to quickly address postcards."
+        }
+      ],
       [
         "expo-location",
         {
