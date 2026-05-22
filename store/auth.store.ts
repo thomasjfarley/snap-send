@@ -62,7 +62,10 @@ export const useAuthStore = create<AuthState>((set) => {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName } },
+      options: {
+        data: { full_name: fullName },
+        emailRedirectTo: 'snapsend://',
+      },
     });
     set({ loading: false });
     return { error: error?.message ?? null };
