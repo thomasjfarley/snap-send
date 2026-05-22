@@ -42,7 +42,11 @@ export default function SignUpScreen() {
       return;
     }
     const { error } = await signUp(email.trim(), password, fullName.trim());
-    if (error) Alert.alert('Sign up failed', error);
+    if (!error || error.toLowerCase().includes('security purposes') || error.toLowerCase().includes('already registered')) {
+      Alert.alert('Check your email', 'We sent a confirmation link to ' + email.trim() + '. Tap it to activate your account.');
+    } else {
+      Alert.alert('Sign up failed', error);
+    }
   }
 
   async function handleGoogleSignUp() {
