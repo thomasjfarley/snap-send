@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/auth.store';
 import { useProfileStore } from '@/store/profile.store';
 import { useAddressStore } from '@/store/address.store';
@@ -31,7 +30,6 @@ const EMPTY_FORM: AddressFormData = {
 };
 
 export default function YourAddressScreen() {
-  const router = useRouter();
   const { user } = useAuthStore();
   const { profile, update: updateProfile } = useProfileStore();
   const { add, validate, loading, validating } = useAddressStore();
@@ -128,8 +126,7 @@ export default function YourAddressScreen() {
       Alert.alert('Error', profileErr);
       return;
     }
-
-    router.replace('/(tabs)');
+    // AuthGate detects onboardingComplete and navigates to /(tabs) automatically
   }
 
   return (
