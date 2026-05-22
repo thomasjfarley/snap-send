@@ -33,7 +33,7 @@ interface AddressState {
   validating: boolean;
 
   fetch: (userId: string) => Promise<void>;
-  add: (userId: string, data: AddressFormData, lobVerified: boolean) => Promise<{ data: Address | null; error: string | null }>;
+  add: (userId: string, data: AddressFormData, lobVerified: boolean, isPersonal?: boolean) => Promise<{ data: Address | null; error: string | null }>;
   update: (id: string, data: Partial<AddressFormData>) => Promise<{ error: string | null }>;
   remove: (id: string) => Promise<{ error: string | null }>;
   validate: (address: Pick<AddressFormData, 'line1' | 'line2' | 'city' | 'state' | 'zip'>) => Promise<{ result: ValidationResult | null; error: string | null }>;
@@ -55,7 +55,7 @@ export const useAddressStore = create<AddressState>((set, get) => ({
     set({ addresses: (data as Address[] | null) ?? [], loading: false });
   },
 
-  add: async (userId, form, lobVerified) => {
+  add: async (userId, form, lobVerified, isPersonal = false) => {
     set({ loading: true });
     const { data, error } = await supabase
       .from('addresses')
@@ -70,7 +70,7 @@ export const useAddressStore = create<AddressState>((set, get) => ({
         zip: form.zip,
         country: form.country || 'US',
         lob_verified: lobVerified,
-        is_personal: false,
+        is_personal: isPersonal,
       })
       .select()
       .single();

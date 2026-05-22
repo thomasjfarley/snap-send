@@ -31,7 +31,7 @@ const EMPTY_FORM: AddressFormData = {
 
 export default function YourAddressScreen() {
   const { user } = useAuthStore();
-  const { profile, update: updateProfile } = useProfileStore();
+  const { profile, update: updateProfile, fetch: fetchProfile } = useProfileStore();
   const { add, validate, loading, validating } = useAddressStore();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -111,14 +111,12 @@ export default function YourAddressScreen() {
       return;
     }
 
-    const { data: newAddress, error: addErr } = await add(user.id, form, verified === true);
+    const { data: newAddress, error: addErr } = await add(user.id, form, verified === true, true);
     if (addErr || !newAddress) {
       Alert.alert('Error', addErr ?? 'Could not save address.');
       return;
     }
 
-    // Mark as personal and link to profile
-    await supabaseMarkPersonal(newAddress.id);
     const { error: profileErr } = await updateProfile(user.id, {
       personal_address_id: newAddress.id,
     });
@@ -126,6 +124,9 @@ export default function YourAddressScreen() {
       Alert.alert('Error', profileErr);
       return;
     }
+
+    // Re-fetch from DB so local store matches reality before AuthGate evaluates
+    await fetchProfile(user.id);
     // AuthGate detects onboardingComplete and navigates to /(tabs) automatically
   }
 
@@ -170,11 +171,6 @@ export default function YourAddressScreen() {
   );
 }
 
-// Mark the newly created address as personal via a direct Supabase update
-async function supabaseMarkPersonal(addressId: string) {
-  const { supabase } = await import('@/lib/supabase');
-  await supabase.from('addresses').update({ is_personal: true }).eq('id', addressId);
-}
 
 const styles = StyleSheet.create({});  // replaced by makeStyles below
 

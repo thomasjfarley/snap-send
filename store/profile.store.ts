@@ -22,13 +22,19 @@ export const useProfileStore = create<ProfileState>((set) => ({
 
   update: async (userId, data) => {
     set({ loading: true });
-    const { error } = await supabase.from('profiles').update(data).eq('id', userId);
-    if (!error) {
-      set((state) => ({
-        profile: state.profile ? { ...state.profile, ...data } : null,
-      }));
+    const { data: updated, error } = await supabase
+      .from('profiles')
+      .update(data)
+      .eq('id', userId)
+      .select()
+      .single();
+    if (updated) {
+      set({ profile: updated as Profile });
     }
     set({ loading: false });
+    if (!error && !updated) {
+      return { error: 'Profile update affected 0 rows — permission denied or profile not found.' };
+    }
     return { error: error?.message ?? null };
   },
 
