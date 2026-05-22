@@ -43,7 +43,7 @@ export default function SignUpScreen() {
     }
     const { error } = await signUp(email.trim(), password, fullName.trim());
     if (!error || error.toLowerCase().includes('security purposes') || error.toLowerCase().includes('already registered')) {
-      Alert.alert('Check your email', 'We sent a confirmation link to ' + email.trim() + '. Tap it to activate your account.');
+      Alert.alert('Check your email', 'We sent a confirmation link to ' + email.trim() + '. Tap it to activate your account.\n\nIf you don\'t see it, check your junk or spam folder.');
     } else {
       Alert.alert('Sign up failed', error);
     }
