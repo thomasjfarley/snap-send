@@ -32,6 +32,20 @@ const FILTERS_DATA: Record<string, readonly number[] | null> = {
   vivid: [1.4,-0.2, -0.2,  0, 0,   -0.2, 1.4, -0.2,  0, 0,   -0.2,-0.2,  1.4,  0, 0,    0, 0, 0, 1, 0],
 };
 
+// ── Precomputed gamma LUT (γ=1.3 correction, computed once per worker) ────────
+const GAMMA_LUT = new Uint8ClampedArray(256);
+for (let v = 0; v < 256; v++) GAMMA_LUT[v] = Math.round(Math.pow(v / 255, 1 / 1.3) * 255);
+
+// ── Precomputed saturation matrix (s=0.88, ITU-R BT.709 luma weights) ─────────
+// Linear-RGB approximation: factor f=1-s=0.12; Lr=0.2126, Lg=0.7152, Lb=0.0722
+// Each row sums to 1.0, so outputs stay in [0,255] — no clamp needed in theory.
+const SAT_M = [
+  0.905512, 0.085824, 0.008664, 0, 0,  // R' = (Lr·f+s)·R + Lg·f·G + Lb·f·B
+  0.025512, 0.965824, 0.008664, 0, 0,  // G' = Lr·f·R + (Lg·f+s)·G + Lb·f·B
+  0.025512, 0.085824, 0.888664, 0, 0,  // B' = Lr·f·R + Lg·f·G + (Lb·f+s)·B
+  0,        0,        0,        1, 0,  // A' = A (passthrough)
+] as const;
+
 // ── Module-level font cache ───────────────────────────────────────────────────
 // The previous URL (roboto-fontface@0.10.0/fonts/roboto/Roboto-Regular.ttf) 404s
 // on jsdelivr — the correct path uses capital "Roboto". We try several
@@ -238,7 +252,9 @@ serve(async (req) => {
         console.error('[submit-postcard] filter step failed:', stepErr);
       }
 
-      // ── Frame: paint border IN-PLACE over image edges (no canvas expansion) ──
+      // ── Frame: shrink photo to inner area, place on frame-colored canvas ────
+      // The UI shrinks the image to fit inside the frame; we must do the same
+      // here so the printed result matches the preview (not crop/cover the photo).
       // Expanding the canvas changes dimensions and causes Lob to reject with 422.
       try {
         const frameDef = FRAMES_DATA.find((f) => f.id === frame);
@@ -248,49 +264,60 @@ serve(async (req) => {
           // We add that offset so the visible border after bleed matches the CSS preview.
           const BLEED_PX = Math.round(0.125 * (img.width / 6.25)); // ~38px for 1875px images
           const borderPx = Math.round((frameDef.borderWidth + frameDef.padding) * scale) + BLEED_PX;
+          const W = img.width, H = img.height;
+          const B = Math.min(borderPx, Math.floor(W / 2), Math.floor(H / 2));
+          const innerW = W - 2 * B;
+          const innerH = H - 2 * B;
           const rawColor = hexToRGBA(frameDef.borderColor === 'transparent' ? '#FFFFFF' : frameDef.borderColor);
           const fr = (rawColor >>> 24) & 0xFF;
           const fg = (rawColor >>> 16) & 0xFF;
           const fb = (rawColor >>> 8)  & 0xFF;
           const fa = rawColor & 0xFF;
-          const bmp = img.bitmap;
-          const W = img.width, H = img.height;
-          for (let py = 0; py < H; py++) {
-            for (let px = 0; px < W; px++) {
-              if (px < borderPx || px >= W - borderPx || py < borderPx || py >= H - borderPx) {
-                const i = (py * W + px) * 4;
-                bmp[i] = fr; bmp[i + 1] = fg; bmp[i + 2] = fb; bmp[i + 3] = fa;
-              }
-            }
+
+          // Shrink the photo to fit exactly within the inner area
+          img = img.resize(innerW, innerH) as Image;
+
+          // Create a W×H canvas filled with the frame color
+          const framed = new Image(W, H);
+          const fbmp = framed.bitmap;
+          for (let i = 0; i < fbmp.length; i += 4) {
+            fbmp[i] = fr; fbmp[i + 1] = fg; fbmp[i + 2] = fb; fbmp[i + 3] = fa;
           }
+
+          // Blit the resized photo into the frame at offset (B, B), row by row
+          const pbmp = img.bitmap;
+          for (let py = 0; py < innerH; py++) {
+            fbmp.set(
+              pbmp.subarray(py * innerW * 4, (py + 1) * innerW * 4),
+              (B + py) * W * 4 + B * 4,
+            );
+          }
+
+          img = framed;
         }
       } catch (stepErr) {
         console.error('[submit-postcard] frame step failed:', stepErr);
       }
 
-      // ── Gamma correction ───────────────────────────────────────────────────
+      // ── Gamma + saturation: single combined pass ───────────────────────────
+      // Replaces two separate full-image passes (gamma LUT + img.saturation()).
+      // Gamma (γ=1.3) is applied first, then a linear-RGB saturation matrix
+      // (s=0.88) — preserving the original operation order.
+      // GAMMA_LUT and SAT_M are module-level constants precomputed once.
       try {
-        const GAMMA = 1.3;
-        const EXP = 1 / GAMMA; // 0.625
-        // Build a 256-entry LUT so we only compute Math.pow 256 times.
-        const lut = new Uint8ClampedArray(256);
-        for (let v = 0; v < 256; v++) lut[v] = Math.round(Math.pow(v / 255, EXP) * 255);
         const bmp = img.bitmap;
+        const s = SAT_M;
         for (let i = 0; i < bmp.length; i += 4) {
-          bmp[i]     = lut[bmp[i]];     // R
-          bmp[i + 1] = lut[bmp[i + 1]]; // G
-          bmp[i + 2] = lut[bmp[i + 2]]; // B
-          // i+3 is alpha — leave unchanged
+          const r = GAMMA_LUT[bmp[i]];
+          const g = GAMMA_LUT[bmp[i + 1]];
+          const b = GAMMA_LUT[bmp[i + 2]];
+          bmp[i]     = Math.min(255, Math.max(0, Math.round(s[0]  * r + s[1]  * g + s[2]  * b)));
+          bmp[i + 1] = Math.min(255, Math.max(0, Math.round(s[5]  * r + s[6]  * g + s[7]  * b)));
+          bmp[i + 2] = Math.min(255, Math.max(0, Math.round(s[10] * r + s[11] * g + s[12] * b)));
+          // alpha (i+3) unchanged
         }
       } catch (stepErr) {
-        console.error('[submit-postcard] gamma step failed:', stepErr);
-      }
-
-      // Saturation reduction via imagescript's HSL-based saturation()
-      try {
-        img.saturation(0.88);
-      } catch (stepErr) {
-        console.error('[submit-postcard] saturation step failed:', stepErr);
+        console.error('[submit-postcard] gamma+saturation step failed:', stepErr);
       }
 
       // ── Guard: normalize to exact Lob dimensions (1875×1275) ─────────────
