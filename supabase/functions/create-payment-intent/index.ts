@@ -106,11 +106,13 @@ serve(async (req) => {
       console.error('[create-payment-intent] Transient tax calc failure, proceeding without tax:', JSON.stringify(taxData));
     }
 
-    // Step 2: Create PaymentIntent with the tax-inclusive amount
+    // Step 2: Create PaymentIntent with the tax-inclusive amount.
+    // Restrict to card only — this surfaces Apple Pay and Google Pay as wallet
+    // shortcuts within the card flow, without showing every method in the dashboard.
     const piParams = new URLSearchParams({
       amount: String(chargeAmountCents),
       currency: 'usd',
-      'automatic_payment_methods[enabled]': 'true',
+      'payment_method_types[0]': 'card',
       'metadata[user_id]': user.id,
     });
     if (taxCalculationId) piParams.set('metadata[tax_calculation]', taxCalculationId);

@@ -1,6 +1,7 @@
 import { Session, User } from '@supabase/supabase-js';
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
+import { useProfileStore } from '@/store/profile.store';
 
 interface AuthState {
   user: User | null;
@@ -21,8 +22,10 @@ interface AuthState {
 }
 
 export const useAuthStore = create<AuthState>((set) => {
-  // Listener registered at store-creation time so PASSWORD_RECOVERY is never missed
   supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_OUT') {
+      useProfileStore.getState().clear();
+    }
     // Merge into a single set so routing effects always see user + passwordRecovery together
     set({
       session,

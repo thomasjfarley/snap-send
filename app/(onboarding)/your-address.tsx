@@ -118,6 +118,7 @@ export default function YourAddressScreen() {
     }
 
     const { error: profileErr } = await updateProfile(user.id, {
+      full_name: form.full_name.trim(),
       personal_address_id: newAddress.id,
     });
     if (profileErr) {

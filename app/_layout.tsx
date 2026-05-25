@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { useProfileStore } from '@/store/profile.store';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
+import { STRIPE_PUBLISHABLE_KEY } from '@/constants/config';
 
 // StripeProvider is native-only — skip on web to avoid import errors
 const StripeProvider = Platform.OS !== 'web'
@@ -74,8 +75,9 @@ function AuthGate() {
       return;
     }
 
-    // User is signed in — fetch their profile if needed
-    if (!profile) {
+    // User is signed in — fetch their profile if needed.
+    // Also re-fetch if the cached profile belongs to a different user (stale after sign-out).
+    if (!profile || profile.id !== user.id) {
       fetchProfile(user.id);
       return;
     }
@@ -160,7 +162,7 @@ export default function RootLayout() {
 
   return (
     <StripeProvider
-      publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ''}
+      publishableKey={STRIPE_PUBLISHABLE_KEY}
       merchantIdentifier="merchant.com.snapsend.live"
       urlScheme="snapsend"
     >

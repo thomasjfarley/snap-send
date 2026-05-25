@@ -13,7 +13,7 @@ import { FRAMES } from '@/constants/editor';
 import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
 import { FONT_SIZE, SPACING } from '@/constants/theme';
-import { POSTCARD_PRICE_CENTS } from '@/constants/config';
+import { POSTCARD_PRICE_CENTS, STRIPE_PUBLISHABLE_KEY } from '@/constants/config';
 import { supabase } from '@/lib/supabase';
 import { GrayscaleImage } from '@/components/GrayscaleImage';
 
@@ -177,7 +177,7 @@ export default function PreviewScreen() {
           defaultBillingDetails: { name: profile?.full_name ?? '' },
           googlePay: {
             merchantCountryCode: 'US',
-            testEnv: (process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '').startsWith('pk_test_'),
+            testEnv: STRIPE_PUBLISHABLE_KEY.startsWith('pk_test_'),
           },
           ...(Platform.OS === 'ios' && {
             applePay: {
