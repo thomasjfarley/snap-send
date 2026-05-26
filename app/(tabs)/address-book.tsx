@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/auth.store';
 import { useProfileStore } from '@/store/profile.store';
@@ -24,7 +24,8 @@ export default function AddressBookScreen() {
   const { profile } = useProfileStore();
   const { addresses, fetch, remove, loading } = useAddressStore();
   const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => makeStyles(colors, insets.top), [colors, insets.top]);
 
   useFocusEffect(
     useCallback(() => {
@@ -92,7 +93,7 @@ export default function AddressBookScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Address Book</Text>
         <TouchableOpacity style={styles.addBtn} onPress={() => router.push('/address/new')}>
@@ -125,18 +126,20 @@ export default function AddressBookScreen() {
           ) : null
         }
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({});  // replaced by makeStyles below
 
-function makeStyles(colors: AppColors) {
+function makeStyles(colors: AppColors, topInset: number) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     header: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      paddingHorizontal: SPACING.xl, paddingTop: SPACING.xl, paddingBottom: SPACING.md,
+      paddingHorizontal: SPACING.xl,
+      paddingTop: topInset + SPACING.xl,
+      paddingBottom: SPACING.md,
       borderBottomWidth: 1, borderBottomColor: colors.border,
     },
     title: { fontSize: FONT_SIZE.xl, fontWeight: '700', color: colors.textPrimary },
