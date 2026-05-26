@@ -26,20 +26,23 @@ export default function CropScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const scrollRef = useRef<ScrollView>(null);
+  const [workingUri, setWorkingUri] = useState<string>(photoUri ?? '');
   const [imgSize, setImgSize] = useState<{ w: number; h: number } | null>(null);
   const [bodyHeight, setBodyHeight] = useState(0);
   const [isCropping, setIsCropping] = useState(false);
+  const [isRotating, setIsRotating] = useState(false);
 
   const scrollState = useRef({ x: 0, y: 0, zoomScale: 1 });
 
   useEffect(() => {
-    if (!photoUri) return;
+    if (!workingUri) return;
+    setImgSize(null);
     Image.getSize(
-      photoUri,
+      workingUri,
       (w, h) => setImgSize({ w, h }),
       (err) => console.warn('[Crop] getSize error', err),
     );
-  }, [photoUri]);
+  }, [workingUri]);
 
   // Contain scale: shrink the image to fit entirely within the body (both axes visible).
   const displayScale =
@@ -89,8 +92,25 @@ export default function CropScreen() {
     };
   }, []);
 
+  const handleRotate = useCallback(async () => {
+    if (isRotating || isCropping) return;
+    setIsRotating(true);
+    try {
+      const result = await ImageManipulator.manipulateAsync(
+        workingUri,
+        [{ rotate: 90 }],
+        { compress: 1, format: ImageManipulator.SaveFormat.JPEG },
+      );
+      setWorkingUri(result.uri);
+    } catch (err) {
+      console.warn('[Crop] rotate failed:', err);
+    } finally {
+      setIsRotating(false);
+    }
+  }, [workingUri, isRotating, isCropping]);
+
   const handleConfirm = useCallback(async () => {
-    if (!imgSize || isCropping || !photoUri || bodyHeight === 0) return;
+    if (!imgSize || isCropping || !workingUri || bodyHeight === 0) return;
     setIsCropping(true);
     try {
       const { x, y, zoomScale: z } = scrollState.current;
@@ -104,7 +124,7 @@ export default function CropScreen() {
       const cropH = Math.min(Math.round(cropBoxH / (displayScale * z)), imgSize.h - originY);
 
       const cropped = await ImageManipulator.manipulateAsync(
-        photoUri,
+        workingUri,
         [{ crop: { originX, originY, width: cropW, height: cropH } }],
         { compress: 1, format: ImageManipulator.SaveFormat.JPEG },
       );
@@ -117,7 +137,7 @@ export default function CropScreen() {
     } finally {
       setIsCropping(false);
     }
-  }, [imgSize, isCropping, photoUri, displayScale, bodyHeight,
+  }, [imgSize, isCropping, workingUri, displayScale, bodyHeight,
       imgOffsetX, imgOffsetY, cropBoxLeft, cropBoxTop, cropBoxW, cropBoxH,
       setPhoto, router]);
 
@@ -168,7 +188,7 @@ export default function CropScreen() {
           >
             <View style={{ width: contentW, height: contentH }}>
               <Image
-                source={{ uri: photoUri }}
+                source={{ uri: workingUri }}
                 style={{
                   position: 'absolute',
                   left: imgOffsetX,
@@ -212,6 +232,17 @@ export default function CropScreen() {
       </View>
 
       <View style={styles.hintArea}>
+        <TouchableOpacity
+          style={styles.rotateBtn}
+          onPress={handleRotate}
+          disabled={isRotating || isCropping || !imgSize}
+        >
+          {isRotating ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.rotateBtnText}>↻  Rotate 90°</Text>
+          )}
+        </TouchableOpacity>
         <Text style={styles.hintText}>Pinch to zoom · Drag to reposition</Text>
       </View>
     </SafeAreaView>
@@ -249,7 +280,18 @@ function makeStyles(colors: AppColors) {
     cornerTR: { borderTopWidth: CORNER_THICKNESS, borderRightWidth: CORNER_THICKNESS },
     cornerBL: { borderBottomWidth: CORNER_THICKNESS, borderLeftWidth: CORNER_THICKNESS },
     cornerBR: { borderBottomWidth: CORNER_THICKNESS, borderRightWidth: CORNER_THICKNESS },
-    hintArea: { paddingVertical: SPACING.md, alignItems: 'center' },
+    hintArea: { paddingVertical: SPACING.md, alignItems: 'center', gap: SPACING.sm },
     hintText: { color: '#888', fontSize: FONT_SIZE.xs },
+    rotateBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: 'rgba(255,255,255,0.12)',
+      borderRadius: 20,
+      paddingHorizontal: SPACING.lg,
+      paddingVertical: SPACING.sm,
+      minWidth: 130,
+      justifyContent: 'center',
+    },
+    rotateBtnText: { color: '#fff', fontSize: FONT_SIZE.sm, fontWeight: '600' },
   });
 }
