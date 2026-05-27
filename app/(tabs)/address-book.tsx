@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/auth.store';
 import { useProfileStore } from '@/store/profile.store';
@@ -24,8 +24,7 @@ export default function AddressBookScreen() {
   const { profile } = useProfileStore();
   const { addresses, fetch, remove, loading } = useAddressStore();
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
-  const styles = useMemo(() => makeStyles(colors, insets.top), [colors, insets.top]);
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   useFocusEffect(
     useCallback(() => {
@@ -93,7 +92,7 @@ export default function AddressBookScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Address Book</Text>
         <TouchableOpacity style={styles.addBtn} onPress={() => router.push('/address/new')}>
@@ -126,19 +125,19 @@ export default function AddressBookScreen() {
           ) : null
         }
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({});  // replaced by makeStyles below
 
-function makeStyles(colors: AppColors, topInset: number) {
+function makeStyles(colors: AppColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     header: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       paddingHorizontal: SPACING.xl,
-      paddingTop: topInset + SPACING.xl,
+      paddingTop: SPACING.xl,
       paddingBottom: SPACING.md,
       borderBottomWidth: 1, borderBottomColor: colors.border,
     },
