@@ -3,8 +3,10 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { Image } from 'https://deno.land/x/imagescript@1.3.0/mod.ts';
 
-const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')!;
-const LOB_API_KEY = Deno.env.get('LOB_API_KEY')!;
+const STRIPE_SECRET_KEY_LIVE = Deno.env.get('STRIPE_SECRET_KEY')!;
+const STRIPE_SECRET_KEY_TEST = Deno.env.get('STRIPE_SECRET_KEY_TEST')!;
+const LOB_API_KEY_LIVE = Deno.env.get('LOB_API_KEY')!;
+const LOB_API_KEY_TEST = Deno.env.get('LOB_API_KEY_TEST')!;
 const GOOGLE_VISION_API_KEY = Deno.env.get('GOOGLE_VISION_API_KE');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -166,21 +168,57 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
+async function refundPayment(stripeKey: string, paymentIntentId: string): Promise<{ attempted: boolean; succeeded: boolean }> {
+  try {
+    const res = await fetch('https://api.stripe.com/v1/refunds', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${stripeKey}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({ payment_intent: paymentIntentId, reason: 'requested_by_customer' }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      console.error('[submit-postcard] Stripe refund failed:', JSON.stringify(data));
+      return { attempted: true, succeeded: false };
+    }
+    console.log('[submit-postcard] Stripe refund issued:', data.id, 'for PI', paymentIntentId);
+    return { attempted: true, succeeded: true };
+  } catch (err) {
+    console.error('[submit-postcard] Stripe refund threw:', err);
+    return { attempted: true, succeeded: false };
+  }
+}
+
+function refundMsg(succeeded: boolean) {
+  return succeeded
+    ? 'Your payment has been refunded.'
+    : 'Please contact support for a refund.';
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   let tempImagePath: string | null = null;
+  let confirmedPaymentIntentId: string | undefined;
+  let lobSubmitted = false;
+  let stripeKey = STRIPE_SECRET_KEY_LIVE; // refined after parsing testMode
 
   try {
     const {
       imageBase64, message, location, frame, filter,
-      fromAddressId, toAddressId, recipientSnapshot, paymentIntentId,
+      fromAddressId, toAddressId, recipientSnapshot, paymentIntentId, testMode,
     } = await req.json();
 
     if (!imageBase64 || !paymentIntentId || !fromAddressId || !toAddressId) {
       return jsonResponse({ error: 'Missing required fields' }, 400);
     }
+
+    const STRIPE_SECRET_KEY = testMode === true ? STRIPE_SECRET_KEY_TEST : STRIPE_SECRET_KEY_LIVE;
+    const LOB_API_KEY = testMode === true ? LOB_API_KEY_TEST : LOB_API_KEY_LIVE;
+    stripeKey = STRIPE_SECRET_KEY;
 
     // ── 1. Verify Stripe payment and extract user identity ────────────────────
     const piRes = await fetch(`https://api.stripe.com/v1/payment_intents/${paymentIntentId}`, {
@@ -191,6 +229,17 @@ serve(async (req) => {
       return jsonResponse({ error: 'Payment not confirmed' }, 402);
     }
     const userId = pi.metadata.user_id;
+    confirmedPaymentIntentId = paymentIntentId;
+
+    // Idempotency: reject if this payment intent was already processed
+    const { data: existingOrder } = await supabase
+      .from('orders')
+      .select('id')
+      .eq('stripe_payment_intent_id', paymentIntentId)
+      .maybeSingle();
+    if (existingOrder) {
+      return jsonResponse({ error: 'This payment has already been processed' }, 409);
+    }
 
     // ── 2. SafeSearch (LEGAL REQUIREMENT — 18 U.S.C. § 1461) ─────────────────
     if (GOOGLE_VISION_API_KEY) {
@@ -208,10 +257,12 @@ serve(async (req) => {
       const safeSearch = visionData.responses?.[0]?.safeSearchAnnotation;
       if (!safeSearch) {
         console.error('Vision API failed:', JSON.stringify(visionData));
-        return jsonResponse({ error: 'Content moderation unavailable. Please try again.' }, 503);
+        const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId);
+        return jsonResponse({ error: `Content moderation unavailable. ${refundMsg(succeeded)}` }, 503);
       }
       if (isBlocked(safeSearch.adult) || isBlocked(safeSearch.violence)) {
-        return jsonResponse({ error: 'This image cannot be sent.', code: 'CONTENT_REJECTED' }, 422);
+        const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId);
+        return jsonResponse({ error: `This image cannot be sent. ${refundMsg(succeeded)}`, code: 'CONTENT_REJECTED' }, 422);
       }
     } else {
       console.warn('GOOGLE_VISION_API_KEY not set — skipping SafeSearch (dev only)');
@@ -221,7 +272,10 @@ serve(async (req) => {
     const { data: fromAddress, error: fromErr } = await supabase
       .from('addresses').select('*')
       .eq('id', fromAddressId).eq('user_id', userId).single();
-    if (fromErr || !fromAddress) return jsonResponse({ error: 'Sender address not found' }, 404);
+    if (fromErr || !fromAddress) {
+      const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId);
+      return jsonResponse({ error: `Sender address not found. ${refundMsg(succeeded)}` }, 404);
+    }
 
     // ── 4. Upload image to Storage so Lob can fetch via URL ───────────────────
     // Lob's inline HTML limit is 10,000 chars; base64 images far exceed that.
@@ -388,7 +442,8 @@ serve(async (req) => {
 
     if (uploadError) {
       console.error('Storage upload failed:', uploadError);
-      return jsonResponse({ error: 'Failed to process image' }, 500);
+      const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId);
+      return jsonResponse({ error: `Failed to process image. ${refundMsg(succeeded)}` }, 500);
     }
 
     const { data: { publicUrl: frontUrl } } = supabase.storage
@@ -461,8 +516,11 @@ serve(async (req) => {
     if (!lobRes.ok) {
       const lobErrMsg = lobData?.error?.message ?? lobData?.message ?? JSON.stringify(lobData).slice(0, 300);
       console.error(`Lob ${lobRes.status}:`, JSON.stringify(lobData));
-      return jsonResponse({ error: `Lob ${lobRes.status}: ${lobErrMsg}`, lob_status: lobRes.status, lob_detail: lobData }, 502);
+      const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId);
+      return jsonResponse({ error: `Lob ${lobRes.status}: ${lobErrMsg} ${refundMsg(succeeded)}`, lob_status: lobRes.status, lob_detail: lobData }, 502);
     }
+
+    lobSubmitted = true;
 
     // ── 6. Record in database ─────────────────────────────────────────────────
     const { data: postcard, error: insertErr } = await supabase
@@ -497,6 +555,9 @@ serve(async (req) => {
   } catch (err) {
     if (tempImagePath) {
       await supabase.storage.from('postcard-fronts').remove([tempImagePath]).catch(() => {});
+    }
+    if (confirmedPaymentIntentId && !lobSubmitted) {
+      await refundPayment(stripeKey, confirmedPaymentIntentId);
     }
     console.error('Unhandled error:', err);
     return jsonResponse({ error: 'Internal server error', detail: String(err) }, 500);

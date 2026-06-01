@@ -149,18 +149,19 @@ export default function PreviewScreen() {
         // Step 2: Create PaymentIntent and initialize the sheet
         const { data: piData, error: piError } = await supabase.functions.invoke('create-payment-intent', {
           headers: { Authorization: `Bearer ${token}` },
-          body: personalAddress
-            ? {
-                customerAddress: {
-                  line1: personalAddress.line1,
-                  line2: personalAddress.line2 ?? undefined,
-                  city: personalAddress.city,
-                  state: personalAddress.state,
-                  postalCode: personalAddress.zip,
-                  country: personalAddress.country,
-                },
-              }
-            : undefined,
+          body: {
+            testMode: __DEV__,
+            ...(personalAddress ? {
+              customerAddress: {
+                line1: personalAddress.line1,
+                line2: personalAddress.line2 ?? undefined,
+                city: personalAddress.city,
+                state: personalAddress.state,
+                postalCode: personalAddress.zip,
+                country: personalAddress.country,
+              },
+            } : {}),
+          },
         });
         if (cancelled) return;
         if (piError || !piData?.clientSecret) {
@@ -219,11 +220,18 @@ export default function PreviewScreen() {
     const byChars = len < 80 ? 18 : len < 200 ? 16 : len < 350 ? 14 : 12;
     const byLines = lines <= 5 ? 18 : lines <= 9 ? 16 : lines <= 13 ? 14 : 12;
     const byVisual = visualLines <= 7 ? 18 : visualLines <= 12 ? 16 : visualLines <= 17 ? 14 : 12;
-    // Ensure all lines fit vertically within the preview card height
+    // Ensure all lines fit vertically within the preview card height.
+    // Subtract an extra SPACING.md buffer because LOB_CHARS_PER_LINE=40 is calibrated
+    // for Lob's print width, not the narrower preview column — so visualLines can be an
+    // underestimate, making byFit slightly too large without the buffer.
     const availableH = CARD_H - SPACING.md * 2;
-    const byFit = visualLines > 0 ? Math.floor(availableH / (visualLines * 1.5)) : 18;
+    const byFit = visualLines > 0 ? Math.floor((availableH - SPACING.md) / (visualLines * 1.5)) : 18;
     return Math.min(byChars, byLines, byVisual, byFit);
   }, [message]);
+
+  const previewMaxLines = messageFontSize > 0
+    ? Math.floor((CARD_H - SPACING.md * 2) / (messageFontSize * 1.5))
+    : undefined;
 
   if (!photoUri || !recipient) {
     return null;
@@ -305,6 +313,7 @@ export default function PreviewScreen() {
             zip: recipient.zip,
           },
           paymentIntentId: paymentIntentIdRef.current,
+          testMode: __DEV__,
         },
       });
 
@@ -317,7 +326,8 @@ export default function PreviewScreen() {
         // Defense-in-depth: the submit function also runs SafeSearch; surface the
         // rejection message directly rather than wrapping it in a generic error.
         if (status === 422 && (body as any)?.code === 'CONTENT_REJECTED') {
-          Alert.alert('Image rejected', 'This image cannot be mailed. Please choose a different photo.');
+          const errorMsg = typeof (body as any)?.error === 'string' ? (body as any).error : 'This image cannot be mailed. Please choose a different photo.';
+          Alert.alert('Image rejected', errorMsg);
           setSending(false);
           return;
         }
@@ -391,6 +401,7 @@ export default function PreviewScreen() {
         <View style={styles.cardBack}>
           <View style={styles.backMessage}>
             <Text
+              numberOfLines={previewMaxLines}
               style={[styles.backMessageText, { fontSize: messageFontSize, lineHeight: messageFontSize * 1.5 }]}
             >{message}</Text>
           </View>

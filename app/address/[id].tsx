@@ -118,15 +118,42 @@ export default function EditAddressScreen() {
     setVerified(false);
   }
 
+  async function doSave() {
+    const { error } = await update(id!, { ...form, lob_verified: verified === true });
+    if (error) { Alert.alert('Error', error); return; }
+    router.back();
+  }
+
   async function handleSave() {
     if (!id) return;
     if (!form.full_name.trim()) { Alert.alert('Missing name', 'Please enter the recipient\'s full name.'); return; }
     if (!form.line1.trim() || !form.city.trim() || !form.state.trim() || !form.zip.trim()) {
       Alert.alert('Incomplete address', 'Please fill in all required fields.'); return;
     }
-    const { error } = await update(id, { ...form, lob_verified: verified === true });
-    if (error) { Alert.alert('Error', error); return; }
-    router.back();
+    if (verified === null) {
+      Alert.alert(
+        'Address not verified',
+        "You haven't verified this address yet. We recommend verifying to make sure it's deliverable.",
+        [
+          { text: 'Verify First', onPress: handleVerify },
+          { text: 'Save Anyway', onPress: doSave },
+          { text: 'Cancel', style: 'cancel' },
+        ]
+      );
+      return;
+    }
+    if (verified === false) {
+      Alert.alert(
+        'Unverified address',
+        "We couldn't confirm this with USPS — that's normal for Hawaii, rural Alaska, and some newer addresses. If it's a real address your postcard will be sent, but if it can't be found it won't arrive.",
+        [
+          { text: 'Save Anyway', onPress: doSave },
+          { text: 'Go Back', style: 'cancel' },
+        ]
+      );
+      return;
+    }
+    await doSave();
   }
 
   return (

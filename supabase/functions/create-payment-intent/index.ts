@@ -6,7 +6,8 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')!;
+const STRIPE_SECRET_KEY_LIVE = Deno.env.get('STRIPE_SECRET_KEY')!;
+const STRIPE_SECRET_KEY_TEST = Deno.env.get('STRIPE_SECRET_KEY_TEST')!;
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -47,6 +48,8 @@ serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
+    const testMode = body?.testMode === true;
+    const STRIPE_SECRET_KEY = testMode ? STRIPE_SECRET_KEY_TEST : STRIPE_SECRET_KEY_LIVE;
     const addr = body?.customerAddress;
 
     // Address is required — customers cannot check out without one
