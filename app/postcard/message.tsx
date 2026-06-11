@@ -19,10 +19,22 @@ const LOB_CHARS_PER_LINE = 40;
 // At 10px with 1.5 line-height, 336px content height fits 22 visual lines.
 const LOB_MAX_VISUAL = 22;
 
+// Matches full emoji sequences (same set as the server-side EMOJI_REGEX).
+// Each emoji is rendered as a Twemoji image (~1em wide ≈ 2 char-widths in the
+// Lob font), so we need to count them separately from regular characters.
+const EMOJI_REGEX = /\p{Regional_Indicator}{2}|\p{Extended_Pictographic}(?:\uFE0F\u20E3?|[\u{1F3FB}-\u{1F3FF}])?(?:\u200D\p{Extended_Pictographic}(?:\uFE0F\u20E3?|[\u{1F3FB}-\u{1F3FF}])?)*/gu;
+
 function countLobVisualLines(text: string): number {
   return text
     .split('\n')
-    .reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / LOB_CHARS_PER_LINE)), 0);
+    .reduce((sum, line) => {
+      const emojiMatches = line.match(EMOJI_REGEX) ?? [];
+      // Remove the UTF-16 length of all emoji sequences and substitute 2 units
+      // each (since Twemoji images render ~2 char-widths wide).
+      const emojiStrLen = emojiMatches.reduce((s, e) => s + e.length, 0);
+      const visualLen = (line.length - emojiStrLen) + emojiMatches.length * 2;
+      return sum + Math.max(1, Math.ceil(visualLen / LOB_CHARS_PER_LINE));
+    }, 0);
 }
 
 interface NominatimResult {

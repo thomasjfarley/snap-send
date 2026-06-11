@@ -102,32 +102,27 @@ function roundCorners(image: InstanceType<typeof Image>, radius: number): void {
   }
 }
 
-// ── Helper: draw a white location-pin icon (circle head + tapered tail) ───────
-// Uses the same proportions as the React Native PinIcon component in preview.tsx
-// so the badge looks consistent between the in-app preview and the Lob print.
-// All coordinates use imagescript's 1-indexed convention.
-function createPinIcon(h: number): InstanceType<typeof Image> {
-  const r = Math.round(h * 0.32);
-  const w = r * 2 + 2;   // +2 so the circle doesn't clip at edges
-  const cx = w / 2;       // circle center x (0-indexed float)
-  const cy = r + 1;       // circle center y (0-indexed float)
-  const icon = new Image(w, h);
-  for (let iy = 1; iy <= h; iy++) {
-    for (let ix = 1; ix <= w; ix++) {
-      const px = ix - 0.5;  // pixel center, 0-indexed
-      const py = iy - 0.5;
-      const inCircle = (px - cx) ** 2 + (py - cy) ** 2 <= r * r;
-      let inTail = false;
-      if (!inCircle && py > cy) {
-        const t = (py - cy) / (h - cy);
-        inTail = Math.abs(px - cx) <= r * (1 - t);
-      }
-      if (inCircle || inTail) {
-        icon.setPixelAt(ix, iy, 0xFFFFFFFF);
-      }
-    }
-  }
-  return icon;
+// ── Emoji helpers: replace emoji in text with Twemoji PNG <img> tags ──────────
+// Twemoji (Twitter's open-source emoji set) is used so that emoji render
+// consistently in Lob's HTML renderer regardless of available system fonts.
+// Matches full emoji sequences: flag pairs, simple emoji, skin-tone variants,
+// and ZWJ sequences (e.g. 👨‍👩‍👧).
+const EMOJI_REGEX = /\p{Regional_Indicator}{2}|\p{Extended_Pictographic}(?:\uFE0F\u20E3?|[\u{1F3FB}-\u{1F3FF}])?(?:\u200D\p{Extended_Pictographic}(?:\uFE0F\u20E3?|[\u{1F3FB}-\u{1F3FF}])?)*/gu;
+
+function emojiToTwemojiCode(emoji: string): string {
+  // Spread by Unicode code points (not UTF-16 code units) so surrogate pairs
+  // are handled correctly, then join hex values with dashes.
+  return [...emoji]
+    .map(c => c.codePointAt(0)!.toString(16))
+    .join('-');
+}
+
+function replaceEmojisWithHtmlImages(text: string): string {
+  return text.replace(EMOJI_REGEX, (emoji) => {
+    const code = emojiToTwemojiCode(emoji);
+    const url = `https://cdn.jsdelivr.net/npm/twemoji@14.0.2/assets/72x72/${code}.png`;
+    return `<img src="${url}" style="height:1em;width:1em;vertical-align:-0.2em;display:inline-block" alt="${emoji}">`;
+  });
 }
 
 // ── Helper: parse #RRGGBB hex → 32-bit RGBA (imagescript format) ──────────────
@@ -387,7 +382,7 @@ serve(async (req) => {
       }
 
       // ── Location badge: Instagram-style pill, bottom-left ────────────────
-      // White pin icon + location text on a dark semi-translucent background.
+      // Twemoji 📍 pin + location text on a dark semi-translucent background.
       // Drawn LAST so it's unaffected by any earlier color corrections.
       // Mirrors the PinIcon component + locationBadge style in preview.tsx.
       if (location) {
@@ -403,22 +398,41 @@ serve(async (req) => {
 
             const textImg = await Image.renderText(font, badgeFontSize, String(location), 0xFFFFFFFF);
             const iconH   = Math.round(badgeFontSize * 1.3);
-            const pinIcon = createPinIcon(iconH);
-            const iconW   = pinIcon.width;
+
+            // Fetch and decode the Twemoji 📍 (Round Pushpin, U+1F4CD) PNG.
+            // Falls back to null so the badge still renders without the icon.
+            let pinIcon: InstanceType<typeof Image> | null = null;
+            try {
+              const pinRes = await fetch('https://cdn.jsdelivr.net/npm/twemoji@14.0.2/assets/72x72/1f4cd.png');
+              if (pinRes.ok) {
+                const pinBytes = new Uint8Array(await pinRes.arrayBuffer());
+                const decoded = await Image.decode(pinBytes);
+                pinIcon = decoded.resize(iconH, iconH);
+              } else {
+                console.error(`[submit-postcard] Twemoji pin fetch ${pinRes.status}`);
+              }
+            } catch (pinErr) {
+              console.error('[submit-postcard] Twemoji pin fetch threw:', pinErr);
+            }
+
+            const iconW = pinIcon ? iconH : 0;
+            const iconGapActual = pinIcon ? iconGap : 0;
 
             const badgeH = textImg.height + badgePad * 2;
-            const badgeW = badgePad + iconW + iconGap + textImg.width + badgePad;
+            const badgeW = badgePad + iconW + iconGapActual + textImg.width + badgePad;
 
             const badge = new Image(badgeW, badgeH);
             badge.fill(0x000000A6);  // ~65% opacity — matches rgba(0,0,0,0.65) in preview
 
             // Composite pin icon: vertically centered
-            const iconY = Math.max(1, Math.round((badgeH - iconH) / 2));
-            badge.composite(pinIcon, badgePad, iconY);
+            if (pinIcon) {
+              const iconY = Math.max(1, Math.round((badgeH - iconH) / 2));
+              badge.composite(pinIcon, badgePad, iconY);
+            }
 
             // Composite text: vertically centered
             const textY = Math.max(1, Math.round((badgeH - textImg.height) / 2));
-            badge.composite(textImg, badgePad + iconW + iconGap, textY);
+            badge.composite(textImg, badgePad + iconW + iconGapActual, textY);
 
             // Full pill shape
             roundCorners(badge, Math.round(badgeH / 2));
@@ -453,12 +467,13 @@ serve(async (req) => {
     // ── 5. Send postcard via Lob ──────────────────────────────────────────────
     const lobCredentials = btoa(`${LOB_API_KEY}:`);
     const normalizedMessage = (message ?? '').trim();
-    const safeMessage = normalizedMessage.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const safeLocation = location ? String(location).replace(/</g, '&lt;').replace(/>/g, '&gt;') : null;
+    const htmlEscapedMessage = normalizedMessage.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const lobMessage = replaceEmojisWithHtmlImages(htmlEscapedMessage);
+    const safeLocation = location ? replaceEmojisWithHtmlImages(String(location).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')) : null;
     const msgLen = normalizedMessage.length;
-    const lineCount = safeMessage.split('\n').length;
+    const lineCount = htmlEscapedMessage.split('\n').length;
     const LOB_CHARS_PER_LINE = 40;
-    const visualLines = safeMessage
+    const visualLines = htmlEscapedMessage
       .split('\n')
       .reduce((sum: number, line: string) => sum + Math.max(1, Math.ceil(line.length / LOB_CHARS_PER_LINE)), 0);
     const sizeByChars = msgLen < 80 ? 15 : msgLen < 200 ? 13 : msgLen < 350 ? 11 : 10;
@@ -481,7 +496,7 @@ serve(async (req) => {
       size: '4x6',
       use_type: 'operational',
       front: frontUrl,
-      back: `<html><body style="margin:0;padding:0;font-family:Helvetica,Arial,sans-serif"><table style="width:100%;height:100%;border-collapse:collapse;table-layout:fixed"><tr><td style="width:44%;vertical-align:top;padding:24px 10px 24px 24px"><p style="font-size:${lobFontSize}px;line-height:1.5;color:#333;margin:0;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word">${safeMessage}</p></td><td style="width:56%;vertical-align:top;padding:0"><table style="width:100%;border-collapse:collapse"><tr><td style="text-align:center;padding:28px 14px 20px 14px"><p style="font-size:8px;font-weight:bold;color:#444;margin:0 0 8px 0;letter-spacing:2px;text-transform:uppercase">Snap Send</p><img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&color=222222&bgcolor=ffffff&data=https://snapsend.live" width="80" height="80" style="display:block;margin:0 auto" /><p style="font-size:8px;color:#888;margin:8px 0 0 0;letter-spacing:1px">Send Joy</p></td></tr><tr><td style="padding:0 14px"><hr style="border:none;border-top:1px solid #ddd;margin:0" /></td></tr><tr><td style="padding:10px 14px 4px 14px">${fromHtml}</td></tr><tr><td style="padding:4px 14px 10px 14px">${toHtml}</td></tr></table></td></tr></table></body></html>`,
+      back: `<html><body style="margin:0;padding:0;font-family:Helvetica,Arial,sans-serif"><table style="width:100%;height:100%;border-collapse:collapse;table-layout:fixed"><tr><td style="width:44%;vertical-align:top;padding:24px 10px 24px 24px"><p style="font-size:${lobFontSize}px;line-height:1.5;color:#333;margin:0;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word">${lobMessage}</p></td><td style="width:56%;vertical-align:top;padding:0"><table style="width:100%;border-collapse:collapse"><tr><td style="text-align:center;padding:28px 14px 20px 14px"><p style="font-size:8px;font-weight:bold;color:#444;margin:0 0 8px 0;letter-spacing:2px;text-transform:uppercase">Snap Send</p><img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&color=222222&bgcolor=ffffff&data=https://snapsend.live" width="80" height="80" style="display:block;margin:0 auto" /><p style="font-size:8px;color:#888;margin:8px 0 0 0;letter-spacing:1px">Send Joy</p></td></tr><tr><td style="padding:0 14px"><hr style="border:none;border-top:1px solid #ddd;margin:0" /></td></tr><tr><td style="padding:10px 14px 4px 14px">${fromHtml}</td></tr><tr><td style="padding:4px 14px 10px 14px">${toHtml}</td></tr></table></td></tr></table></body></html>`,
       to: {
         name: recipientSnapshot.full_name,
         address_line1: recipientSnapshot.line1,
