@@ -17,6 +17,8 @@ import { POSTCARD_PRICE_CENTS, STRIPE_PUBLISHABLE_KEY } from '@/constants/config
 import { supabase } from '@/lib/supabase';
 import { GrayscaleImage } from '@/components/GrayscaleImage';
 
+const SUPPORT_EMAIL = 'support@snapsend.live';
+
 const useStripe: () => { initPaymentSheet: Function; presentPaymentSheet: Function } =
   Platform.OS !== 'web'
     ? require('@stripe/stripe-react-native').useStripe
@@ -71,6 +73,8 @@ export default function PreviewScreen() {
   const paymentConfirmedRef = useRef(false);
   // Cached submission payload so retries use identical data.
   const submissionPayloadRef = useRef<object | null>(null);
+  // Accumulates error details across retry attempts for the support email.
+  const errorLogRef = useRef<string[]>([]);
   // DEV ONLY: force edge function failure to test retry flow.
   const [devForceFailure, setDevForceFailure] = useState(false);
   const [sending, setSending] = useState(false);
@@ -259,6 +263,49 @@ export default function PreviewScreen() {
     );
   }
 
+  async function handleCancelAndRefund() {
+    if (sendInProgressRef.current) return;
+    sendInProgressRef.current = true;
+    setSending(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      const { error } = await supabase.functions.invoke('request-refund', {
+        headers: { Authorization: `Bearer ${token}` },
+        body: {
+          paymentIntentId: paymentIntentIdRef.current,
+          testMode: __DEV__,
+          errorLog: errorLogRef.current,
+        },
+      });
+      if (error) {
+        console.error('[handleCancelAndRefund] error:', error);
+        Alert.alert(
+          'Refund Failed',
+          `We couldn't process your refund automatically. Support has been notified — please also email ${SUPPORT_EMAIL} with your payment ID: ${paymentIntentIdRef.current ?? '(unknown)'}`,
+        );
+        return;
+      }
+      // Success — clean up and navigate away
+      paymentConfirmedRef.current = false;
+      submissionPayloadRef.current = null;
+      errorLogRef.current = [];
+      reset();
+      router.dismissTo('/(tabs)');
+      if (Platform.OS === 'ios') {
+        setTimeout(() => Alert.alert('Refund Issued', 'Your payment has been refunded. It may take 5–10 business days to appear on your statement.'), 500);
+      } else {
+        Alert.alert('Refund Issued', 'Your payment has been refunded. It may take 5–10 business days to appear on your statement.');
+      }
+    } catch (err: any) {
+      console.error('[handleCancelAndRefund] threw:', err);
+      Alert.alert('Refund Failed', `Please email ${SUPPORT_EMAIL} for assistance.`);
+    } finally {
+      sendInProgressRef.current = false;
+      setSending(false);
+    }
+  }
+
   async function handleSend() {
     if (!recipient) return;
     if (sendInProgressRef.current) return;
@@ -334,6 +381,7 @@ export default function PreviewScreen() {
     }
 
     const offerRetry = (detail: string) => {
+      errorLogRef.current.push(detail);
       console.error('[handleSend] submission failed post-payment:', detail);
       sendInProgressRef.current = false;
       setSending(false);
@@ -342,7 +390,11 @@ export default function PreviewScreen() {
         'Your payment went through but the postcard couldn\'t be submitted. Tap Retry to try again — you won\'t be charged twice.',
         [
           { text: 'Retry', onPress: () => handleSend() },
-          { text: 'Dismiss', style: 'cancel' },
+          {
+            text: 'Cancel & Refund',
+            style: 'destructive',
+            onPress: () => handleCancelAndRefund(),
+          },
         ],
       );
     };
@@ -376,6 +428,7 @@ export default function PreviewScreen() {
       submittedRef.current = true;
       paymentConfirmedRef.current = false;
       submissionPayloadRef.current = null;
+      errorLogRef.current = [];
       reset();
       router.dismissTo('/(tabs)');
       if (Platform.OS === 'ios') {
