@@ -293,11 +293,7 @@ export default function PreviewScreen() {
       errorLogRef.current = [];
       reset();
       router.dismissTo('/(tabs)');
-      if (Platform.OS === 'ios') {
-        setTimeout(() => Alert.alert('Refund Issued', 'Your payment has been refunded. It may take 5–10 business days to appear on your statement.'), 500);
-      } else {
-        Alert.alert('Refund Issued', 'Your payment has been refunded. It may take 5–10 business days to appear on your statement.');
-      }
+      // No alert needed — navigating home is enough confirmation.
     } catch (err: any) {
       console.error('[handleCancelAndRefund] threw:', err);
       Alert.alert('Refund Failed', `Please email ${SUPPORT_EMAIL} for assistance.`);
@@ -386,6 +382,23 @@ export default function PreviewScreen() {
       console.error('[handleSend] submission failed post-payment:', detail);
       sendInProgressRef.current = false;
       setSending(false);
+
+      // Report every failure to support (fire-and-forget — non-blocking).
+      // report-error deduplicates via GitHub Issues so repeated failures add
+      // a comment on the existing issue rather than creating a new one.
+      supabase.auth.getSession().then(({ data: s }) => {
+        supabase.functions.invoke('report-error', {
+          headers: { Authorization: `Bearer ${s.session?.access_token}` },
+          body: {
+            source: 'submit-postcard (client)',
+            title: 'Postcard submission failed after payment',
+            severity: 'error',
+            details: errorLogRef.current.join('\n'),
+            userEmail: '',
+          },
+        }).catch(() => {}); // never block the user on this
+      }).catch(() => {});
+
       Alert.alert(
         'Send Failed',
         'Your payment went through but the postcard couldn\'t be submitted. Tap Retry to try again — you won\'t be charged twice.',
