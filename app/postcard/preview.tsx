@@ -286,7 +286,8 @@ export default function PreviewScreen() {
         );
         return;
       }
-      // Success — clean up and navigate away
+      // Mark submitted first so the photoUri useEffect doesn't redirect to /postcard
+      submittedRef.current = true;
       paymentConfirmedRef.current = false;
       submissionPayloadRef.current = null;
       errorLogRef.current = [];
