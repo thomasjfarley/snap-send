@@ -44,6 +44,9 @@ yarn-error.*
 # EAS
 eas.json
 
+# Google Play service account key (contains private key — never commit)
+google-play-service-account.json
+
 # IDE
 .idea/
 .vscode/
