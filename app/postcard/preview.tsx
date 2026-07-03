@@ -379,7 +379,7 @@ export default function PreviewScreen() {
 
     const offerRetry = (detail: string) => {
       errorLogRef.current.push(detail);
-      console.error('[handleSend] submission failed post-payment:', detail);
+      console.log('[handleSend] submission failed post-payment (handled):', detail);
       sendInProgressRef.current = false;
       setSending(false);
 

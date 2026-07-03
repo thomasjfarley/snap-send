@@ -42,19 +42,27 @@ const GH_HEADERS = {
 };
 
 async function findOpenIssue(issueTitle: string): Promise<{ number: number; html_url: string } | null> {
-  // Search for existing open issues with the same title and our label
-  const q = encodeURIComponent(
-    `repo:${GITHUB_REPO} is:issue is:open label:${GITHUB_LABEL} in:title "${issueTitle}"`,
-  );
-  const res = await fetch(`https://api.github.com/search/issues?q=${q}&per_page=1`, {
-    headers: GH_HEADERS,
-  });
-  if (!res.ok) {
-    console.error('[report-error] GitHub search failed:', res.status, await res.text());
-    return null;
+  // Use the issues list API (not the search API) to avoid the 30-60 second
+  // indexing delay that causes duplicates when the same error fires in quick
+  // succession. The list API always reflects live data.
+  let page = 1;
+  while (page <= 3) { // up to 150 issues
+    const res = await fetch(
+      `https://api.github.com/repos/${GITHUB_REPO}/issues?labels=${GITHUB_LABEL}&state=open&per_page=50&page=${page}`,
+      { headers: GH_HEADERS },
+    );
+    if (!res.ok) {
+      console.error('[report-error] GitHub issues list failed:', res.status, await res.text());
+      return null;
+    }
+    const issues: Array<{ number: number; html_url: string; title: string }> = await res.json();
+    if (!Array.isArray(issues) || issues.length === 0) break;
+    const match = issues.find(i => i.title === issueTitle);
+    if (match) return { number: match.number, html_url: match.html_url };
+    if (issues.length < 50) break;
+    page++;
   }
-  const data = await res.json();
-  return data.items?.[0] ?? null;
+  return null;
 }
 
 async function createIssue(opts: {

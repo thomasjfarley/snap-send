@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from 'react';
-import { ActivityIndicator, Linking, Platform, View } from 'react-native';
+import { ActivityIndicator, Linking, LogBox, Platform, View } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as ExpoLinking from 'expo-linking';
@@ -8,6 +8,17 @@ import { useProfileStore } from '@/store/profile.store';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 import { STRIPE_PUBLISHABLE_KEY } from '@/constants/config';
+
+// Suppress dev-mode LogBox overlays for errors we already handle gracefully
+// in the UI (retry dialog, refund flow). These are harmless in production
+// (LogBox is disabled in release builds) but cluttered during dev testing.
+if (__DEV__) {
+  LogBox.ignoreLogs([
+    'submission failed post-payment',
+    'FunctionsHttpError',
+    'Non-Error promise rejection captured',
+  ]);
+}
 
 // StripeProvider is native-only — skip on web to avoid import errors
 const StripeProvider = Platform.OS !== 'web'
