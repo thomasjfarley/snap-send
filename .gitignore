@@ -50,3 +50,4 @@ google-play-service-account.json
 # IDE
 .idea/
 .vscode/
+*.aab
