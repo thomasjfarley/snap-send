@@ -117,11 +117,48 @@ function emojiToTwemojiCode(emoji: string): string {
     .join('-');
 }
 
-function replaceEmojisWithHtmlImages(text: string): string {
-  return text.replace(EMOJI_REGEX, (emoji) => {
+// Converts a Uint8Array to a base64 string without hitting the call-stack limit
+// that spread-based String.fromCharCode(...bytes) causes on large buffers.
+function uint8ToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const chunkSize = 1024;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+// Fetches each unique emoji PNG from the Twemoji CDN and embeds it as a
+// base64 data URI so Lob's renderer never needs to make outbound HTTP requests
+// (which it blocks — causing mailpiece failures when external URLs are used).
+async function replaceEmojisWithHtmlImages(text: string): Promise<string> {
+  const matches = [...text.matchAll(new RegExp(EMOJI_REGEX.source, 'gu'))];
+  const uniqueEmojis = [...new Set(matches.map(m => m[0]))];
+
+  // Fetch all unique emoji PNGs in parallel
+  const emojiDataUrls = new Map<string, string | null>();
+  await Promise.all(uniqueEmojis.map(async (emoji) => {
     const code = emojiToTwemojiCode(emoji);
     const url = `https://cdn.jsdelivr.net/npm/twemoji@14.0.2/assets/72x72/${code}.png`;
-    return `<img src="${url}" style="height:1em;width:1em;vertical-align:-0.2em;display:inline-block" alt="${emoji}">`;
+    try {
+      const res = await fetch(url);
+      if (res.ok) {
+        const bytes = new Uint8Array(await res.arrayBuffer());
+        emojiDataUrls.set(emoji, `data:image/png;base64,${uint8ToBase64(bytes)}`);
+      } else {
+        console.error(`[submit-postcard] emoji fetch ${res.status}: ${url}`);
+        emojiDataUrls.set(emoji, null);
+      }
+    } catch (err) {
+      console.error(`[submit-postcard] emoji fetch threw for ${url}:`, err);
+      emojiDataUrls.set(emoji, null);
+    }
+  }));
+
+  return text.replace(EMOJI_REGEX, (emoji) => {
+    const dataUrl = emojiDataUrls.get(emoji);
+    if (!dataUrl) return emoji; // graceful fallback to raw character
+    return `<img src="${dataUrl}" style="height:1em;width:1em;vertical-align:-0.2em;display:inline-block" alt="${emoji}">`;
   });
 }
 
@@ -468,8 +505,8 @@ serve(async (req) => {
     const lobCredentials = btoa(`${LOB_API_KEY}:`);
     const normalizedMessage = (message ?? '').trim();
     const htmlEscapedMessage = normalizedMessage.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const lobMessage = replaceEmojisWithHtmlImages(htmlEscapedMessage);
-    const safeLocation = location ? replaceEmojisWithHtmlImages(String(location).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')) : null;
+    const lobMessage = await replaceEmojisWithHtmlImages(htmlEscapedMessage);
+    const safeLocation = location ? await replaceEmojisWithHtmlImages(String(location).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')) : null;
     const msgLen = normalizedMessage.length;
     const lineCount = htmlEscapedMessage.split('\n').length;
     const LOB_CHARS_PER_LINE = 40;
