@@ -185,7 +185,7 @@ async function replaceEmojisWithHtmlImages(
   return text.replace(EMOJI_REGEX, (emoji) => {
     const url = emojiUrls.get(emoji);
     if (!url) return emoji; // graceful fallback to raw character
-    return `<img src="${url}" style="height:1em;width:1em;vertical-align:-0.2em;display:inline-block" alt="${emoji}">`;
+    return `<img src="${url}" style="height:1em;width:1em;vertical-align:-0.2em;display:inline-block;margin:0 0.08em" alt="${emoji}">`;
   });
 }
 
