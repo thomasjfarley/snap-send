@@ -50,11 +50,15 @@ export default function PostcardPhotoScreen() {
     reset();
     setOpenedFromChooser(true);
     setIsProcessing(true);
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      setIsProcessing(false);
-      Alert.alert('Permission needed', 'Please allow access to your photo library.');
-      return;
+    // On Android the system Photo Picker manages its own access — no READ_MEDIA_IMAGES needed.
+    // Only request on iOS where the standard permission flow applies.
+    if (Platform.OS !== 'android') {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        setIsProcessing(false);
+        Alert.alert('Permission needed', 'Please allow access to your photo library.');
+        return;
+      }
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
