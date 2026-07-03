@@ -109,6 +109,12 @@ function roundCorners(image: InstanceType<typeof Image>, radius: number): void {
 // and ZWJ sequences (e.g. 👨‍👩‍👧).
 const EMOJI_REGEX = /\p{Regional_Indicator}{2}|\p{Extended_Pictographic}(?:\uFE0F\u20E3?|[\u{1F3FB}-\u{1F3FF}])?(?:\u200D\p{Extended_Pictographic}(?:\uFE0F\u20E3?|[\u{1F3FB}-\u{1F3FF}])?)*/gu;
 
+// CDN sources to try in order when an emoji is not yet cached in Supabase Storage
+const TWEMOJI_CDN_URLS = [
+  (code: string) => `https://cdn.jsdelivr.net/npm/twemoji@14.0.2/assets/72x72/${code}.png`,
+  (code: string) => `https://unpkg.com/twemoji@14.0.2/assets/72x72/${code}.png`,
+];
+
 function emojiToTwemojiCode(emoji: string): string {
   // Spread by Unicode code points (not UTF-16 code units) so surrogate pairs
   // are handled correctly, then join hex values with dashes.
@@ -117,48 +123,66 @@ function emojiToTwemojiCode(emoji: string): string {
     .join('-');
 }
 
-// Converts a Uint8Array to a base64 string without hitting the call-stack limit
-// that spread-based String.fromCharCode(...bytes) causes on large buffers.
-function uint8ToBase64(bytes: Uint8Array): string {
-  let binary = '';
-  const chunkSize = 1024;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+// Returns the Supabase Storage public URL for a cached Twemoji PNG, uploading
+// it from the CDN on first use. Lob CAN fetch Supabase Storage URLs (standard
+// HTTPS) but blocks CDN URLs and does not support base64 data URIs.
+async function getOrCacheTwemojiUrl(
+  supabase: ReturnType<typeof createClient>,
+  code: string,
+): Promise<string | null> {
+  const fileName = `${code}.png`;
+  const { data: { publicUrl } } = supabase.storage.from('emoji').getPublicUrl(fileName);
+
+  // Fast path: already cached — skip the CDN fetch
+  try {
+    const headRes = await fetch(publicUrl, { method: 'HEAD' });
+    if (headRes.ok) return publicUrl;
+  } catch { /* fall through to upload */ }
+
+  // Slow path: fetch from CDN and cache in Supabase Storage
+  for (const makeUrl of TWEMOJI_CDN_URLS) {
+    try {
+      const res = await fetch(makeUrl(code));
+      if (!res.ok) continue;
+      const bytes = await res.arrayBuffer();
+      const { error } = await supabase.storage
+        .from('emoji')
+        .upload(fileName, bytes, { contentType: 'image/png', upsert: true });
+      if (error) console.error(`[submit-postcard] emoji storage upload failed for ${code}: ${error.message}`);
+      return publicUrl; // URL is deterministic regardless of upload success
+    } catch (err) {
+      console.error(`[submit-postcard] emoji CDN fetch threw for ${code}:`, err);
+    }
   }
-  return btoa(binary);
+
+  console.error(`[submit-postcard] all emoji sources failed for ${code}`);
+  return null;
 }
 
-// Fetches each unique emoji PNG from the Twemoji CDN and embeds it as a
-// base64 data URI so Lob's renderer never needs to make outbound HTTP requests
-// (which it blocks — causing mailpiece failures when external URLs are used).
-async function replaceEmojisWithHtmlImages(text: string): Promise<string> {
+// Replaces emoji characters in `text` with <img> tags pointing to Supabase
+// Storage URLs. Missing emojis fall back to raw characters (no garbled output
+// because Lob skips unrenderable glyphs rather than mojibake-ing them when the
+// img tag itself is absent).
+async function replaceEmojisWithHtmlImages(
+  text: string,
+  supabase: ReturnType<typeof createClient>,
+): Promise<string> {
   const matches = [...text.matchAll(new RegExp(EMOJI_REGEX.source, 'gu'))];
+  if (matches.length === 0) return text;
+
   const uniqueEmojis = [...new Set(matches.map(m => m[0]))];
 
-  // Fetch all unique emoji PNGs in parallel
-  const emojiDataUrls = new Map<string, string | null>();
+  // Resolve all unique emoji URLs in parallel
+  const emojiUrls = new Map<string, string | null>();
   await Promise.all(uniqueEmojis.map(async (emoji) => {
     const code = emojiToTwemojiCode(emoji);
-    const url = `https://cdn.jsdelivr.net/npm/twemoji@14.0.2/assets/72x72/${code}.png`;
-    try {
-      const res = await fetch(url);
-      if (res.ok) {
-        const bytes = new Uint8Array(await res.arrayBuffer());
-        emojiDataUrls.set(emoji, `data:image/png;base64,${uint8ToBase64(bytes)}`);
-      } else {
-        console.error(`[submit-postcard] emoji fetch ${res.status}: ${url}`);
-        emojiDataUrls.set(emoji, null);
-      }
-    } catch (err) {
-      console.error(`[submit-postcard] emoji fetch threw for ${url}:`, err);
-      emojiDataUrls.set(emoji, null);
-    }
+    emojiUrls.set(emoji, await getOrCacheTwemojiUrl(supabase, code));
   }));
 
   return text.replace(EMOJI_REGEX, (emoji) => {
-    const dataUrl = emojiDataUrls.get(emoji);
-    if (!dataUrl) return emoji; // graceful fallback to raw character
-    return `<img src="${dataUrl}" style="height:1em;width:1em;vertical-align:-0.2em;display:inline-block" alt="${emoji}">`;
+    const url = emojiUrls.get(emoji);
+    if (!url) return emoji; // graceful fallback to raw character
+    return `<img src="${url}" style="height:1em;width:1em;vertical-align:-0.2em;display:inline-block" alt="${emoji}">`;
   });
 }
 
@@ -437,19 +461,24 @@ serve(async (req) => {
             const iconH   = Math.round(badgeFontSize * 1.3);
 
             // Fetch and decode the Twemoji 📍 (Round Pushpin, U+1F4CD) PNG.
+            // Uses Supabase Storage cache (same as emoji in message) to avoid
+            // CDN URLs that may be inaccessible from the edge function.
             // Falls back to null so the badge still renders without the icon.
             let pinIcon: InstanceType<typeof Image> | null = null;
             try {
-              const pinRes = await fetch('https://cdn.jsdelivr.net/npm/twemoji@14.0.2/assets/72x72/1f4cd.png');
-              if (pinRes.ok) {
-                const pinBytes = new Uint8Array(await pinRes.arrayBuffer());
-                const decoded = await Image.decode(pinBytes);
-                pinIcon = decoded.resize(iconH, iconH);
-              } else {
-                console.error(`[submit-postcard] Twemoji pin fetch ${pinRes.status}`);
+              const pinUrl = await getOrCacheTwemojiUrl(supabase, '1f4cd');
+              if (pinUrl) {
+                const pinRes = await fetch(pinUrl);
+                if (pinRes.ok) {
+                  const pinBytes = new Uint8Array(await pinRes.arrayBuffer());
+                  const decoded = await Image.decode(pinBytes);
+                  pinIcon = decoded.resize(iconH, iconH);
+                } else {
+                  console.error(`[submit-postcard] pin icon fetch ${pinRes.status}: ${pinUrl}`);
+                }
               }
             } catch (pinErr) {
-              console.error('[submit-postcard] Twemoji pin fetch threw:', pinErr);
+              console.error('[submit-postcard] pin icon fetch threw:', pinErr);
             }
 
             const iconW = pinIcon ? iconH : 0;
@@ -505,8 +534,8 @@ serve(async (req) => {
     const lobCredentials = btoa(`${LOB_API_KEY}:`);
     const normalizedMessage = (message ?? '').trim();
     const htmlEscapedMessage = normalizedMessage.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const lobMessage = await replaceEmojisWithHtmlImages(htmlEscapedMessage);
-    const safeLocation = location ? await replaceEmojisWithHtmlImages(String(location).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')) : null;
+    const lobMessage = await replaceEmojisWithHtmlImages(htmlEscapedMessage, supabase);
+    const safeLocation = location ? await replaceEmojisWithHtmlImages(String(location).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'), supabase) : null;
     const msgLen = normalizedMessage.length;
     const lineCount = htmlEscapedMessage.split('\n').length;
     const LOB_CHARS_PER_LINE = 40;
