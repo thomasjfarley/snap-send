@@ -75,8 +75,6 @@ export default function PreviewScreen() {
   const submissionPayloadRef = useRef<object | null>(null);
   // Accumulates error details across retry attempts for the support email.
   const errorLogRef = useRef<string[]>([]);
-  // DEV ONLY: force edge function failure to test retry flow.
-  const [devForceFailure, setDevForceFailure] = useState(false);
   const [sending, setSending] = useState(false);
   // 'checking' = safety check + payment sheet init in progress
   // 'ready'    = payment sheet initialized, tap Send to present immediately
@@ -389,7 +387,6 @@ export default function PreviewScreen() {
         },
         paymentIntentId: paymentIntentIdRef.current,
         testMode: __DEV__,
-        ...(__DEV__ && devForceFailure ? { testFailure: true } : {}),
       };
     }
 
@@ -566,17 +563,6 @@ export default function PreviewScreen() {
 
         {Platform.OS === 'web' && (
           <Text style={styles.webNote}>⚠️ Payments require the iOS or Android app.</Text>
-        )}
-
-        {__DEV__ && (
-          <TouchableOpacity
-            onPress={() => setDevForceFailure(v => !v)}
-            style={{ alignItems: 'center', padding: SPACING.sm }}
-          >
-            <Text style={{ fontSize: 11, color: devForceFailure ? '#c00' : colors.textSecondary }}>
-              🧪 DEV: Force failure {devForceFailure ? 'ON (will fail after payment)' : 'OFF'}
-            </Text>
-          </TouchableOpacity>
         )}
 
         <Text style={styles.sendNote}>Your postcard will be printed and mailed within 1–2 business days.</Text>

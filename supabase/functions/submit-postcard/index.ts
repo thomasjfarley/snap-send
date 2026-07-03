@@ -277,7 +277,7 @@ serve(async (req) => {
   try {
     const {
       imageBase64, message, location, frame, filter,
-      fromAddressId, toAddressId, recipientSnapshot, paymentIntentId, testMode, testFailure,
+      fromAddressId, toAddressId, recipientSnapshot, paymentIntentId, testMode,
     } = await req.json();
 
     if (!imageBase64 || !paymentIntentId || !fromAddressId || !toAddressId) {
@@ -299,12 +299,6 @@ serve(async (req) => {
     const userId = pi.metadata.user_id;
     confirmedUserId = userId;
     confirmedPaymentIntentId = paymentIntentId;
-
-    // TEST HOOK: pass testFailure: true in the request body to simulate a crash
-    // after payment is confirmed. Only works in testMode. Remove before release.
-    if (testFailure === true && testMode === true) {
-      return jsonResponse({ error: 'TEST_FORCED_FAILURE: simulated edge function crash' }, 500);
-    }
 
     // Idempotency: if a postcard was already created with this payment intent
     // (e.g. client timed out but the function completed), return success so the
