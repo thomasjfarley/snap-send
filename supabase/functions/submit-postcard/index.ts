@@ -109,10 +109,13 @@ function roundCorners(image: InstanceType<typeof Image>, radius: number): void {
 // and ZWJ sequences (e.g. 👨‍👩‍👧).
 const EMOJI_REGEX = /\p{Regional_Indicator}{2}|\p{Extended_Pictographic}(?:\uFE0F\u20E3?|[\u{1F3FB}-\u{1F3FF}])?(?:\u200D\p{Extended_Pictographic}(?:\uFE0F\u20E3?|[\u{1F3FB}-\u{1F3FF}])?)*/gu;
 
-// CDN sources to try in order when an emoji is not yet cached in Supabase Storage
+// CDN sources to try in order when an emoji is not yet cached in Supabase Storage.
+// Note: jsdelivr /npm/twemoji@14.0.2 404s — the PNGs aren't in the npm package.
+//       Use the /gh/ (GitHub) path instead, which mirrors the full repo assets.
 const TWEMOJI_CDN_URLS = [
-  (code: string) => `https://cdn.jsdelivr.net/npm/twemoji@14.0.2/assets/72x72/${code}.png`,
-  (code: string) => `https://unpkg.com/twemoji@14.0.2/assets/72x72/${code}.png`,
+  (code: string) => `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/${code}.png`,
+  (code: string) => `https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/72x72/${code}.png`,
+  (code: string) => `https://twemoji.maxcdn.com/v/14.0.2/72x72/${code}.png`,
 ];
 
 function emojiToTwemojiCode(emoji: string): string {
