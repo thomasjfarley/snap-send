@@ -290,14 +290,16 @@ serve(async (req) => {
     const userId = pi.metadata.user_id;
     confirmedPaymentIntentId = paymentIntentId;
 
-    // Idempotency: reject if this payment intent was already processed
-    const { data: existingOrder } = await supabase
-      .from('orders')
-      .select('id')
+    // Idempotency: if a postcard was already created with this payment intent
+    // (e.g. client timed out but the function completed), return success so the
+    // client can treat it as a clean retry without double-charging or double-mailing.
+    const { data: existingPostcard } = await supabase
+      .from('postcards')
+      .select('id, lob_id')
       .eq('stripe_payment_intent_id', paymentIntentId)
       .maybeSingle();
-    if (existingOrder) {
-      return jsonResponse({ error: 'This payment has already been processed' }, 409);
+    if (existingPostcard) {
+      return jsonResponse({ success: true, lobId: existingPostcard.lob_id, postcardId: existingPostcard.id });
     }
 
     // ── 2. SafeSearch (LEGAL REQUIREMENT — 18 U.S.C. § 1461) ─────────────────

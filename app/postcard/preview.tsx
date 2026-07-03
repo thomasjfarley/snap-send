@@ -66,6 +66,11 @@ export default function PreviewScreen() {
   const paymentIntentIdRef = useRef<string | null>(null);
   const sheetInitializedRef = useRef(false);
   const lobBase64Ref = useRef<string | null>(null);
+  // Tracks whether Stripe payment was already confirmed so we can skip
+  // re-presenting the sheet on retry after an edge function failure.
+  const paymentConfirmedRef = useRef(false);
+  // Cached submission payload so retries use identical data.
+  const submissionPayloadRef = useRef<object | null>(null);
   const [sending, setSending] = useState(false);
   // 'checking' = safety check + payment sheet init in progress
   // 'ready'    = payment sheet initialized, tap Send to present immediately
@@ -256,6 +261,7 @@ export default function PreviewScreen() {
     if (!recipient) return;
     if (sendInProgressRef.current) return;
     sendInProgressRef.current = true;
+
     if (Platform.OS === 'web') {
       Alert.alert('Mobile only', 'Payments are available in the iOS and Android app.');
       sendInProgressRef.current = false;
@@ -271,50 +277,76 @@ export default function PreviewScreen() {
       sendInProgressRef.current = false;
       return;
     }
-    if (!sheetInitializedRef.current) {
-      Alert.alert('Not ready', 'Please wait a moment and try again.');
-      sendInProgressRef.current = false;
-      return;
-    }
 
-    setSending(true);
-    try {
-      // Present the payment sheet immediately — it was initialized on screen load
-      // so there is no async work between this tap and the native UI presentation.
+    // ── Step 1: Payment ───────────────────────────────────────────────────────
+    // Skip if payment was already confirmed on a previous attempt — the Stripe
+    // sheet is single-use and calling presentPaymentSheet() again would throw
+    // "No payment sheet has been initialized yet."
+    if (!paymentConfirmedRef.current) {
+      if (!sheetInitializedRef.current) {
+        Alert.alert('Not ready', 'Please wait a moment and try again.');
+        sendInProgressRef.current = false;
+        return;
+      }
+      setSending(true);
       const { error: payError } = await presentPaymentSheet();
       if (payError) {
         if (payError.code !== 'Canceled') {
-          console.error('[presentPaymentSheet] error', payError);
           Alert.alert('Payment failed', payError.message);
         }
         setSending(false);
         sendInProgressRef.current = false;
         return;
       }
-      // Payment confirmed. The Lob image was already processed during preload
-      // (same dimensions and quality as the pre-payment safety check).
-      const base64 = lobBase64Ref.current!;
-      // Submit postcard via Edge Function
-      const { data: submitData, error: submitError } = await supabase.functions.invoke('submit-postcard', {
-        body: {
-          imageBase64: base64,
-          message,
-          location: location ?? null,
-          frame: frameId,
-          filter: filterId,
-          fromAddressId: personalAddress.id,
-          toAddressId: recipient.id,
-          recipientSnapshot: {
-            full_name: recipient.full_name,
-            line1: recipient.line1,
-            line2: recipient.line2,
-            city: recipient.city,
-            state: recipient.state,
-            zip: recipient.zip,
-          },
-          paymentIntentId: paymentIntentIdRef.current,
-          testMode: __DEV__,
+      // Payment confirmed — mark so retries skip this step
+      paymentConfirmedRef.current = true;
+      sheetInitializedRef.current = false; // sheet is consumed; can't re-use
+    }
+
+    setSending(true);
+
+    // ── Step 2: Submit ────────────────────────────────────────────────────────
+    // Cache payload on first attempt so retries are bit-for-bit identical,
+    // satisfying the edge function's idempotency check.
+    if (!submissionPayloadRef.current) {
+      submissionPayloadRef.current = {
+        imageBase64: lobBase64Ref.current!,
+        message,
+        location: location ?? null,
+        frame: frameId,
+        filter: filterId,
+        fromAddressId: personalAddress.id,
+        toAddressId: recipient.id,
+        recipientSnapshot: {
+          full_name: recipient.full_name,
+          line1: recipient.line1,
+          line2: recipient.line2,
+          city: recipient.city,
+          state: recipient.state,
+          zip: recipient.zip,
         },
+        paymentIntentId: paymentIntentIdRef.current,
+        testMode: __DEV__,
+      };
+    }
+
+    const offerRetry = (detail: string) => {
+      console.error('[handleSend] submission failed post-payment:', detail);
+      sendInProgressRef.current = false;
+      setSending(false);
+      Alert.alert(
+        'Send Failed',
+        'Your payment went through but the postcard couldn\'t be submitted. Tap Retry to try again — you won\'t be charged twice.',
+        [
+          { text: 'Retry', onPress: () => handleSend() },
+          { text: 'Dismiss', style: 'cancel' },
+        ],
+      );
+    };
+
+    try {
+      const { data: submitData, error: submitError } = await supabase.functions.invoke('submit-postcard', {
+        body: submissionPayloadRef.current,
       });
 
       if (submitError) {
@@ -323,32 +355,26 @@ export default function PreviewScreen() {
         try { body = await (submitError as any)?.context?.json(); } catch {}
         console.error('[submit-postcard] error', { status, message: submitError.message, body });
 
-        // Defense-in-depth: the submit function also runs SafeSearch; surface the
-        // rejection message directly rather than wrapping it in a generic error.
         if (status === 422 && (body as any)?.code === 'CONTENT_REJECTED') {
           const errorMsg = typeof (body as any)?.error === 'string' ? (body as any).error : 'This image cannot be mailed. Please choose a different photo.';
           Alert.alert('Image rejected', errorMsg);
           setSending(false);
+          sendInProgressRef.current = false;
           return;
         }
 
         const detail = body
           ? (typeof (body as any)?.error === 'string' ? (body as any).error : JSON.stringify(body, null, 2))
           : submitError.message;
-        throw new Error(`submit-postcard failed (${status}): ${detail}`);
+        offerRetry(`submit-postcard failed (${status}): ${detail}`);
+        return;
       }
 
       submittedRef.current = true;
+      paymentConfirmedRef.current = false;
+      submissionPayloadRef.current = null;
       reset();
-      // Dismiss the postcard modal and return to the home tab.
-      // dismissTo uses POP_TO (not NAVIGATE), so it pops the root Stack back
-      // to (tabs) without adding a history entry — no extra swipes needed.
       router.dismissTo('/(tabs)');
-      // iOS won't present a new modal while the postcard modal is still
-      // animating out — setJustSent(true) before dismissal causes the success
-      // sheet to be invisible but still intercept touches, freezing the home
-      // screen. Delay the flag on iOS so it fires after the dismiss animation
-      // (~400 ms) completes. Android is fine with the immediate path.
       if (Platform.OS === 'ios') {
         setTimeout(() => setJustSent(true), 500);
       } else {
@@ -356,11 +382,7 @@ export default function PreviewScreen() {
       }
       return; // component unmounts; don't call setSending in finally
     } catch (err: any) {
-      console.error('[handleSend] caught error:', err);
-      Alert.alert('Something went wrong', err.message ?? 'Please try again.');
-    } finally {
-      sendInProgressRef.current = false;
-      setSending(false);
+      offerRetry(err.message ?? 'Unknown error');
     }
   }
 
