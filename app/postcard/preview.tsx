@@ -178,6 +178,14 @@ export default function PreviewScreen() {
         if (piError || !piData?.clientSecret) {
           const errDetail = await (piError as any)?.context?.json?.().catch(() => null);
           console.error('[preview] pre-init: create-payment-intent failed', piError, 'body:', JSON.stringify(errDetail));
+          supabase.functions.invoke('report-error', {
+            body: {
+              source: 'postcard-preview',
+              title: 'create-payment-intent preload failed',
+              severity: 'error',
+              details: `status=${(piError as any)?.context?.status ?? 'unknown'}; body=${JSON.stringify(errDetail).slice(0, 1000)}`,
+            },
+          }).catch(() => {});
           setPreloadStatus('error');
           return;
         }
@@ -201,6 +209,14 @@ export default function PreviewScreen() {
         if (cancelled) return;
         if (initError) {
           console.error('[preview] pre-init: initPaymentSheet failed', initError);
+          supabase.functions.invoke('report-error', {
+            body: {
+              source: 'postcard-preview',
+              title: 'initPaymentSheet preload failed',
+              severity: 'error',
+              details: `paymentIntentId=${piData.paymentIntentId ?? 'unknown'}; error=${JSON.stringify(initError).slice(0, 1000)}`,
+            },
+          }).catch(() => {});
           setPreloadStatus('error');
           return;
         }
@@ -625,4 +641,3 @@ function makeStyles(colors: AppColors) {
     sendNote: { fontSize: FONT_SIZE.xs, color: colors.textSecondary, textAlign: 'center' },
   });
 }
-

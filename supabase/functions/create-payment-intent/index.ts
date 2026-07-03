@@ -11,6 +11,14 @@ const STRIPE_SECRET_KEY_TEST = Deno.env.get('STRIPE_SECRET_KEY_TEST')!;
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
+function reportError(source: string, title: string, severity: 'warning' | 'error' | 'critical', details: string, userEmail = '') {
+  fetch(`${SUPABASE_URL}/functions/v1/report-error`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+    body: JSON.stringify({ source, title, severity, details, userEmail }),
+  }).catch(() => {});
+}
+
 const POSTCARD_PRICE_CENTS = 399;
 // General - Tangible Personal Property (provisional; confirm with tax advisor)
 const POSTCARD_TAX_CODE = 'txcd_99999999';
@@ -21,6 +29,9 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  let reportUserId = '';
+  let reportUserEmail = '';
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -46,6 +57,9 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    reportUserId = user.id;
+    reportUserEmail = user.email ?? '';
 
     const body = await req.json().catch(() => ({}));
     const testMode = body?.testMode === true;
@@ -129,6 +143,13 @@ serve(async (req) => {
 
     if (!piRes.ok) {
       console.error('[create-payment-intent] Stripe PaymentIntent error:', JSON.stringify(paymentIntent));
+      reportError(
+        'create-payment-intent',
+        'Stripe PaymentIntent creation failed',
+        'error',
+        `userId=${reportUserId}; status=${piRes.status}; response=${JSON.stringify(paymentIntent).slice(0, 1000)}`,
+        reportUserEmail,
+      );
       return new Response(JSON.stringify({ error: 'Stripe error', detail: paymentIntent }), {
         status: 502,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -145,6 +166,13 @@ serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (err) {
+    reportError(
+      'create-payment-intent',
+      'Unhandled create-payment-intent error',
+      'critical',
+      `userId=${reportUserId || 'unknown'}; error=${err instanceof Error ? `${err.name}: ${err.message}` : String(err)}`,
+      reportUserEmail,
+    );
     return new Response(JSON.stringify({ error: 'Internal server error', detail: String(err) }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

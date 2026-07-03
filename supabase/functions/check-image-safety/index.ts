@@ -9,6 +9,14 @@ const GOOGLE_VISION_API_KEY = Deno.env.get('GOOGLE_VISION_API_KE');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
+function reportError(source: string, title: string, severity: 'warning' | 'error' | 'critical', details: string, userEmail = '') {
+  fetch(`${SUPABASE_URL}/functions/v1/report-error`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+    body: JSON.stringify({ source, title, severity, details, userEmail }),
+  }).catch(() => {});
+}
+
 const LIKELIHOOD_LEVELS = ['UNKNOWN', 'VERY_UNLIKELY', 'UNLIKELY', 'POSSIBLE', 'LIKELY', 'VERY_LIKELY'];
 const BLOCK_THRESHOLD = 'LIKELY';
 
@@ -29,6 +37,9 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 serve(async (req) => {
+  let reportUserId = '';
+  let reportUserEmail = '';
+
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -41,6 +52,9 @@ serve(async (req) => {
       authHeader.replace('Bearer ', ''),
     );
     if (authError || !user) return jsonResponse({ error: 'Unauthorized' }, 401);
+
+    reportUserId = user.id;
+    reportUserEmail = user.email ?? '';
 
     const { imageBase64 } = await req.json();
     if (!imageBase64) return jsonResponse({ error: 'Missing imageBase64' }, 400);
@@ -66,6 +80,13 @@ serve(async (req) => {
 
     if (!safeSearch) {
       console.error('Vision API failed:', JSON.stringify(visionData));
+      reportError(
+        'check-image-safety',
+        'Vision API unavailable during safety check',
+        'warning',
+        `userId=${reportUserId}; status=${visionRes.status}; body=${JSON.stringify(visionData).slice(0, 1000)}`,
+        reportUserEmail,
+      );
       return jsonResponse({ error: 'Content moderation unavailable. Please try again.' }, 503);
     }
 
@@ -78,6 +99,13 @@ serve(async (req) => {
 
   } catch (err) {
     console.error('Unhandled error:', err);
+    reportError(
+      'check-image-safety',
+      'Unhandled check-image-safety error',
+      'critical',
+      `userId=${reportUserId || 'unknown'}; error=${err instanceof Error ? `${err.name}: ${err.message}` : String(err)}`,
+      reportUserEmail,
+    );
     return jsonResponse({ error: 'Internal server error', detail: String(err) }, 500);
   }
 });

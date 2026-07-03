@@ -11,6 +11,14 @@ const GOOGLE_VISION_API_KEY = Deno.env.get('GOOGLE_VISION_API_KE');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
+function reportError(source: string, title: string, severity: 'warning' | 'error' | 'critical', details: string, userEmail = '') {
+  fetch(`${SUPABASE_URL}/functions/v1/report-error`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+    body: JSON.stringify({ source, title, severity, details, userEmail }),
+  }).catch(() => {});
+}
+
 const LOB_BASE_URL = 'https://api.lob.com/v1';
 const LIKELIHOOD_LEVELS = ['UNKNOWN', 'VERY_UNLIKELY', 'UNLIKELY', 'POSSIBLE', 'LIKELY', 'VERY_LIKELY'];
 const BLOCK_THRESHOLD = 'LIKELY';
@@ -262,6 +270,7 @@ serve(async (req) => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   let tempImagePath: string | null = null;
   let confirmedPaymentIntentId: string | undefined;
+  let confirmedUserId: string | undefined;
   let lobSubmitted = false;
   let stripeKey = STRIPE_SECRET_KEY_LIVE; // refined after parsing testMode
 
@@ -288,6 +297,7 @@ serve(async (req) => {
       return jsonResponse({ error: 'Payment not confirmed' }, 402);
     }
     const userId = pi.metadata.user_id;
+    confirmedUserId = userId;
     confirmedPaymentIntentId = paymentIntentId;
 
     // TEST HOOK: pass testFailure: true in the request body to simulate a crash
@@ -324,6 +334,12 @@ serve(async (req) => {
       const safeSearch = visionData.responses?.[0]?.safeSearchAnnotation;
       if (!safeSearch) {
         console.error('Vision API failed:', JSON.stringify(visionData));
+        reportError(
+          'submit-postcard',
+          'Vision API unavailable during submit',
+          'warning',
+          `paymentIntentId=${paymentIntentId}; userId=${userId}; status=${visionRes.status}; body=${JSON.stringify(visionData).slice(0, 1000)}`,
+        );
         const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId);
         return jsonResponse({ error: `Content moderation unavailable. ${refundMsg(succeeded)}` }, 503);
       }
@@ -533,6 +549,12 @@ serve(async (req) => {
 
     if (uploadError) {
       console.error('Storage upload failed:', uploadError);
+      reportError(
+        'submit-postcard',
+        'Storage upload failed',
+        'error',
+        `paymentIntentId=${paymentIntentId}; userId=${userId}; tempImagePath=${tempImagePath}; error=${uploadError.message}`,
+      );
       const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId);
       return jsonResponse({ error: `Failed to process image. ${refundMsg(succeeded)}` }, 500);
     }
@@ -608,6 +630,14 @@ serve(async (req) => {
     if (!lobRes.ok) {
       const lobErrMsg = lobData?.error?.message ?? lobData?.message ?? JSON.stringify(lobData).slice(0, 300);
       console.error(`Lob ${lobRes.status}:`, JSON.stringify(lobData));
+      if (lobRes.status !== 422) {
+        reportError(
+          'submit-postcard',
+          'Lob API error',
+          'error',
+          `paymentIntentId=${paymentIntentId}; userId=${userId}; lobStatus=${lobRes.status}; lobError=${JSON.stringify(lobData).slice(0, 1000)}`,
+        );
+      }
       const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId);
       return jsonResponse({ error: `Lob ${lobRes.status}: ${lobErrMsg} ${refundMsg(succeeded)}`, lob_status: lobRes.status, lob_detail: lobData }, 502);
     }
@@ -633,6 +663,12 @@ serve(async (req) => {
 
     if (insertErr || !postcard) {
       console.error('DB insert failed after Lob success:', insertErr);
+      reportError(
+        'submit-postcard',
+        'Postcard DB insert failed',
+        'warning',
+        `paymentIntentId=${paymentIntentId}; userId=${userId}; lobId=${lobData.id}; error=${insertErr?.message ?? 'missing postcard record'}`,
+      );
       return jsonResponse({ success: true, lobId: lobData.id, postcardId: null, warning: 'DB record failed' });
     }
 
@@ -652,6 +688,12 @@ serve(async (req) => {
       await refundPayment(stripeKey, confirmedPaymentIntentId);
     }
     console.error('Unhandled error:', err);
+    reportError(
+      'submit-postcard',
+      'Unhandled submit-postcard error',
+      'critical',
+      `paymentIntentId=${confirmedPaymentIntentId ?? 'unknown'}; userId=${confirmedUserId ?? 'unknown'}; lobSubmitted=${lobSubmitted}; error=${err instanceof Error ? `${err.name}: ${err.message}` : String(err)}`,
+    );
     return jsonResponse({ error: 'Internal server error', detail: String(err) }, 500);
   }
 });

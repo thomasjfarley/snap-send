@@ -10,6 +10,14 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const LOB_WEBHOOK_SECRET = Deno.env.get('LOB_WEBHOOK_SECRET')!;
 const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')!;
 
+function reportError(source: string, title: string, severity: 'warning' | 'error' | 'critical', details: string, userEmail = '') {
+  fetch(`${SUPABASE_URL}/functions/v1/report-error`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+    body: JSON.stringify({ source, title, severity, details, userEmail }),
+  }).catch(() => {});
+}
+
 // Lob event → postcard status mapping
 const EVENT_STATUS_MAP: Record<string, 'submitted' | 'mailed' | 'delivered' | 'failed'> = {
   'postcard.created': 'submitted',
@@ -36,15 +44,30 @@ async function refundPaymentIntent(paymentIntentId: string): Promise<void> {
     const data = await res.json();
     if (!res.ok) {
       console.error('[postcard-webhook] Stripe refund failed:', JSON.stringify(data));
+      reportError(
+        'postcard-webhook',
+        'Stripe refund failed after postcard.failed',
+        'error',
+        `paymentIntentId=${paymentIntentId}; stripeStatus=${res.status}; response=${JSON.stringify(data).slice(0, 1000)}`,
+      );
     } else {
       console.log('[postcard-webhook] Stripe refund issued:', data.id, 'for PI', paymentIntentId);
     }
   } catch (err) {
     console.error('[postcard-webhook] Stripe refund threw:', err);
+    reportError(
+      'postcard-webhook',
+      'Stripe refund request threw after postcard.failed',
+      'error',
+      `paymentIntentId=${paymentIntentId}; error=${err instanceof Error ? `${err.name}: ${err.message}` : String(err)}`,
+    );
   }
 }
 
 serve(async (req) => {
+  let reportEventType = '';
+  let reportLobId = '';
+
   try {
     // Verify Lob webhook signature
     const signature = req.headers.get('lob-signature');
@@ -55,6 +78,8 @@ serve(async (req) => {
     const event = await req.json();
     const eventType: string = event.event_type?.id ?? '';
     const lobId: string = event.body?.id ?? '';
+    reportEventType = eventType;
+    reportLobId = lobId;
 
     const newStatus = EVENT_STATUS_MAP[eventType];
     if (!newStatus || !lobId) {
@@ -81,6 +106,12 @@ serve(async (req) => {
 
     if (fetchErr || !postcard) {
       console.error('[postcard-webhook] Failed to fetch postcard for lob_id:', lobId, fetchErr);
+      reportError(
+        'postcard-webhook',
+        'Failed to fetch postcard for webhook update',
+        'warning',
+        `eventType=${eventType}; lobId=${lobId}; error=${fetchErr?.message ?? 'postcard not found'}`,
+      );
       // Still try to update status even if fetch failed
     }
 
@@ -91,6 +122,12 @@ serve(async (req) => {
 
     if (error) {
       console.error('Failed to update postcard status:', error);
+      reportError(
+        'postcard-webhook',
+        'Failed to update postcard status',
+        'warning',
+        `eventType=${eventType}; lobId=${lobId}; newStatus=${newStatus}; error=${error.message}`,
+      );
       return new Response('DB error', { status: 500 });
     }
 
@@ -102,6 +139,12 @@ serve(async (req) => {
     return new Response('ok', { status: 200 });
   } catch (err) {
     console.error('Webhook error:', err);
+    reportError(
+      'postcard-webhook',
+      'Unhandled postcard webhook error',
+      'critical',
+      `eventType=${reportEventType || 'unknown'}; lobId=${reportLobId || 'unknown'}; error=${err instanceof Error ? `${err.name}: ${err.message}` : String(err)}`,
+    );
     return new Response('Internal server error', { status: 500 });
   }
 });
