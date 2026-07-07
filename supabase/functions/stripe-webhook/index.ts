@@ -6,6 +6,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const STRIPE_WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET')!;
+const STRIPE_WEBHOOK_SECRET_TEST = Deno.env.get('STRIPE_WEBHOOK_SECRET_TEST') ?? '';
 const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')!;
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -53,7 +54,11 @@ serve(async (req) => {
     const body = await req.text();
     const signature = req.headers.get('stripe-signature') ?? '';
 
-    const valid = await verifyStripeSignature(body, signature, STRIPE_WEBHOOK_SECRET);
+    // Try live secret first, fall back to test secret for dev/sandbox events
+    let valid = await verifyStripeSignature(body, signature, STRIPE_WEBHOOK_SECRET);
+    if (!valid && STRIPE_WEBHOOK_SECRET_TEST) {
+      valid = await verifyStripeSignature(body, signature, STRIPE_WEBHOOK_SECRET_TEST);
+    }
     if (!valid) {
       return new Response('Invalid signature', { status: 400 });
     }
