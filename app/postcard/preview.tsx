@@ -1,7 +1,7 @@
 import React, { useRef, useState, useMemo, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ScrollView, Dimensions, Alert, Platform, ActivityIndicator,
+  ScrollView, Dimensions, Alert, Platform, ActivityIndicator, Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -35,7 +35,30 @@ const FILTER_OVERLAYS: Record<string, { color: string; opacity: number } | null>
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const CARD_W = SCREEN_W - SPACING.xl * 2;
-const CARD_H = CARD_W * (3 / 4);
+// Postcard is 6" × 4.25" — use the real aspect ratio so the preview is proportionally correct.
+const CARD_H = Math.round(CARD_W * (4.25 / 6));
+// Lob renders its HTML at 6" × 96 CSS px/inch = 576px wide.
+// LOB_SCALE lets us shrink every measurement proportionally to our preview card.
+const LOB_RENDER_WIDTH = 576;
+const LOB_SCALE = CARD_W / LOB_RENDER_WIDTH;
+// Lob HTML: <img width="80"> — scale to preview card size.
+const QR_SIZE = Math.round(80 * LOB_SCALE);
+// Lob left-cell padding: 24px top/left/bottom, 10px right — scale proportionally.
+const MSG_PAD_LEFT   = Math.round(24 * LOB_SCALE);
+const MSG_PAD_RIGHT  = Math.round(10 * LOB_SCALE);
+const MSG_PAD_VERT   = Math.round(24 * LOB_SCALE);
+
+// Simulates the IMb barcode Lob prints on every postcard.
+const BARCODE_PATTERN = [1,0,1,1,0,1,0,0,1,0,1,1,1,0,1,0,1,1,0,1,0,1,0,0,1,1,0,1,0,1,1,0,1,0,0,1,0,1,1,0,1,0,1,1,1,0,1,0,1,1,0,1];
+function BarcodeRow() {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 12, marginVertical: 2 }}>
+      {BARCODE_PATTERN.map((tall, i) => (
+        <View key={i} style={{ flex: 1, height: tall ? 12 : 7, backgroundColor: '#222', marginHorizontal: 0.3 }} />
+      ))}
+    </View>
+  );
+}
 
 // Draws a location pin shape (circle head + tapered tail) to match server-side rendering.
 function PinIcon({ height, color = '#fff' }: { height: number; color?: string }) {
@@ -242,20 +265,17 @@ export default function PreviewScreen() {
     const visualLines = trimmed
       .split('\n')
       .reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / LOB_CHARS_PER_LINE)), 0);
-    const byChars = len < 80 ? 18 : len < 200 ? 16 : len < 350 ? 14 : 12;
-    const byLines = lines <= 5 ? 18 : lines <= 9 ? 16 : lines <= 13 ? 14 : 12;
-    const byVisual = visualLines <= 7 ? 18 : visualLines <= 12 ? 16 : visualLines <= 17 ? 14 : 12;
-    // Ensure all lines fit vertically within the preview card height.
-    // Subtract an extra SPACING.md buffer because LOB_CHARS_PER_LINE=40 is calibrated
-    // for Lob's print width, not the narrower preview column — so visualLines can be an
-    // underestimate, making byFit slightly too large without the buffer.
-    const availableH = CARD_H - SPACING.md * 2;
-    const byFit = visualLines > 0 ? Math.floor((availableH - SPACING.md) / (visualLines * 1.5)) : 18;
-    return Math.min(byChars, byLines, byVisual, byFit);
+    const byChars = len < 80 ? 15 : len < 200 ? 13 : len < 350 ? 11 : 10;
+    const byLines = lines <= 5 ? 15 : lines <= 9 ? 13 : lines <= 13 ? 11 : 10;
+    const byVisual = visualLines <= 7 ? 15 : visualLines <= 12 ? 13 : visualLines <= 17 ? 11 : 10;
+    // Select the same tier as Lob, then scale down proportionally to the preview card size.
+    // Lob renders at LOB_RENDER_WIDTH; our preview is CARD_W — shrink everything by that ratio.
+    const lobFontSize = Math.min(byChars, byLines, byVisual);
+    return Math.max(6, Math.round(lobFontSize * LOB_SCALE));
   }, [message]);
 
   const previewMaxLines = messageFontSize > 0
-    ? Math.floor((CARD_H - SPACING.md * 2) / (messageFontSize * 1.5))
+    ? Math.floor((CARD_H - MSG_PAD_VERT * 2) / (messageFontSize * 1.5))
     : undefined;
 
   if (!photoUri || !recipient) {
@@ -510,28 +530,40 @@ export default function PreviewScreen() {
               style={[styles.backMessageText, { fontSize: messageFontSize, lineHeight: messageFontSize * 1.5 }]}
             >{message}</Text>
           </View>
-          <View style={styles.backDivider} />
           <View style={styles.backRight}>
-            <View style={styles.backAddresses}>
-              {personalAddress && (
-                <View style={styles.addressBlock}>
-                  <Text style={styles.addrLabel}>FROM</Text>
-                  <Text style={styles.addrText}>{personalAddress.full_name}</Text>
-                  <Text style={styles.addrText}>{personalAddress.line1}</Text>
-                  {personalAddress.line2 ? <Text style={styles.addrText}>{personalAddress.line2}</Text> : null}
-                  <Text style={styles.addrText}>{personalAddress.city}, {personalAddress.state} {personalAddress.zip}</Text>
+            {/* QR section — mirrors the Lob HTML top table row */}
+            <View style={styles.qrSection}>
+              <Text style={styles.snapSendText}>SNAP SEND</Text>
+              <Image
+                source={{ uri: 'https://api.qrserver.com/v1/create-qr-code/?size=100x100&color=222222&bgcolor=ffffff&data=https://snapsend.live' }}
+                style={styles.qrImage}
+              />
+              <Text style={styles.sendJoyText}>Send Joy</Text>
+            </View>
+            {/* FROM address + POSTAGE INDICIA — Lob overlays postage on printed card */}
+            <View style={styles.fromPostageRow}>
+              {personalAddress ? (
+                <View style={[styles.addressBlock, { flex: 1 }]}>
+                  <Text style={styles.fromAddrText}>{personalAddress.full_name}</Text>
+                  <Text style={styles.fromAddrText}>{personalAddress.line1}</Text>
+                  {personalAddress.line2 ? <Text style={styles.fromAddrText}>{personalAddress.line2}</Text> : null}
+                  <Text style={styles.fromAddrText}>{personalAddress.city}, {personalAddress.state} {personalAddress.zip}</Text>
                 </View>
-              )}
+              ) : <View style={{ flex: 1 }} />}
+              <View style={styles.postageBox}>
+                <Text style={styles.postageText}>POSTAGE{'\n'}INDICIA</Text>
+              </View>
+            </View>
+            {/* IMb barcode — added by Lob during printing */}
+            <BarcodeRow />
+            {/* TO address */}
+            <View style={styles.toAddressRow}>
               <View style={styles.addressBlock}>
-                <Text style={styles.addrLabel}>TO</Text>
-                <Text style={[styles.addrText, { fontWeight: '600' }]}>{recipient.full_name}</Text>
+                <Text style={styles.addrText}>{recipient.full_name}</Text>
                 <Text style={styles.addrText}>{recipient.line1}</Text>
                 {recipient.line2 ? <Text style={styles.addrText}>{recipient.line2}</Text> : null}
                 <Text style={styles.addrText}>{recipient.city}, {recipient.state} {recipient.zip}</Text>
               </View>
-            </View>
-            <View style={styles.stampBox}>
-              <Text style={styles.stampText}>STAMP</Text>
             </View>
           </View>
         </View>
@@ -588,12 +620,16 @@ function makeStyles(colors: AppColors) {
     cardFront: { width: CARD_W, overflow: 'hidden', borderRadius: 4 },
     cardBack: {
       width: CARD_W, height: CARD_H,
-      backgroundColor: '#FFFEF0', borderRadius: 4,
-      borderWidth: 1, borderColor: '#E0DCC8',
-      flexDirection: 'row', padding: SPACING.md,
-      overflow: 'hidden',
+      backgroundColor: '#fff', borderRadius: 4,
+      borderWidth: 1, borderColor: '#E0E0E0',
+      flexDirection: 'row', overflow: 'hidden',
     },
-    backMessage: { width: Math.round(CARD_W * 0.44), flexShrink: 0, paddingRight: SPACING.sm },
+    // Lob left cell: width 44%, padding 24px/10px/24px/24px — scaled proportionally.
+    backMessage: {
+      width: Math.round(CARD_W * 0.44), flexShrink: 0,
+      paddingLeft: MSG_PAD_LEFT, paddingRight: MSG_PAD_RIGHT,
+      paddingTop: MSG_PAD_VERT, paddingBottom: MSG_PAD_VERT,
+    },
     backMessageText: { fontSize: FONT_SIZE.sm, color: '#333' },
     backLocationText: { fontSize: 7, color: '#888', marginTop: 6 },
     locationBadge: {
@@ -606,14 +642,35 @@ function makeStyles(colors: AppColors) {
       maxWidth: '80%', flexDirection: 'row', alignItems: 'center', gap: 4,
     },
     locationBadgeText: { fontSize: 9, color: '#fff' },
-    backDivider: { width: 1, backgroundColor: '#D0CCAA', marginHorizontal: SPACING.sm },
-    backRight: { flex: 1, justifyContent: 'space-between' },
-    backAddresses: { gap: SPACING.md, flex: 1, justifyContent: 'center' },
-    addressBlock: { gap: 2 },
-    addrLabel: { fontSize: 8, fontWeight: '700', color: '#999', letterSpacing: 1 },
-    addrText: { fontSize: 10, color: '#444', lineHeight: 14 },
-    stampBox: { width: 40, height: 48, borderWidth: 1.5, borderColor: '#CCC', alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-end', borderRadius: 2 },
-    stampText: { fontSize: 7, color: '#BBB', letterSpacing: 1 },
+    backRight: { flex: 1 },
+    // Lob QR row: padding 28px top, 14px lr, 20px bottom — scaled.
+    qrSection: {
+      alignItems: 'center',
+      paddingTop: Math.round(28 * LOB_SCALE),
+      paddingBottom: Math.round(20 * LOB_SCALE),
+      paddingHorizontal: Math.round(14 * LOB_SCALE),
+    },
+    qrImage: { width: QR_SIZE, height: QR_SIZE },
+    snapSendText: { fontSize: Math.max(5, Math.round(8 * LOB_SCALE)), fontWeight: '700', color: '#444', letterSpacing: Math.round(2 * LOB_SCALE), textTransform: 'uppercase', marginBottom: Math.round(8 * LOB_SCALE) },
+    sendJoyText: { fontSize: Math.max(5, Math.round(8 * LOB_SCALE)), color: '#888', letterSpacing: Math.round(LOB_SCALE), marginTop: Math.round(8 * LOB_SCALE) },
+    // Lob FROM row: padding 10px top, 14px lr, 4px bottom — scaled.
+    fromPostageRow: {
+      flexDirection: 'row', alignItems: 'flex-start', gap: Math.round(4 * LOB_SCALE),
+      paddingTop: Math.round(10 * LOB_SCALE), paddingBottom: Math.round(4 * LOB_SCALE),
+      paddingHorizontal: Math.round(14 * LOB_SCALE),
+    },
+    postageBox: { width: Math.round(46 * LOB_SCALE), borderWidth: 1, borderColor: '#aaa', alignItems: 'center', justifyContent: 'center', paddingVertical: Math.round(4 * LOB_SCALE), paddingHorizontal: 2, borderRadius: 1 },
+    postageText: { fontSize: Math.max(5, Math.round(7 * LOB_SCALE)), color: '#777', textAlign: 'center', fontWeight: '600', lineHeight: Math.max(7, Math.round(10 * LOB_SCALE)) },
+    addressBlock: { gap: 1 },
+    // FROM address: Lob HTML uses 7px — scale down.
+    fromAddrText: { fontSize: Math.max(5, Math.round(7 * LOB_SCALE)), color: '#555', lineHeight: Math.max(7, Math.round(11 * LOB_SCALE)), textTransform: 'uppercase' },
+    // TO (delivery) address: Lob uses USPS standard ~20px — scale to preview.
+    // Lob TO row: padding 4px top, 14px lr, 10px bottom — scaled.
+    toAddressRow: {
+      paddingTop: Math.round(4 * LOB_SCALE), paddingBottom: Math.round(10 * LOB_SCALE),
+      paddingHorizontal: Math.round(14 * LOB_SCALE),
+    },
+    addrText: { fontSize: Math.max(8, Math.round(20 * LOB_SCALE)), color: '#555', lineHeight: Math.max(11, Math.round(28 * LOB_SCALE)), textTransform: 'uppercase' },
     sendBtn: { flex: 1, backgroundColor: colors.primary, borderRadius: 16, paddingVertical: SPACING.lg, alignItems: 'center', justifyContent: 'center', minHeight: 56 },
     sendBtnDisabled: { opacity: 0.6 },
     sendBtnText: { color: '#fff', fontSize: FONT_SIZE.lg, fontWeight: '700' },
