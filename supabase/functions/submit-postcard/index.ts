@@ -129,8 +129,10 @@ const EMOJI_CDN_URLS = [
 function emojiToCode(emoji: string): string {
   // Spread by Unicode code points (not UTF-16 code units) so surrogate pairs
   // are handled correctly, then join hex values with dashes.
+  // Strip U+FE0F (variation selector-16) — Noto/Twemoji filenames never include it.
   return [...emoji]
     .map(c => c.codePointAt(0)!.toString(16))
+    .filter(hex => hex !== 'fe0f')
     .join('-');
 }
 
