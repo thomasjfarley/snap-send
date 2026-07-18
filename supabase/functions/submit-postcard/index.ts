@@ -124,6 +124,9 @@ const TWEMOJI_CDN_URLS = [
   (code: string) => `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/${code}.png`,
   (code: string) => `https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/72x72/${code}.png`,
   (code: string) => `https://twemoji.maxcdn.com/v/14.0.2/72x72/${code}.png`,
+  // Google Noto Emoji covers Unicode 15+ (newer Android emojis not in Twemoji 14).
+  // Noto uses underscore-separated codepoints and a different filename prefix.
+  (code: string) => `https://raw.githubusercontent.com/googlefonts/noto-emoji/main/png/128/emoji_u${code.replace(/-/g, '_')}.png`,
 ];
 
 function emojiToTwemojiCode(emoji: string): string {
@@ -192,7 +195,7 @@ async function replaceEmojisWithHtmlImages(
 
   return text.replace(EMOJI_REGEX, (emoji) => {
     const url = emojiUrls.get(emoji);
-    if (!url) return emoji; // graceful fallback to raw character
+    if (!url) return ''; // drop unsupported emojis — raw characters show as boxes in Lob's renderer
     return `<img src="${url}" style="height:1em;width:1em;vertical-align:-0.2em;display:inline-block;margin:0 0.08em" alt="${emoji}">`;
   });
 }
