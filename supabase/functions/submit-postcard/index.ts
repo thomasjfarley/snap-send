@@ -110,26 +110,23 @@ function roundCorners(image: InstanceType<typeof Image>, radius: number): void {
   }
 }
 
-// ── Emoji helpers: replace emoji in text with Twemoji PNG <img> tags ──────────
-// Twemoji (Twitter's open-source emoji set) is used so that emoji render
-// consistently in Lob's HTML renderer regardless of available system fonts.
+// ── Emoji helpers: replace emoji in text with Noto Emoji PNG <img> tags ────────
+// Google Noto Emoji is used so that emoji render consistently in Lob's HTML
+// renderer regardless of available system fonts, and because Noto covers all
+// modern Unicode emojis (15+) including newer Android emojis.
 // Matches full emoji sequences: flag pairs, simple emoji, skin-tone variants,
 // and ZWJ sequences (e.g. 👨‍👩‍👧).
 const EMOJI_REGEX = /\p{Regional_Indicator}{2}|\p{Extended_Pictographic}(?:\uFE0F\u20E3?|[\u{1F3FB}-\u{1F3FF}])?(?:\u200D\p{Extended_Pictographic}(?:\uFE0F\u20E3?|[\u{1F3FB}-\u{1F3FF}])?)*/gu;
 
 // CDN sources to try in order when an emoji is not yet cached in Supabase Storage.
-// Note: jsdelivr /npm/twemoji@14.0.2 404s — the PNGs aren't in the npm package.
-//       Use the /gh/ (GitHub) path instead, which mirrors the full repo assets.
-const TWEMOJI_CDN_URLS = [
-  (code: string) => `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/${code}.png`,
-  (code: string) => `https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/72x72/${code}.png`,
-  (code: string) => `https://twemoji.maxcdn.com/v/14.0.2/72x72/${code}.png`,
-  // Google Noto Emoji covers Unicode 15+ (newer Android emojis not in Twemoji 14).
-  // Noto uses underscore-separated codepoints and a different filename prefix.
+// Noto uses underscore-separated codepoints prefixed with "emoji_u".
+// jsDelivr is tried first (fast CDN mirror), GitHub raw as fallback.
+const EMOJI_CDN_URLS = [
+  (code: string) => `https://cdn.jsdelivr.net/gh/googlefonts/noto-emoji@main/png/128/emoji_u${code.replace(/-/g, '_')}.png`,
   (code: string) => `https://raw.githubusercontent.com/googlefonts/noto-emoji/main/png/128/emoji_u${code.replace(/-/g, '_')}.png`,
 ];
 
-function emojiToTwemojiCode(emoji: string): string {
+function emojiToCode(emoji: string): string {
   // Spread by Unicode code points (not UTF-16 code units) so surrogate pairs
   // are handled correctly, then join hex values with dashes.
   return [...emoji]
@@ -137,10 +134,10 @@ function emojiToTwemojiCode(emoji: string): string {
     .join('-');
 }
 
-// Returns the Supabase Storage public URL for a cached Twemoji PNG, uploading
+// Returns the Supabase Storage public URL for a cached Noto Emoji PNG, uploading
 // it from the CDN on first use. Lob CAN fetch Supabase Storage URLs (standard
 // HTTPS) but blocks CDN URLs and does not support base64 data URIs.
-async function getOrCacheTwemojiUrl(
+async function getOrCacheEmojiUrl(
   supabase: ReturnType<typeof createClient>,
   code: string,
 ): Promise<string | null> {
@@ -154,7 +151,7 @@ async function getOrCacheTwemojiUrl(
   } catch { /* fall through to upload */ }
 
   // Slow path: fetch from CDN and cache in Supabase Storage
-  for (const makeUrl of TWEMOJI_CDN_URLS) {
+  for (const makeUrl of EMOJI_CDN_URLS) {
     try {
       const res = await fetch(makeUrl(code));
       if (!res.ok) continue;
@@ -189,8 +186,8 @@ async function replaceEmojisWithHtmlImages(
   // Resolve all unique emoji URLs in parallel
   const emojiUrls = new Map<string, string | null>();
   await Promise.all(uniqueEmojis.map(async (emoji) => {
-    const code = emojiToTwemojiCode(emoji);
-    emojiUrls.set(emoji, await getOrCacheTwemojiUrl(supabase, code));
+    const code = emojiToCode(emoji);
+    emojiUrls.set(emoji, await getOrCacheEmojiUrl(supabase, code));
   }));
 
   return text.replace(EMOJI_REGEX, (emoji) => {
@@ -467,7 +464,7 @@ serve(async (req) => {
       }
 
       // ── Location badge: Instagram-style pill, bottom-left ────────────────
-      // Twemoji 📍 pin + location text on a dark semi-translucent background.
+      // Noto Emoji 📍 pin + location text on a dark semi-translucent background.
       // Drawn LAST so it's unaffected by any earlier color corrections.
       // Mirrors the PinIcon component + locationBadge style in preview.tsx.
       if (location) {
@@ -484,13 +481,13 @@ serve(async (req) => {
             const textImg = await Image.renderText(font, badgeFontSize, String(location), 0xFFFFFFFF);
             const iconH   = Math.round(badgeFontSize * 1.3);
 
-            // Fetch and decode the Twemoji 📍 (Round Pushpin, U+1F4CD) PNG.
+            // Fetch and decode the Noto Emoji 📍 (Round Pushpin, U+1F4CD) PNG.
             // Uses Supabase Storage cache (same as emoji in message) to avoid
             // CDN URLs that may be inaccessible from the edge function.
             // Falls back to null so the badge still renders without the icon.
             let pinIcon: InstanceType<typeof Image> | null = null;
             try {
-              const pinUrl = await getOrCacheTwemojiUrl(supabase, '1f4cd');
+              const pinUrl = await getOrCacheEmojiUrl(supabase, '1f4cd');
               if (pinUrl) {
                 const pinRes = await fetch(pinUrl);
                 if (pinRes.ok) {
