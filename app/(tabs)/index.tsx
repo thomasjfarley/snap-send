@@ -31,7 +31,7 @@ export default function HomeScreen() {
         <TouchableOpacity style={styles.heroCta} onPress={() => { if (!heroBlockedRef.current) router.push('/postcard'); }}>
           <Text style={styles.heroEmoji}>📬</Text>
           <Text style={styles.heroTitle}>Create a Postcard</Text>
-          <Text style={styles.heroSub}>Take a photo, add a message, and we'll mail it.</Text>
+          <Text style={styles.heroSub}>Take a photo, add a message, and we&apos;ll mail it.</Text>
           <View style={styles.heroBtn}>
             <Text style={styles.heroBtnText}>Get Started →</Text>
           </View>
@@ -68,7 +68,7 @@ export default function HomeScreen() {
             <View style={styles.sheetDetails}>
               {[
                 { emoji: '🖨️', text: 'Printing in 1 business day' },
-                { emoji: '✉️', text: 'Mailed via USPS First Class' },
+                { emoji: '✉️', text: 'Mailed through trusted postal carriers' },
                 { emoji: '📍', text: 'Arrives in 3–5 business days' },
               ].map((item, i) => (
                 <View key={i} style={styles.detailRow}>
@@ -146,4 +146,3 @@ function makeStyles(colors: AppColors) {
     sheetBtnSecondaryText: { color: colors.primary, fontSize: FONT_SIZE.md, fontWeight: '600' },
   });
 }
-

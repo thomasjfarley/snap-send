@@ -2,11 +2,19 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { Image } from 'https://deno.land/x/imagescript@1.3.0/mod.ts';
+import {
+  createPostGridPostcard,
+  normalizeCountry,
+  waitForPostGridPreview,
+} from '../_shared/postgrid.ts';
 
 const STRIPE_SECRET_KEY_LIVE = Deno.env.get('STRIPE_SECRET_KEY')!;
 const STRIPE_SECRET_KEY_TEST = Deno.env.get('STRIPE_SECRET_KEY_TEST')!;
 const LOB_API_KEY_LIVE = Deno.env.get('LOB_API_KEY')!;
 const LOB_API_KEY_TEST = Deno.env.get('LOB_API_KEY_TEST')!;
+const POSTGRID_API_KEY_LIVE = Deno.env.get('POSTGRID_API_KEY')!;
+const POSTGRID_API_KEY_TEST = Deno.env.get('POSTGRID_API_KEY_TEST')!;
+const POSTGRID_LIVE_ENABLED = Deno.env.get('POSTGRID_LIVE_ENABLED') === 'true';
 const GOOGLE_VISION_API_KEY = Deno.env.get('GOOGLE_VISION_API_KE');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -273,7 +281,8 @@ serve(async (req) => {
   let tempImagePath: string | null = null;
   let confirmedPaymentIntentId: string | undefined;
   let confirmedUserId: string | undefined;
-  let lobSubmitted = false;
+  let fulfillmentSubmitted = false;
+  let fulfillmentProvider = 'lob';
   let stripeKey = STRIPE_SECRET_KEY_LIVE; // refined after parsing testMode
 
   try {
@@ -287,7 +296,6 @@ serve(async (req) => {
     }
 
     const STRIPE_SECRET_KEY = testMode === true ? STRIPE_SECRET_KEY_TEST : STRIPE_SECRET_KEY_LIVE;
-    const LOB_API_KEY = testMode === true ? LOB_API_KEY_TEST : LOB_API_KEY_LIVE;
     stripeKey = STRIPE_SECRET_KEY;
 
     // ── 1. Verify Stripe payment and extract user identity ────────────────────
@@ -301,17 +309,34 @@ serve(async (req) => {
     const userId = pi.metadata.user_id;
     confirmedUserId = userId;
     confirmedPaymentIntentId = paymentIntentId;
+    const isLivePayment = pi.livemode === true;
+    const usePostGrid = !isLivePayment || POSTGRID_LIVE_ENABLED;
+    const LOB_API_KEY = isLivePayment ? LOB_API_KEY_LIVE : LOB_API_KEY_TEST;
+    const POSTGRID_API_KEY = isLivePayment ? POSTGRID_API_KEY_LIVE : POSTGRID_API_KEY_TEST;
+    fulfillmentProvider = usePostGrid ? 'postgrid' : 'lob';
+    const paidDestinationCountry = String(pi.metadata.destination_country ?? 'US').toUpperCase();
+    const requestedDestinationCountry = normalizeCountry(recipientSnapshot.country);
+    if (paidDestinationCountry !== requestedDestinationCountry) {
+      const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId);
+      return jsonResponse({ error: `Destination country changed after payment. ${refundMsg(succeeded)}` }, 409);
+    }
 
     // Idempotency: if a postcard was already created with this payment intent
     // (e.g. client timed out but the function completed), return success so the
     // client can treat it as a clean retry without double-charging or double-mailing.
     const { data: existingPostcard } = await supabase
       .from('postcards')
-      .select('id, lob_id')
+      .select('id, lob_id, fulfillment_provider, provider_id')
       .eq('stripe_payment_intent_id', paymentIntentId)
       .maybeSingle();
     if (existingPostcard) {
-      return jsonResponse({ success: true, lobId: existingPostcard.lob_id, postcardId: existingPostcard.id });
+      return jsonResponse({
+        success: true,
+        postcardId: existingPostcard.id,
+        provider: existingPostcard.fulfillment_provider ?? 'lob',
+        providerId: existingPostcard.provider_id ?? existingPostcard.lob_id,
+        lobId: existingPostcard.lob_id,
+      });
     }
 
     // ── 2. SafeSearch (LEGAL REQUIREMENT — 18 U.S.C. § 1461) ─────────────────
@@ -559,12 +584,10 @@ serve(async (req) => {
       .from('postcard-fronts')
       .getPublicUrl(tempImagePath);
 
-    // ── 5. Send postcard via Lob ──────────────────────────────────────────────
-    const lobCredentials = btoa(`${LOB_API_KEY}:`);
+    // ── 5. Send postcard through the selected fulfillment provider ───────────
     const normalizedMessage = (message ?? '').trim();
     const htmlEscapedMessage = normalizedMessage.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const lobMessage = await replaceEmojisWithHtmlImages(htmlEscapedMessage, supabase);
-    const safeLocation = location ? await replaceEmojisWithHtmlImages(String(location).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'), supabase) : null;
+    const renderedMessage = await replaceEmojisWithHtmlImages(htmlEscapedMessage, supabase);
     const msgLen = normalizedMessage.length;
     const lineCount = htmlEscapedMessage.split('\n').length;
     const LOB_CHARS_PER_LINE = 40;
@@ -574,10 +597,11 @@ serve(async (req) => {
     const sizeByChars = msgLen < 80 ? 15 : msgLen < 200 ? 13 : msgLen < 350 ? 11 : 10;
     const sizeByLines = lineCount <= 5 ? 15 : lineCount <= 9 ? 13 : lineCount <= 13 ? 11 : 10;
     const sizeByVisual = visualLines <= 7 ? 15 : visualLines <= 12 ? 13 : visualLines <= 17 ? 11 : 10;
-    const lobFontSize = Math.min(sizeByChars, sizeByLines, sizeByVisual);
+    const messageFontSize = Math.min(sizeByChars, sizeByLines, sizeByVisual);
 
-    // Build inline address blocks — {{from_address}}/{{to_address}} merge vars
-    // only work with Lob's Templates API, not inline HTML.
+    // Lob inline HTML must render the address blocks itself. PostGrid stamps
+    // addresses from the supplied contacts, so its back artwork leaves the
+    // carrier-reserved right side clear.
     function addrBlock(label: string, a: { full_name: string; line1: string; line2?: string; city: string; state: string; zip: string }) {
       const esc = (s: string) => s.replace(/</g, '&lt;').replace(/>/g, '&gt;');
       const line2 = a.line2 ? `<br>${esc(a.line2)}` : '';
@@ -585,60 +609,97 @@ serve(async (req) => {
     }
     const fromHtml = addrBlock('FROM', fromAddress);
     const toHtml = addrBlock('TO', recipientSnapshot);
+    const commonBackHTML = `<html><body style="margin:0;padding:0;font-family:Helvetica,Arial,sans-serif"><table style="width:100%;height:100%;border-collapse:collapse;table-layout:fixed"><tr><td style="width:44%;vertical-align:top;padding:24px 10px 24px 24px"><p style="font-size:${messageFontSize}px;line-height:1.5;color:#333;margin:0;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word">${renderedMessage}</p></td><td style="width:56%;vertical-align:top;padding:0"></td></tr></table></body></html>`;
 
-    const lobBody = {
-      description: 'Snap Send postcard',
-      size: '4x6',
-      use_type: 'operational',
-      front: frontUrl,
-      back: `<html><body style="margin:0;padding:0;font-family:Helvetica,Arial,sans-serif"><table style="width:100%;height:100%;border-collapse:collapse;table-layout:fixed"><tr><td style="width:44%;vertical-align:top;padding:24px 10px 24px 24px"><p style="font-size:${lobFontSize}px;line-height:1.5;color:#333;margin:0;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word">${lobMessage}</p></td><td style="width:56%;vertical-align:top;padding:0"><table style="width:100%;border-collapse:collapse"><tr><td style="text-align:center;padding:28px 14px 20px 14px"><p style="font-size:8px;font-weight:bold;color:#444;margin:0 0 8px 0;letter-spacing:2px;text-transform:uppercase">Snap Send</p><img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&color=222222&bgcolor=ffffff&data=https://snapsend.live" width="80" height="80" style="display:block;margin:0 auto" /><p style="font-size:8px;color:#888;margin:8px 0 0 0;letter-spacing:1px">Send Joy</p></td></tr><tr><td style="padding:0 14px"><hr style="border:none;border-top:1px solid #ddd;margin:0" /></td></tr><tr><td style="padding:10px 14px 4px 14px">${fromHtml}</td></tr><tr><td style="padding:4px 14px 10px 14px">${toHtml}</td></tr></table></td></tr></table></body></html>`,
-      to: {
-        name: recipientSnapshot.full_name,
-        address_line1: recipientSnapshot.line1,
-        ...(recipientSnapshot.line2 ? { address_line2: recipientSnapshot.line2 } : {}),
-        address_city: recipientSnapshot.city,
-        address_state: recipientSnapshot.state,
-        address_zip: String(recipientSnapshot.zip),
-        address_country: 'US',
-      },
-      from: {
-        name: fromAddress.full_name,
-        address_line1: fromAddress.line1,
-        ...(fromAddress.line2 ? { address_line2: fromAddress.line2 } : {}),
-        address_city: fromAddress.city,
-        address_state: fromAddress.state,
-        address_zip: String(fromAddress.zip),
-        address_country: 'US',
-      },
-    };
+    let providerId: string;
+    let providerStatus: string;
+    let providerPreviewUrl: string | null = null;
+    let providerLive: boolean | null = isLivePayment;
+    let lobId: string | null = null;
+    let lobFrontUrl: string | null = null;
+    let lobBackUrl: string | null = null;
 
-    const lobRes = await fetch(`${LOB_BASE_URL}/postcards`, {
-      method: 'POST',
-      headers: { Authorization: `Basic ${lobCredentials}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(lobBody),
-    });
-    const lobData = await lobRes.json();
+    if (usePostGrid) {
+      normalizeCountry(fromAddress.country);
+      normalizeCountry(recipientSnapshot.country);
+      if (!POSTGRID_API_KEY) throw new Error(`Missing ${isLivePayment ? 'live' : 'test'} PostGrid API key`);
 
-    // Clean up temp image regardless of Lob result
-    await supabase.storage.from('postcard-fronts').remove([tempImagePath]);
-    tempImagePath = null;
-
-    if (!lobRes.ok) {
-      const lobErrMsg = lobData?.error?.message ?? lobData?.message ?? JSON.stringify(lobData).slice(0, 300);
-      console.error(`Lob ${lobRes.status}:`, JSON.stringify(lobData));
-      if (lobRes.status !== 422) {
-        reportError(
-          'submit-postcard',
-          'Lob API error',
-          'error',
-          `paymentIntentId=${paymentIntentId}; userId=${userId}; lobStatus=${lobRes.status}; lobError=${JSON.stringify(lobData).slice(0, 1000)}`,
-        );
+      const frontHTML = `<html><head><style>@page{size:6.25in 4.25in;margin:0}html,body{width:6.25in;height:4.25in;margin:0;padding:0;overflow:hidden}img{width:100%;height:100%;object-fit:cover;display:block}</style></head><body><img src="${frontUrl}" /></body></html>`;
+      const createdPostgrid = await createPostGridPostcard({
+        apiKey: POSTGRID_API_KEY,
+        idempotencyKey: paymentIntentId,
+        sender: fromAddress,
+        recipient: recipientSnapshot,
+        frontHTML,
+        backHTML: commonBackHTML,
+        paymentIntentId,
+        userId,
+      });
+      const postgrid = await waitForPostGridPreview(POSTGRID_API_KEY, createdPostgrid);
+      providerId = postgrid.id;
+      providerStatus = postgrid.status;
+      providerPreviewUrl = postgrid.url ?? null;
+      providerLive = postgrid.live;
+    } else {
+      if (normalizeCountry(fromAddress.country) !== 'US' || normalizeCountry(recipientSnapshot.country) !== 'US') {
+        throw new Error('International fulfillment requires PostGrid');
       }
-      const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId);
-      return jsonResponse({ error: `Lob ${lobRes.status}: ${lobErrMsg} ${refundMsg(succeeded)}`, lob_status: lobRes.status, lob_detail: lobData }, 502);
+      const lobCredentials = btoa(`${LOB_API_KEY}:`);
+      const lobBody = {
+        description: 'Snap Send postcard',
+        size: '4x6',
+        use_type: 'operational',
+        front: frontUrl,
+        back: `<html><body style="margin:0;padding:0;font-family:Helvetica,Arial,sans-serif"><table style="width:100%;height:100%;border-collapse:collapse;table-layout:fixed"><tr><td style="width:44%;vertical-align:top;padding:24px 10px 24px 24px"><p style="font-size:${messageFontSize}px;line-height:1.5;color:#333;margin:0;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word">${renderedMessage}</p></td><td style="width:56%;vertical-align:top;padding:0"><table style="width:100%;border-collapse:collapse"><tr><td style="text-align:center;padding:28px 14px 20px 14px"><p style="font-size:8px;font-weight:bold;color:#444;margin:0 0 8px 0;letter-spacing:2px;text-transform:uppercase">Snap Send</p><img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&color=222222&bgcolor=ffffff&data=https://snapsend.live" width="80" height="80" style="display:block;margin:0 auto" /><p style="font-size:8px;color:#888;margin:8px 0 0 0;letter-spacing:1px">Send Joy</p></td></tr><tr><td style="padding:0 14px"><hr style="border:none;border-top:1px solid #ddd;margin:0" /></td></tr><tr><td style="padding:10px 14px 4px 14px">${fromHtml}</td></tr><tr><td style="padding:4px 14px 10px 14px">${toHtml}</td></tr></table></td></tr></table></body></html>`,
+        to: {
+          name: recipientSnapshot.full_name,
+          address_line1: recipientSnapshot.line1,
+          ...(recipientSnapshot.line2 ? { address_line2: recipientSnapshot.line2 } : {}),
+          address_city: recipientSnapshot.city,
+          address_state: recipientSnapshot.state,
+          address_zip: String(recipientSnapshot.zip),
+          address_country: 'US',
+        },
+        from: {
+          name: fromAddress.full_name,
+          address_line1: fromAddress.line1,
+          ...(fromAddress.line2 ? { address_line2: fromAddress.line2 } : {}),
+          address_city: fromAddress.city,
+          address_state: fromAddress.state,
+          address_zip: String(fromAddress.zip),
+          address_country: 'US',
+        },
+      };
+
+      const lobRes = await fetch(`${LOB_BASE_URL}/postcards`, {
+        method: 'POST',
+        headers: { Authorization: `Basic ${lobCredentials}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(lobBody),
+      });
+      const lobData = await lobRes.json();
+
+      if (!lobRes.ok) {
+        const lobErrMsg = lobData?.error?.message ?? lobData?.message ?? JSON.stringify(lobData).slice(0, 300);
+        const error = new Error(`Lob ${lobRes.status}: ${lobErrMsg}`);
+        Object.assign(error, { status: lobRes.status, detail: lobData });
+        throw error;
+      }
+      providerId = lobData.id;
+      providerStatus = 'submitted';
+      lobId = lobData.id;
+      lobFrontUrl = (lobData.thumbnails?.[0]?.medium ?? null) as string | null;
+      lobBackUrl = (lobData.thumbnails?.[1]?.medium ?? null) as string | null;
     }
 
-    lobSubmitted = true;
+    fulfillmentSubmitted = true;
+
+    // A PostGrid preview proves its asynchronous renderer fetched the image.
+    // If preview generation is delayed, keep the source available rather than
+    // risk producing a blank postcard; storage cleanup can happen later.
+    if (fulfillmentProvider === 'lob' || providerPreviewUrl) {
+      await supabase.storage.from('postcard-fronts').remove([tempImagePath]);
+      tempImagePath = null;
+    }
 
     // ── 6. Record in database ─────────────────────────────────────────────────
     const { data: postcard, error: insertErr } = await supabase
@@ -649,23 +710,28 @@ serve(async (req) => {
         location: location ?? null,
         from_address_id: fromAddressId, to_address_id: toAddressId,
         recipient_snapshot: recipientSnapshot, status: 'submitted',
-        lob_id: lobData.id,
-        lob_front_url: (lobData.thumbnails?.[0]?.medium ?? null) as string | null,
-        lob_back_url: (lobData.thumbnails?.[1]?.medium ?? null) as string | null,
+        fulfillment_provider: fulfillmentProvider,
+        provider_id: providerId,
+        provider_status: providerStatus,
+        provider_preview_url: providerPreviewUrl,
+        provider_live: providerLive,
+        lob_id: lobId,
+        lob_front_url: lobFrontUrl,
+        lob_back_url: lobBackUrl,
         stripe_payment_intent_id: paymentIntentId,
         price_cents: pi.amount,
       })
       .select().single();
 
     if (insertErr || !postcard) {
-      console.error('DB insert failed after Lob success:', insertErr);
+      console.error('DB insert failed after fulfillment success:', insertErr);
       reportError(
         'submit-postcard',
         'Postcard DB insert failed',
         'warning',
-        `paymentIntentId=${paymentIntentId}; userId=${userId}; lobId=${lobData.id}; error=${insertErr?.message ?? 'missing postcard record'}`,
+        `paymentIntentId=${paymentIntentId}; userId=${userId}; provider=${fulfillmentProvider}; providerId=${providerId}; error=${insertErr?.message ?? 'missing postcard record'}`,
       );
-      return jsonResponse({ success: true, lobId: lobData.id, postcardId: null, warning: 'DB record failed' });
+      return jsonResponse({ success: true, provider: fulfillmentProvider, providerId, postcardId: null, warning: 'DB record failed' });
     }
 
     await supabase.from('orders').insert({
@@ -674,13 +740,19 @@ serve(async (req) => {
       amount_cents: pi.amount, status: 'succeeded',
     });
 
-    return jsonResponse({ success: true, postcardId: postcard.id, lobId: lobData.id });
+    return jsonResponse({
+      success: true,
+      postcardId: postcard.id,
+      provider: fulfillmentProvider,
+      providerId,
+      lobId,
+    });
 
   } catch (err) {
     if (tempImagePath) {
       await supabase.storage.from('postcard-fronts').remove([tempImagePath]).catch(() => {});
     }
-    if (confirmedPaymentIntentId && !lobSubmitted) {
+    if (confirmedPaymentIntentId && !fulfillmentSubmitted) {
       await refundPayment(stripeKey, confirmedPaymentIntentId);
     }
     console.error('Unhandled error:', err);
@@ -688,7 +760,7 @@ serve(async (req) => {
       'submit-postcard',
       'Unhandled submit-postcard error',
       'critical',
-      `paymentIntentId=${confirmedPaymentIntentId ?? 'unknown'}; userId=${confirmedUserId ?? 'unknown'}; lobSubmitted=${lobSubmitted}; error=${err instanceof Error ? `${err.name}: ${err.message}` : String(err)}`,
+      `paymentIntentId=${confirmedPaymentIntentId ?? 'unknown'}; userId=${confirmedUserId ?? 'unknown'}; provider=${fulfillmentProvider}; fulfillmentSubmitted=${fulfillmentSubmitted}; error=${err instanceof Error ? `${err.name}: ${err.message}` : String(err)}`,
     );
     return jsonResponse({ error: 'Internal server error', detail: String(err) }, 500);
   }

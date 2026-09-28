@@ -183,6 +183,7 @@ export default function PreviewScreen() {
           headers: { Authorization: `Bearer ${token}` },
           body: {
             testMode: __DEV__,
+            destinationCountry: recipient?.country ?? 'US',
             ...(personalAddress ? {
               customerAddress: {
                 line1: personalAddress.line1,
@@ -548,6 +549,7 @@ export default function PreviewScreen() {
                   <Text style={styles.fromAddrText}>{personalAddress.line1}</Text>
                   {personalAddress.line2 ? <Text style={styles.fromAddrText}>{personalAddress.line2}</Text> : null}
                   <Text style={styles.fromAddrText}>{personalAddress.city}, {personalAddress.state} {personalAddress.zip}</Text>
+                  {personalAddress.country === 'CA' && <Text style={styles.fromAddrText}>CANADA</Text>}
                 </View>
               ) : <View style={{ flex: 1 }} />}
               <View style={styles.postageBox}>
@@ -563,6 +565,7 @@ export default function PreviewScreen() {
                 <Text style={styles.addrText}>{recipient.line1}</Text>
                 {recipient.line2 ? <Text style={styles.addrText}>{recipient.line2}</Text> : null}
                 <Text style={styles.addrText}>{recipient.city}, {recipient.state} {recipient.zip}</Text>
+                {recipient.country === 'CA' && <Text style={styles.addrText}>CANADA</Text>}
               </View>
             </View>
           </View>

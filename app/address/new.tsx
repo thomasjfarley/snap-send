@@ -54,6 +54,7 @@ export default function NewAddressScreen() {
       || '';
 
     const addr = contact.addresses?.[0];
+    const importedCountry = addr?.isoCountryCode?.toUpperCase() === 'CA' ? 'CA' : 'US';
     setForm({
       label: 'Friend',
       full_name: fullName,
@@ -62,19 +63,21 @@ export default function NewAddressScreen() {
       city: addr?.city ?? '',
       state: addr?.region ?? '',
       zip: addr?.postalCode ?? '',
-      country: 'US',
+      country: importedCountry,
     });
     setVerified(null);
   }
 
   function handleChange(field: keyof AddressFormData, value: string) {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    setForm((prev) => field === 'country'
+      ? { ...prev, country: value, state: '', zip: '', verification_provider: null }
+      : { ...prev, [field]: value, verification_provider: null });
     setVerified(null);
   }
 
   async function handleVerify() {
     if (!form.line1.trim() || !form.city.trim() || !form.state.trim() || !form.zip.trim()) {
-      Alert.alert('Incomplete address', 'Please fill in street, city, state, and ZIP first.');
+      Alert.alert('Incomplete address', 'Please fill in street, city, region, and postal code first.');
       return;
     }
     const { result, error } = await validate(form);
@@ -89,6 +92,7 @@ export default function NewAddressScreen() {
           city: result.address.city,
           state: result.address.state,
           zip: result.address.zip,
+          verification_provider: result.provider,
         }));
       }
     }
@@ -121,7 +125,7 @@ export default function NewAddressScreen() {
     if (verified === false) {
       Alert.alert(
         'Unverified address',
-        "We couldn't confirm this with USPS — that's normal for Hawaii, rural Alaska, and some newer addresses. If it's a real address your postcard will be sent, but if it can't be found it won't arrive.",
+        "We couldn't confirm this address with the postal service. If you're sure it is correct, you can still save it, but delivery is not guaranteed.",
         [
           { text: 'Save Anyway', onPress: doSave },
           { text: 'Go Back', style: 'cancel' },

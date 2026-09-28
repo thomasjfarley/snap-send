@@ -16,13 +16,14 @@ const CARD_W = SCREEN_W - SPACING.xl * 2;
 const CARD_H = CARD_W * (3 / 4);
 const LOB_CHARS_PER_LINE = 40;
 
-const STATUS_STEPS: Postcard['status'][] = ['pending', 'paid', 'submitted', 'mailed'];
+const STATUS_STEPS: Postcard['status'][] = ['pending', 'paid', 'submitted', 'mailed', 'delivered'];
 
 const STATUS_INFO: Record<Postcard['status'], { label: string; color: string; bg: string; desc: string }> = {
   pending:   { label: 'Pending',   color: '#92400E', bg: '#FEF3C7', desc: 'Awaiting payment confirmation.' },
   paid:      { label: 'Paid',      color: '#1E40AF', bg: '#DBEAFE', desc: 'Payment confirmed.' },
   submitted: { label: 'Printing',  color: '#6B21A8', bg: '#F3E8FF', desc: 'Your postcard is being printed.' },
   mailed:    { label: 'Mailed',    color: '#14532D', bg: '#DCFCE7', desc: 'Your postcard is on its way! 🎉' },
+  delivered: { label: 'Delivered', color: '#14532D', bg: '#DCFCE7', desc: 'Your postcard has completed its delivery journey.' },
   failed:    { label: 'Failed',    color: '#991B1B', bg: '#FEE2E2', desc: 'Something went wrong with this order.' },
 };
 
@@ -110,7 +111,7 @@ export default function OrderDetailScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Front image from Lob */}
+        {/* Provider preview (PostGrid PDF previews are linked in order metadata). */}
         {postcard.lob_front_url && (
           <Image source={{ uri: postcard.lob_front_url }} style={styles.postcardThumb} resizeMode="cover" />
         )}
@@ -162,6 +163,7 @@ export default function OrderDetailScreen() {
                 <Text style={styles.addrLine}>{snapshot?.line1}</Text>
                 {snapshot?.line2 ? <Text style={styles.addrLine}>{snapshot.line2}</Text> : null}
                 <Text style={styles.addrLine}>{snapshot?.city}, {snapshot?.state} {snapshot?.zip}</Text>
+                {snapshot?.country === 'CA' && <Text style={styles.addrLine}>Canada</Text>}
               </View>
             </View>
           </View>
@@ -175,8 +177,11 @@ export default function OrderDetailScreen() {
           <Row label="Frame" value={postcard.frame} />
           <Row label="Filter" value={postcard.filter} />
           {postcard.location && <Row label="Location" value={postcard.location} />}
-          {postcard.lob_id && <Row label="Tracking ID" value={postcard.lob_id} mono />}
+          <Row label="Fulfillment" value={postcard.fulfillment_provider === 'postgrid' ? 'PostGrid' : 'Lob'} />
+          {(postcard.provider_id || postcard.lob_id) && <Row label="Tracking ID" value={postcard.provider_id || postcard.lob_id!} mono />}
+          {postcard.provider_preview_url && <Row label="Print Preview" value="Available in PostGrid" />}
           {postcard.mailed_at && <Row label="Mailed" value={formatDate(postcard.mailed_at)} />}
+          {postcard.delivered_at && <Row label="Completed" value={formatDate(postcard.delivered_at)} />}
         </View>
       </ScrollView>
     </SafeAreaView>

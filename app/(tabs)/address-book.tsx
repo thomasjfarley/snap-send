@@ -55,11 +55,12 @@ export default function AddressBookScreen() {
           <View style={styles.cardTitleRow}>
             <Text style={styles.cardName}>{item.full_name}</Text>
             {isPersonal && <View style={styles.personalBadge}><Text style={styles.personalBadgeText}>You</Text></View>}
-            {item.lob_verified && <View style={styles.verifiedBadge}><Text style={styles.verifiedBadgeText}>✓ Verified</Text></View>}
+            {(item.address_verified || item.lob_verified) && <View style={styles.verifiedBadge}><Text style={styles.verifiedBadgeText}>✓ Verified</Text></View>}
           </View>
           {!isPersonal && <Text style={styles.cardLabel}>{item.label}</Text>}
           <Text style={styles.cardAddress}>{item.line1}{item.line2 ? `, ${item.line2}` : ''}</Text>
           <Text style={styles.cardAddress}>{item.city}, {item.state} {item.zip}</Text>
+          {item.country === 'CA' && <Text style={styles.cardAddress}>Canada</Text>}
         </View>
 
         <View style={styles.cardActions}>

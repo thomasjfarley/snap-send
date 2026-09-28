@@ -28,7 +28,7 @@ export default function RecipientScreen() {
 
   // Exclude personal address from the general list
   const recipients = addresses.filter((a) => !a.is_personal);
-  const personalAddress = addresses.find((a) => a.is_personal && (a.country === 'US' || !a.country));
+  const personalAddress = addresses.find((a) => a.is_personal);
 
   function handleSelect(address: Address) {
     setRecipient(address);
@@ -63,6 +63,7 @@ export default function RecipientScreen() {
               </View>
               <Text style={styles.addr}>{personalAddress.line1}{personalAddress.line2 ? `, ${personalAddress.line2}` : ''}</Text>
               <Text style={styles.addr}>{personalAddress.city}, {personalAddress.state} {personalAddress.zip}</Text>
+              {personalAddress.country === 'CA' && <Text style={styles.addr}>Canada</Text>}
             </View>
             {recipient?.id === personalAddress.id && <Text style={styles.checkmark}>✓</Text>}
           </TouchableOpacity>
@@ -79,6 +80,7 @@ export default function RecipientScreen() {
                 {item.label ? <Text style={styles.label}>{item.label}</Text> : null}
                 <Text style={styles.addr}>{item.line1}{item.line2 ? `, ${item.line2}` : ''}</Text>
                 <Text style={styles.addr}>{item.city}, {item.state} {item.zip}</Text>
+                {item.country === 'CA' && <Text style={styles.addr}>Canada</Text>}
               </View>
               {selected && <Text style={styles.checkmark}>✓</Text>}
             </TouchableOpacity>

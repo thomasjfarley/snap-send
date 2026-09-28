@@ -41,18 +41,19 @@ export default function YourAddressScreen() {
     full_name: profile?.full_name ?? '',
   });
   const [verified, setVerified] = useState<boolean | null>(null);
-  const [validatedForm, setValidatedForm] = useState<AddressFormData | null>(null);
   const [suggestedAddress, setSuggestedAddress] = useState<AddressFormData | null>(null);
 
   function handleChange(field: keyof AddressFormData, value: string) {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    setForm((prev) => field === 'country'
+      ? { ...prev, country: value, state: '', zip: '', verification_provider: null }
+      : { ...prev, [field]: value, verification_provider: null });
     setVerified(null);
     setSuggestedAddress(null);
   }
 
   async function handleVerify() {
     if (!form.line1.trim() || !form.city.trim() || !form.state.trim() || !form.zip.trim()) {
-      Alert.alert('Incomplete address', 'Please fill in street, city, state, and ZIP.');
+      Alert.alert('Incomplete address', 'Please fill in street, city, region, and postal code.');
       return;
     }
     const { result, error } = await validate(form);
@@ -68,6 +69,7 @@ export default function YourAddressScreen() {
         city: result.address.city,
         state: result.address.state,
         zip: result.address.zip,
+        verification_provider: result.provider,
       };
       const isDifferent =
         suggested.line1 !== form.line1 ||
@@ -79,11 +81,10 @@ export default function YourAddressScreen() {
       if (isDifferent) {
         // Show suggestion UI for user to accept/reject
         setSuggestedAddress(suggested);
-        setValidatedForm(suggested);
       } else {
         // Address already matches — mark verified directly
+        setForm((prev) => ({ ...prev, verification_provider: result.provider }));
         setVerified(result.verified);
-        setValidatedForm(form);
       }
     }
   }
@@ -138,7 +139,7 @@ export default function YourAddressScreen() {
           <Text style={styles.step}>Step 2 of 2</Text>
           <Text style={styles.title}>Your mailing address</Text>
           <Text style={styles.subtitle}>
-            This will appear as the return address on every postcard you send. US addresses only.
+            This will appear as the return address on every postcard you send.
           </Text>
         </View>
 

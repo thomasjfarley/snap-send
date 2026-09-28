@@ -1,9 +1,13 @@
-// Edge Function: validate-address
-// Calls the Lob Address Verification API and returns a standardized, verified address.
-
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+import {
+  normalizeCountry,
+  POSTGRID_BASE_URL,
+  toPostGridContact,
+} from '../_shared/postgrid.ts';
 
-const LOB_API_KEY = Deno.env.get('LOB_API_KEY')!;
+const POSTGRID_API_KEY_LIVE = Deno.env.get('POSTGRID_API_KEY')!;
+const POSTGRID_API_KEY_TEST = Deno.env.get('POSTGRID_API_KEY_TEST')!;
+const LOB_API_KEY_LIVE = Deno.env.get('LOB_API_KEY')!;
 const LOB_BASE_URL = 'https://api.lob.com/v1';
 
 const corsHeaders = {
@@ -11,88 +15,121 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+async function validateUsAddressWithLob(input: {
+  line1: string;
+  line2?: string;
+  city: string;
+  state: string;
+  zip: string;
+}) {
+  const body: Record<string, string> = {
+    primary_line: input.line1,
+    city: input.city,
+    state: input.state,
+    zip_code: input.zip,
+  };
+  if (input.line2) body.secondary_line = input.line2;
+
+  const credentials = btoa(`${LOB_API_KEY_LIVE}:`);
+  const response = await fetch(`${LOB_BASE_URL}/us_verifications`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${credentials}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) return null;
+  const deliverability = data.deliverability ?? 'undeliverable';
+  return {
+    verified: deliverability !== 'undeliverable',
+    deliverability,
+    provider: 'lob',
+    address: {
+      line1: data.primary_line ?? input.line1,
+      line2: data.secondary_line ?? input.line2 ?? null,
+      city: data.components?.city ?? input.city,
+      state: data.components?.state ?? input.state,
+      zip: data.components?.zip_code ?? input.zip,
+      country: 'US',
+    },
+  };
+}
+
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const { line1, line2, city, state, zip, country = 'US' } = await req.json();
-
-    if (!line1 || !city || !state || !zip) {
-      return new Response(JSON.stringify({ error: 'Missing required address fields' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // In Lob test mode, simulate a realistic standardized response
-    if (LOB_API_KEY.startsWith('test_')) {
-      const stdLine1 = line1.toUpperCase().replace(/\bst\b/gi, 'ST').replace(/\bave\b/gi, 'AVE').replace(/\bdr\b/gi, 'DR').replace(/\brd\b/gi, 'RD').replace(/\bblvd\b/gi, 'BLVD').replace(/\bln\b/gi, 'LN').replace(/\bct\b/gi, 'CT');
-      const stdCity = city.toUpperCase();
-      const stdState = state.toUpperCase();
-      const stdZip = zip.length === 5 ? `${zip}-1234` : zip; // simulate ZIP+4
-      return new Response(
-        JSON.stringify({
-          verified: true,
-          deliverability: 'deliverable',
-          address: { line1: stdLine1, line2: line2 || null, city: stdCity, state: stdState, zip: stdZip, country },
-        }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
-    }
-
-    const credentials = btoa(`${LOB_API_KEY}:`);
-    const body: Record<string, string> = {
-      primary_line: line1,
+    const {
+      full_name = 'Recipient',
+      line1,
+      line2,
       city,
       state,
-      zip_code: zip,
-    };
-    if (line2) body.secondary_line = line2;
+      zip,
+      country = 'US',
+      testMode = false,
+    } = await req.json();
 
-    const lobRes = await fetch(`${LOB_BASE_URL}/us_verifications`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${credentials}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-
-    const lobData = await lobRes.json();
-
-    if (!lobRes.ok) {
-      console.error('Lob error:', lobRes.status, JSON.stringify(lobData));
-      return new Response(JSON.stringify({ error: 'Address verification failed', detail: lobData }), {
-        status: 422,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    if (!line1 || !city || !state || !zip) {
+      return jsonResponse({ error: 'Missing required address fields' }, 400);
     }
 
-    // deliverable, deliverable_unnecessary_unit, deliverable_missing_unit,
-    // deliverable_incorrect_unit are all real addresses — only undeliverable is bad
-    const verified = lobData.deliverability !== 'undeliverable' && lobData.deliverability != null;
+    const countryCode = normalizeCountry(country);
+    const apiKey = testMode === true ? POSTGRID_API_KEY_TEST : POSTGRID_API_KEY_LIVE;
+    if (!apiKey) return jsonResponse({ error: 'Address verification is not configured' }, 503);
 
-    return new Response(
-      JSON.stringify({
-        verified,
-        deliverability: lobData.deliverability,
-        address: {
-          line1: lobData.primary_line,
-          line2: lobData.secondary_line || null,
-          city: lobData.components?.city,
-          state: lobData.components?.state,
-          zip: lobData.components?.zip_code,
-          country,
-        },
-      }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-    );
-  } catch (err) {
-    return new Response(JSON.stringify({ error: 'Internal server error', detail: String(err) }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    const response = await fetch(`${POSTGRID_BASE_URL}/contacts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+      },
+      body: JSON.stringify(toPostGridContact({
+        full_name,
+        line1,
+        line2,
+        city,
+        state,
+        zip,
+        country: countryCode,
+      })),
     });
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      console.error('[validate-address] PostGrid error:', response.status, JSON.stringify(data));
+      if (testMode !== true && countryCode === 'US') {
+        const fallback = await validateUsAddressWithLob({ line1, line2, city, state, zip });
+        if (fallback) return jsonResponse(fallback);
+      }
+      return jsonResponse({ error: 'Address verification failed', detail: data }, 422);
+    }
+
+    const deliverability = data.addressStatus ?? 'failed';
+    return jsonResponse({
+      verified: deliverability === 'verified' || deliverability === 'corrected',
+      deliverability,
+      provider: 'postgrid',
+      address: {
+        line1: data.addressLine1 ?? line1,
+        line2: data.addressLine2 ?? line2 ?? null,
+        city: data.city ?? city,
+        state: data.provinceOrState ?? state,
+        zip: data.postalOrZip ?? zip,
+        country: (data.countryCode ?? countryCode).toUpperCase(),
+      },
+    });
+  } catch (error) {
+    console.error('[validate-address] unexpected error:', error);
+    return jsonResponse({ error: 'Internal server error' }, 500);
   }
 });

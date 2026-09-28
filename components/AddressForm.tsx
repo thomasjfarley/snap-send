@@ -30,6 +30,7 @@ export function AddressForm({
 }: AddressFormProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const isCanada = values.country === 'CA';
   return (
     <View style={styles.container}>
       {showLabel && (
@@ -52,6 +53,20 @@ export function AddressForm({
         autoCapitalize="words"
         autoComplete="name"
       />
+
+      <View style={styles.countryRow}>
+        {(['US', 'CA'] as const).map((country) => (
+          <TouchableOpacity
+            key={country}
+            style={[styles.countryBtn, values.country === country && styles.countryBtnActive]}
+            onPress={() => onChange('country', country)}
+          >
+            <Text style={[styles.countryBtnText, values.country === country && styles.countryBtnTextActive]}>
+              {country === 'US' ? 'United States' : 'Canada'}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
       <TextInput
         style={styles.input}
@@ -84,7 +99,7 @@ export function AddressForm({
         />
         <TextInput
           style={[styles.input, styles.stateInput]}
-          placeholder="State"
+          placeholder={isCanada ? 'Province' : 'State'}
           placeholderTextColor={colors.textSecondary}
           value={values.state}
           onChangeText={(v) => onChange('state', v.toUpperCase().slice(0, 2))}
@@ -94,11 +109,11 @@ export function AddressForm({
         />
         <TextInput
           style={[styles.input, styles.zipInput]}
-          placeholder="ZIP"
+          placeholder={isCanada ? 'Postal code' : 'ZIP'}
           placeholderTextColor={colors.textSecondary}
           value={values.zip}
-          onChangeText={(v) => onChange('zip', v)}
-          keyboardType="number-pad"
+          onChangeText={(v) => onChange('zip', isCanada ? v.toUpperCase() : v)}
+          keyboardType={isCanada ? 'default' : 'number-pad'}
           maxLength={10}
           autoComplete="postal-code"
         />
@@ -122,6 +137,7 @@ export function AddressForm({
             {suggestedAddress.line1}
             {suggestedAddress.line2 ? `\n${suggestedAddress.line2}` : ''}
             {`\n${suggestedAddress.city}, ${suggestedAddress.state} ${suggestedAddress.zip}`}
+            {suggestedAddress.country === 'CA' ? '\nCanada' : ''}
           </Text>
           <View style={styles.suggestionBtns}>
             <TouchableOpacity style={styles.acceptBtn} onPress={onAcceptSuggestion}>
@@ -156,6 +172,14 @@ function makeStyles(colors: AppColors) {
   return StyleSheet.create({
     container: { gap: SPACING.sm },
     row: { flexDirection: 'row', gap: SPACING.sm },
+    countryRow: { flexDirection: 'row', gap: SPACING.sm },
+    countryBtn: {
+      flex: 1, borderWidth: 1.5, borderColor: colors.border, borderRadius: 12,
+      paddingVertical: 12, alignItems: 'center', backgroundColor: colors.surface,
+    },
+    countryBtnActive: { borderColor: colors.primary, backgroundColor: `${colors.primary}12` },
+    countryBtnText: { color: colors.textSecondary, fontSize: FONT_SIZE.sm, fontWeight: '600' },
+    countryBtnTextActive: { color: colors.primary },
     flex2: { flex: 2 },
     stateInput: { width: 56 },
     zipInput: { width: 90 },
@@ -193,4 +217,3 @@ function makeStyles(colors: AppColors) {
     badgeWarnText: { color: '#854D0E', fontSize: FONT_SIZE.sm },
   });
 }
-

@@ -54,13 +54,13 @@ export default function TermsOfServiceScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Para>
           Welcome to Snap Send. By creating an account or using the Snap Send application, you agree to
-          these Terms of Service ("Terms"). Please read them carefully.
+          these Terms of Service (&quot;Terms&quot;). Please read them carefully.
         </Para>
 
         <Section title="1. About Snap Send">
           <Para>
             Snap Send is a mobile application that lets you create personalized postcards from your photos.
-            We print your postcard and mail it to your chosen recipient via USPS First Class Mail.
+            We print your postcard and mail it to your chosen recipient through an available postal carrier.
           </Para>
         </Section>
 
@@ -87,7 +87,7 @@ export default function TermsOfServiceScreen() {
           </Para>
           <Bullet>Is illegal, obscene, pornographic, defamatory, threatening, or harassing</Bullet>
           <Bullet>Contains hate speech or content that promotes discrimination, violence, or hostility toward any individual or group based on race, ethnicity, religion, gender, sexual orientation, disability, or national origin</Bullet>
-          <Bullet>Infringes on any third party's intellectual property or privacy rights</Bullet>
+          <Bullet>Infringes on any third party&apos;s intellectual property or privacy rights</Bullet>
           <Bullet>Contains spam, advertising, or unsolicited commercial messages</Bullet>
           <Bullet>Depicts minors in any inappropriate manner</Bullet>
           <Bullet>Violates any applicable local, state, national, or international law</Bullet>
@@ -107,7 +107,7 @@ export default function TermsOfServiceScreen() {
           <Text style={[styles.subheading, { color: colors.textPrimary }]}>Payment Processing</Text>
           <Para>
             All payments are processed securely through Stripe. By submitting payment, you authorize us
-            to charge the displayed amount to your payment method. You agree to Stripe's Terms of Service
+            to charge the displayed amount to your payment method. You agree to Stripe&apos;s Terms of Service
             (stripe.com/legal).
           </Para>
 
@@ -122,12 +122,11 @@ export default function TermsOfServiceScreen() {
 
         <Section title="6. Delivery">
           <Para>
-            Postcards are mailed via USPS First Class Mail. Estimated delivery is 3–7 business days after
-            printing (typically 1 business day after your order is placed). Delivery times are estimates
-            only and are not guaranteed.
+            Delivery estimates vary by destination and postal carrier. All delivery times shown in the app
+            are estimates only and are not guaranteed.
           </Para>
           <Para>
-            We are not responsible for delays, losses, or damages caused by USPS, incorrect recipient
+            We are not responsible for delays, losses, or damages caused by postal carriers, incorrect recipient
             addresses provided by you, or circumstances outside our control (including weather events,
             holidays, or carrier disruptions).
           </Para>
@@ -142,7 +141,7 @@ export default function TermsOfServiceScreen() {
           </Para>
           <Para>
             You represent and warrant that you have all necessary rights to the photos and content you
-            submit, and that submitting them does not violate any third party's rights.
+            submit, and that submitting them does not violate any third party&apos;s rights.
           </Para>
         </Section>
 
@@ -156,7 +155,7 @@ export default function TermsOfServiceScreen() {
 
         <Section title="9. Disclaimer of Warranties">
           <Para>
-            Snap Send is provided "as is" and "as available" without warranties of any kind, either
+            Snap Send is provided &quot;as is&quot; and &quot;as available&quot; without warranties of any kind, either
             express or implied, including but not limited to implied warranties of merchantability,
             fitness for a particular purpose, or non-infringement. We do not warrant that the service
             will be uninterrupted, error-free, or that defects will be corrected.

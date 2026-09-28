@@ -12,11 +12,15 @@ export interface AddressFormData {
   zip: string;
   country: string;
   lob_verified?: boolean;
+  address_verified?: boolean;
+  verification_provider?: string | null;
+  verified_at?: string | null;
 }
 
 export interface ValidationResult {
   verified: boolean;
   deliverability: string;
+  provider: 'postgrid' | 'lob';
   address: Omit<AddressFormData, 'label' | 'full_name' | 'country'> & {
     line1: string;
     line2: string | null;
@@ -33,10 +37,10 @@ interface AddressState {
   validating: boolean;
 
   fetch: (userId: string) => Promise<void>;
-  add: (userId: string, data: AddressFormData, lobVerified: boolean, isPersonal?: boolean) => Promise<{ data: Address | null; error: string | null }>;
+  add: (userId: string, data: AddressFormData, addressVerified: boolean, isPersonal?: boolean) => Promise<{ data: Address | null; error: string | null }>;
   update: (id: string, data: Partial<AddressFormData>) => Promise<{ error: string | null }>;
   remove: (id: string) => Promise<{ error: string | null }>;
-  validate: (address: Pick<AddressFormData, 'line1' | 'line2' | 'city' | 'state' | 'zip'>) => Promise<{ result: ValidationResult | null; error: string | null }>;
+  validate: (address: Pick<AddressFormData, 'line1' | 'line2' | 'city' | 'state' | 'zip' | 'country' | 'full_name'>) => Promise<{ result: ValidationResult | null; error: string | null }>;
   clear: () => void;
 }
 
@@ -55,7 +59,7 @@ export const useAddressStore = create<AddressState>((set, get) => ({
     set({ addresses: (data as Address[] | null) ?? [], loading: false });
   },
 
-  add: async (userId, form, lobVerified, isPersonal = false) => {
+  add: async (userId, form, addressVerified, isPersonal = false) => {
     set({ loading: true });
     const { data, error } = await supabase
       .from('addresses')
@@ -69,7 +73,10 @@ export const useAddressStore = create<AddressState>((set, get) => ({
         state: form.state,
         zip: form.zip,
         country: form.country || 'US',
-        lob_verified: lobVerified,
+        lob_verified: false,
+        address_verified: addressVerified,
+        verification_provider: addressVerified ? form.verification_provider ?? 'postgrid' : null,
+        verified_at: addressVerified ? new Date().toISOString() : null,
         is_personal: isPersonal,
       })
       .select()
@@ -108,6 +115,9 @@ export const useAddressStore = create<AddressState>((set, get) => ({
         city: address.city,
         state: address.state,
         zip: address.zip,
+        country: address.country,
+        full_name: address.full_name,
+        testMode: __DEV__,
       },
     });
     set({ validating: false });

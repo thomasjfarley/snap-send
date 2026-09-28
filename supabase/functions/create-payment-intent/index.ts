@@ -19,7 +19,10 @@ function reportError(source: string, title: string, severity: 'warning' | 'error
   }).catch(() => {});
 }
 
-const POSTCARD_PRICE_CENTS = 399;
+const POSTCARD_PRICE_CENTS: Record<'US' | 'CA', number> = {
+  US: 399,
+  CA: 399,
+};
 // General - Tangible Personal Property (provisional; confirm with tax advisor)
 const POSTCARD_TAX_CODE = 'txcd_99999999';
 
@@ -65,6 +68,14 @@ serve(async (req) => {
     const testMode = body?.testMode === true;
     const STRIPE_SECRET_KEY = testMode ? STRIPE_SECRET_KEY_TEST : STRIPE_SECRET_KEY_LIVE;
     const addr = body?.customerAddress;
+    const destinationCountry = String(body?.destinationCountry ?? 'US').toUpperCase();
+    if (destinationCountry !== 'US' && destinationCountry !== 'CA') {
+      return new Response(
+        JSON.stringify({ error: 'Unsupported destination country' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+    const postcardPriceCents = POSTCARD_PRICE_CENTS[destinationCountry];
 
     // Address is required — customers cannot check out without one
     if (!addr?.line1 || !addr?.city || !addr?.state || !addr?.postalCode) {
@@ -83,7 +94,7 @@ serve(async (req) => {
     // Step 1: Calculate tax via Stripe Tax Calculation API
     const taxParams = new URLSearchParams({
       currency: 'usd',
-      'line_items[0][amount]': String(POSTCARD_PRICE_CENTS),
+      'line_items[0][amount]': String(postcardPriceCents),
       'line_items[0][reference]': 'postcard',
       'line_items[0][tax_code]': POSTCARD_TAX_CODE,
       'customer_details[address][line1]': addr.line1,
@@ -102,7 +113,7 @@ serve(async (req) => {
     });
     const taxData = await taxRes.json();
 
-    let chargeAmountCents = POSTCARD_PRICE_CENTS;
+    let chargeAmountCents = postcardPriceCents;
     let taxAmountCents = 0;
     let taxCalculationId: string | null = null;
 
@@ -131,6 +142,8 @@ serve(async (req) => {
       currency: 'usd',
       'payment_method_types[0]': 'card',
       'metadata[user_id]': user.id,
+      'metadata[destination_country]': destinationCountry,
+      'metadata[postcard_base_price_cents]': String(postcardPriceCents),
     });
     if (taxCalculationId) piParams.set('metadata[tax_calculation]', taxCalculationId);
 

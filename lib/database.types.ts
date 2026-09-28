@@ -42,6 +42,9 @@ export interface Database {
           zip: string;
           country: string;
           lob_verified: boolean;
+          address_verified: boolean;
+          verification_provider: string | null;
+          verified_at: string | null;
           is_personal: boolean;
           created_at: string;
         };
@@ -57,6 +60,9 @@ export interface Database {
           zip: string;
           country?: string;
           lob_verified?: boolean;
+          address_verified?: boolean;
+          verification_provider?: string | null;
+          verified_at?: string | null;
           is_personal?: boolean;
           created_at?: string;
         };
@@ -70,6 +76,9 @@ export interface Database {
           zip?: string;
           country?: string;
           lob_verified?: boolean;
+          address_verified?: boolean;
+          verification_provider?: string | null;
+          verified_at?: string | null;
           is_personal?: boolean;
         };
       };
@@ -85,14 +94,20 @@ export interface Database {
           from_address_id: string | null;
           to_address_id: string | null;
           recipient_snapshot: Json;
-          status: 'pending' | 'paid' | 'submitted' | 'mailed' | 'failed';
+          status: 'pending' | 'paid' | 'submitted' | 'mailed' | 'delivered' | 'failed';
           lob_id: string | null;
           lob_front_url: string | null;
           lob_back_url: string | null;
+          fulfillment_provider: string;
+          provider_id: string | null;
+          provider_status: string | null;
+          provider_preview_url: string | null;
+          provider_live: boolean | null;
           stripe_payment_intent_id: string | null;
           price_cents: number;
           created_at: string;
           mailed_at: string | null;
+          delivered_at: string | null;
         };
         Insert: {
           id?: string;
@@ -104,20 +119,32 @@ export interface Database {
           from_address_id?: string | null;
           to_address_id?: string | null;
           recipient_snapshot?: Json;
-          status?: 'pending' | 'paid' | 'submitted' | 'mailed' | 'failed';
+          status?: 'pending' | 'paid' | 'submitted' | 'mailed' | 'delivered' | 'failed';
           lob_id?: string | null;
           lob_front_url?: string | null;
           lob_back_url?: string | null;
+          fulfillment_provider?: string;
+          provider_id?: string | null;
+          provider_status?: string | null;
+          provider_preview_url?: string | null;
+          provider_live?: boolean | null;
           stripe_payment_intent_id?: string | null;
           price_cents?: number;
           created_at?: string;
           mailed_at?: string | null;
+          delivered_at?: string | null;
         };
         Update: {
-          status?: 'pending' | 'paid' | 'submitted' | 'mailed' | 'failed';
+          status?: 'pending' | 'paid' | 'submitted' | 'mailed' | 'delivered' | 'failed';
           lob_id?: string | null;
+          fulfillment_provider?: string;
+          provider_id?: string | null;
+          provider_status?: string | null;
+          provider_preview_url?: string | null;
+          provider_live?: boolean | null;
           stripe_payment_intent_id?: string | null;
           mailed_at?: string | null;
+          delivered_at?: string | null;
         };
       };
       orders: {

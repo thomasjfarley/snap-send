@@ -17,6 +17,7 @@ const STATUS_CONFIG: Record<Postcard['status'], { label: string; color: string; 
   paid:      { label: 'Paid',      color: '#1E40AF', bg: '#DBEAFE', emoji: '💳' },
   submitted: { label: 'Printing',  color: '#6B21A8', bg: '#F3E8FF', emoji: '🖨️' },
   mailed:    { label: 'Mailed',    color: '#14532D', bg: '#DCFCE7', emoji: '✉️' },
+  delivered: { label: 'Delivered', color: '#14532D', bg: '#DCFCE7', emoji: '✅' },
   failed:    { label: 'Failed',    color: '#991B1B', bg: '#FEE2E2', emoji: '❌' },
 };
 
@@ -51,6 +52,7 @@ export default function HistoryScreen() {
           <Text style={styles.recipient}>{snapshot?.full_name ?? 'Unknown recipient'}</Text>
           <Text style={styles.address}>
             {snapshot?.city}, {snapshot?.state}
+            {snapshot?.country === 'CA' ? ' · Canada' : ''}
           </Text>
           <Text style={styles.date}>{formatDate(item.created_at)}</Text>
         </View>
@@ -135,4 +137,3 @@ function makeStyles(colors: AppColors) {
     ctaBtnText: { color: '#fff', fontSize: FONT_SIZE.md, fontWeight: '600' },
   });
 }
-

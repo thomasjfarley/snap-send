@@ -43,8 +43,9 @@ export default function EditAddressScreen() {
     state: existing?.state ?? '',
     zip: existing?.zip ?? '',
     country: existing?.country ?? 'US',
+    verification_provider: existing?.verification_provider ?? (existing?.lob_verified ? 'lob' : null),
   });
-  const [verified, setVerified] = useState<boolean | null>(existing?.lob_verified ?? null);
+  const [verified, setVerified] = useState<boolean | null>(existing?.address_verified ?? existing?.lob_verified ?? null);
   const [suggestedAddress, setSuggestedAddress] = useState<AddressFormData | null>(null);
 
   // Populate form once address loads from store
@@ -59,8 +60,9 @@ export default function EditAddressScreen() {
         state: existing.state,
         zip: existing.zip,
         country: existing.country,
+        verification_provider: existing.verification_provider ?? (existing.lob_verified ? 'lob' : null),
       });
-      setVerified(existing.lob_verified ?? null);
+      setVerified(existing.address_verified ?? existing.lob_verified ?? null);
     }
   }, [existing?.id]);
 
@@ -70,14 +72,16 @@ export default function EditAddressScreen() {
   }, [loading, addresses.length, existing]);
 
   function handleChange(field: keyof AddressFormData, value: string) {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    setForm((prev) => field === 'country'
+      ? { ...prev, country: value, state: '', zip: '', verification_provider: null }
+      : { ...prev, [field]: value, verification_provider: null });
     setVerified(null);
     setSuggestedAddress(null);
   }
 
   async function handleVerify() {
     if (!form.line1.trim() || !form.city.trim() || !form.state.trim() || !form.zip.trim()) {
-      Alert.alert('Incomplete address', 'Please fill in street, city, state, and ZIP first.');
+      Alert.alert('Incomplete address', 'Please fill in street, city, region, and postal code first.');
       return;
     }
     const { result, error } = await validate(form);
@@ -90,6 +94,7 @@ export default function EditAddressScreen() {
         city: result.address.city,
         state: result.address.state,
         zip: result.address.zip,
+        verification_provider: result.provider,
       };
       const isDifferent =
         suggested.line1 !== form.line1 ||
@@ -101,6 +106,7 @@ export default function EditAddressScreen() {
       if (isDifferent) {
         setSuggestedAddress(suggested);
       } else {
+        setForm((prev) => ({ ...prev, verification_provider: result.provider }));
         setVerified(result.verified);
       }
     }
@@ -119,7 +125,13 @@ export default function EditAddressScreen() {
   }
 
   async function doSave() {
-    const { error } = await update(id!, { ...form, lob_verified: verified === true });
+    const { error } = await update(id!, {
+      ...form,
+      lob_verified: false,
+      address_verified: verified === true,
+      verification_provider: verified === true ? form.verification_provider ?? 'postgrid' : null,
+      verified_at: verified === true ? new Date().toISOString() : null,
+    });
     if (error) { Alert.alert('Error', error); return; }
     router.back();
   }
@@ -145,7 +157,7 @@ export default function EditAddressScreen() {
     if (verified === false) {
       Alert.alert(
         'Unverified address',
-        "We couldn't confirm this with USPS — that's normal for Hawaii, rural Alaska, and some newer addresses. If it's a real address your postcard will be sent, but if it can't be found it won't arrive.",
+        "We couldn't confirm this address with the postal service. If you're sure it is correct, you can still save it, but delivery is not guaranteed.",
         [
           { text: 'Save Anyway', onPress: doSave },
           { text: 'Go Back', style: 'cancel' },

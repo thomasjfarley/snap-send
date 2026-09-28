@@ -14,6 +14,6 @@ export const STRIPE_PUBLISHABLE_KEY = __DEV__
   ? STRIPE_PUBLISHABLE_KEY_TEST
   : STRIPE_PUBLISHABLE_KEY_LIVE;
 
-export const LOB_POSTCARD_SIZE = '6x4';
+export const POSTCARD_SIZE = '6x4';
 
-export const SUPPORTED_COUNTRIES = ['US'] as const;
+export const SUPPORTED_COUNTRIES = ['US', 'CA'] as const;
