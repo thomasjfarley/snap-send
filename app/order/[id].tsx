@@ -10,21 +10,12 @@ import type { Postcard } from '@/lib/database.types';
 import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
 import { FONT_SIZE, SPACING } from '@/constants/theme';
+import { POSTCARD_STATUS_INFO, POSTCARD_STATUS_STEPS } from '@/constants/order-status';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const CARD_W = SCREEN_W - SPACING.xl * 2;
 const CARD_H = CARD_W * (3 / 4);
 const LOB_CHARS_PER_LINE = 40;
-
-const STATUS_STEPS: Postcard['status'][] = ['pending', 'paid', 'submitted', 'mailed'];
-
-const STATUS_INFO: Record<Postcard['status'], { label: string; color: string; bg: string; desc: string }> = {
-  pending:   { label: 'Pending',   color: '#92400E', bg: '#FEF3C7', desc: 'Awaiting payment confirmation.' },
-  paid:      { label: 'Paid',      color: '#1E40AF', bg: '#DBEAFE', desc: 'Payment confirmed.' },
-  submitted: { label: 'Printing',  color: '#6B21A8', bg: '#F3E8FF', desc: 'Your postcard is being printed.' },
-  mailed:    { label: 'Mailed',    color: '#14532D', bg: '#DCFCE7', desc: 'Your postcard is on its way! 🎉' },
-  failed:    { label: 'Failed',    color: '#991B1B', bg: '#FEE2E2', desc: 'Something went wrong with this order.' },
-};
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleString('en-US', {
@@ -59,16 +50,19 @@ export default function OrderDetailScreen() {
 
   useEffect(() => {
     if (!id) return;
-    supabase
-      .from('postcards')
-      .select('*')
-      .eq('id', id)
-      .single()
-      .then(({ data, error }) => {
+    (async () => {
+      await supabase.functions.invoke('sync-lob-status', {
+        body: { postcardId: id },
+      });
+      const { data, error } = await supabase
+        .from('postcards')
+        .select('*')
+        .eq('id', id)
+        .single();
         if (error) setError(error.message);
         else setPostcard(data as Postcard | null);
         setLoading(false);
-      });
+    })();
   }, [id]);
 
   if (loading) {
@@ -95,9 +89,10 @@ export default function OrderDetailScreen() {
   }
 
   const snapshot = postcard.recipient_snapshot as any;
-  const status = STATUS_INFO[postcard.status];
+  const status = POSTCARD_STATUS_INFO[postcard.status];
   const isFailed = postcard.status === 'failed';
-  const currentStepIndex = STATUS_STEPS.indexOf(postcard.status as any);
+  const timelineStatus = postcard.status === 'mailed' ? 'in_transit' : postcard.status;
+  const currentStepIndex = POSTCARD_STATUS_STEPS.indexOf(timelineStatus);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -123,14 +118,14 @@ export default function OrderDetailScreen() {
         {/* Progress timeline (not shown for failed) */}
         {!isFailed && (
           <View style={styles.timeline}>
-            {STATUS_STEPS.map((step, i) => {
+            {POSTCARD_STATUS_STEPS.map((step, i) => {
               const done = i <= currentStepIndex;
-              const info = STATUS_INFO[step];
+              const info = POSTCARD_STATUS_INFO[step];
               return (
                 <View key={step} style={styles.timelineRow}>
                   <View style={styles.timelineLeft}>
                     <View style={[styles.dot, done && { backgroundColor: colors.primary }]} />
-                    {i < STATUS_STEPS.length - 1 && (
+                    {i < POSTCARD_STATUS_STEPS.length - 1 && (
                       <View style={[styles.line, done && i < currentStepIndex && { backgroundColor: colors.primary }]} />
                     )}
                   </View>
@@ -177,6 +172,7 @@ export default function OrderDetailScreen() {
           {postcard.location && <Row label="Location" value={postcard.location} />}
           {postcard.lob_id && <Row label="Tracking ID" value={postcard.lob_id} mono />}
           {postcard.mailed_at && <Row label="Mailed" value={formatDate(postcard.mailed_at)} />}
+          {postcard.delivered_at && <Row label="Delivered" value={formatDate(postcard.delivered_at)} />}
         </View>
       </ScrollView>
     </SafeAreaView>

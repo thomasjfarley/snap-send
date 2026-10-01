@@ -5,7 +5,9 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const GOOGLE_VISION_API_KEY = Deno.env.get('GOOGLE_VISION_API_KE');
+const GOOGLE_VISION_API_KEY =
+  Deno.env.get('GOOGLE_VISION_API_KEY') ??
+  Deno.env.get('GOOGLE_VISION_API_KE');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -36,6 +38,41 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
+async function runSafeSearch(imageBase64: string) {
+  let lastStatus = 503;
+  let lastData: unknown = null;
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const visionRes = await fetch(
+        `https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_VISION_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            requests: [{ image: { content: imageBase64 }, features: [{ type: 'SAFE_SEARCH_DETECTION' }] }],
+          }),
+        },
+      );
+      const visionData = await visionRes.json();
+      const safeSearch = visionData.responses?.[0]?.safeSearchAnnotation;
+      if (visionRes.ok && safeSearch) {
+        return { safeSearch, status: visionRes.status, data: visionData };
+      }
+      lastStatus = visionRes.status;
+      lastData = visionData;
+    } catch (error) {
+      lastData = { error: String(error) };
+    }
+
+    if (attempt < 3) {
+      await new Promise((resolve) => setTimeout(resolve, attempt * 500));
+    }
+  }
+
+  return { safeSearch: null, status: lastStatus, data: lastData };
+}
+
 serve(async (req) => {
   let reportUserId = '';
   let reportUserEmail = '';
@@ -60,23 +97,11 @@ serve(async (req) => {
     if (!imageBase64) return jsonResponse({ error: 'Missing imageBase64' }, 400);
 
     if (!GOOGLE_VISION_API_KEY) {
-      console.warn('GOOGLE_VISION_API_KEY not set — skipping SafeSearch (dev only)');
-      return jsonResponse({ safe: true });
+      console.error('GOOGLE_VISION_API_KEY not set');
+      return jsonResponse({ error: 'Content moderation unavailable. Please try again.' }, 503);
     }
 
-    const visionRes = await fetch(
-      `https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_VISION_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          requests: [{ image: { content: imageBase64 }, features: [{ type: 'SAFE_SEARCH_DETECTION' }] }],
-        }),
-      },
-    );
-
-    const visionData = await visionRes.json();
-    const safeSearch = visionData.responses?.[0]?.safeSearchAnnotation;
+    const { safeSearch, status, data: visionData } = await runSafeSearch(imageBase64);
 
     if (!safeSearch) {
       console.error('Vision API failed:', JSON.stringify(visionData));
@@ -84,7 +109,7 @@ serve(async (req) => {
         'check-image-safety',
         'Vision API unavailable during safety check',
         'warning',
-        `userId=${reportUserId}; status=${visionRes.status}; body=${JSON.stringify(visionData).slice(0, 1000)}`,
+        `userId=${reportUserId}; status=${status}; body=${JSON.stringify(visionData).slice(0, 1000)}`,
         reportUserEmail,
       );
       return jsonResponse({ error: 'Content moderation unavailable. Please try again.' }, 503);

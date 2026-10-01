@@ -85,7 +85,7 @@ export interface Database {
           from_address_id: string | null;
           to_address_id: string | null;
           recipient_snapshot: Json;
-          status: 'pending' | 'paid' | 'submitted' | 'mailed' | 'failed';
+          status: 'pending' | 'paid' | 'submitted' | 'mailed' | 'in_transit' | 'processed_for_delivery' | 'delivered' | 'failed';
           lob_id: string | null;
           lob_front_url: string | null;
           lob_back_url: string | null;
@@ -93,6 +93,7 @@ export interface Database {
           price_cents: number;
           created_at: string;
           mailed_at: string | null;
+          delivered_at: string | null;
         };
         Insert: {
           id?: string;
@@ -104,7 +105,7 @@ export interface Database {
           from_address_id?: string | null;
           to_address_id?: string | null;
           recipient_snapshot?: Json;
-          status?: 'pending' | 'paid' | 'submitted' | 'mailed' | 'failed';
+          status?: 'pending' | 'paid' | 'submitted' | 'mailed' | 'in_transit' | 'processed_for_delivery' | 'delivered' | 'failed';
           lob_id?: string | null;
           lob_front_url?: string | null;
           lob_back_url?: string | null;
@@ -112,12 +113,14 @@ export interface Database {
           price_cents?: number;
           created_at?: string;
           mailed_at?: string | null;
+          delivered_at?: string | null;
         };
         Update: {
-          status?: 'pending' | 'paid' | 'submitted' | 'mailed' | 'failed';
+          status?: 'pending' | 'paid' | 'submitted' | 'mailed' | 'in_transit' | 'processed_for_delivery' | 'delivered' | 'failed';
           lob_id?: string | null;
           stripe_payment_intent_id?: string | null;
           mailed_at?: string | null;
+          delivered_at?: string | null;
         };
       };
       orders: {

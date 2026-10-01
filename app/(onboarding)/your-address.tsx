@@ -45,14 +45,17 @@ export default function YourAddressScreen() {
   const [suggestedAddress, setSuggestedAddress] = useState<AddressFormData | null>(null);
 
   function handleChange(field: keyof AddressFormData, value: string) {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    setForm((prev) => field === 'country'
+      ? { ...prev, country: value, state: '', zip: '' }
+      : { ...prev, [field]: value });
     setVerified(null);
     setSuggestedAddress(null);
   }
 
   async function handleVerify() {
-    if (!form.line1.trim() || !form.city.trim() || !form.state.trim() || !form.zip.trim()) {
-      Alert.alert('Incomplete address', 'Please fill in street, city, state, and ZIP.');
+    if (!form.line1.trim() || !form.city.trim() || !form.zip.trim() ||
+        (['US', 'CA'].includes(form.country) && !form.state.trim())) {
+      Alert.alert('Incomplete address', 'Please fill in street, city, region, and postal code.');
       return;
     }
     const { result, error } = await validate(form);
@@ -61,6 +64,15 @@ export default function YourAddressScreen() {
       return;
     }
     if (result) {
+      if (!result.verified) {
+        setVerified(false);
+        setSuggestedAddress(null);
+        Alert.alert(
+          'Address not deliverable',
+          'Lob could not verify this address. Please review the address and try again.',
+        );
+        return;
+      }
       const suggested: AddressFormData = {
         ...form,
         line1: result.address.line1,
@@ -106,12 +118,24 @@ export default function YourAddressScreen() {
       Alert.alert('Missing name', 'Please enter your full name.');
       return;
     }
-    if (!form.line1.trim() || !form.city.trim() || !form.state.trim() || !form.zip.trim()) {
+    if (!form.line1.trim() || !form.city.trim() || !form.zip.trim() ||
+        (['US', 'CA'].includes(form.country) && !form.state.trim())) {
       Alert.alert('Incomplete address', 'Please fill in all required address fields.');
       return;
     }
+    if (verified !== true) {
+      Alert.alert(
+        'Verification required',
+        'Every mailing address must be verified by Lob before it can be saved.',
+        [
+          { text: 'Verify Address', onPress: handleVerify },
+          { text: 'Cancel', style: 'cancel' },
+        ],
+      );
+      return;
+    }
 
-    const { data: newAddress, error: addErr } = await add(user.id, form, verified === true, true);
+    const { data: newAddress, error: addErr } = await add(user.id, form, true, true);
     if (addErr || !newAddress) {
       Alert.alert('Error', addErr ?? 'Could not save address.');
       return;
@@ -138,7 +162,7 @@ export default function YourAddressScreen() {
           <Text style={styles.step}>Step 2 of 2</Text>
           <Text style={styles.title}>Your mailing address</Text>
           <Text style={styles.subtitle}>
-            This will appear as the return address on every postcard you send. US addresses only.
+            This will appear on postcards as your sender information.
           </Text>
         </View>
 

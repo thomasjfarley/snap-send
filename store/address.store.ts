@@ -17,6 +17,8 @@ export interface AddressFormData {
 export interface ValidationResult {
   verified: boolean;
   deliverability: string;
+  coverage?: string | null;
+  status?: string | null;
   address: Omit<AddressFormData, 'label' | 'full_name' | 'country'> & {
     line1: string;
     line2: string | null;
@@ -36,7 +38,7 @@ interface AddressState {
   add: (userId: string, data: AddressFormData, lobVerified: boolean, isPersonal?: boolean) => Promise<{ data: Address | null; error: string | null }>;
   update: (id: string, data: Partial<AddressFormData>) => Promise<{ error: string | null }>;
   remove: (id: string) => Promise<{ error: string | null }>;
-  validate: (address: Pick<AddressFormData, 'line1' | 'line2' | 'city' | 'state' | 'zip'>) => Promise<{ result: ValidationResult | null; error: string | null }>;
+  validate: (address: Pick<AddressFormData, 'line1' | 'line2' | 'city' | 'state' | 'zip' | 'country'>) => Promise<{ result: ValidationResult | null; error: string | null }>;
   clear: () => void;
 }
 
@@ -108,6 +110,8 @@ export const useAddressStore = create<AddressState>((set, get) => ({
         city: address.city,
         state: address.state,
         zip: address.zip,
+        country: address.country,
+        testMode: __DEV__,
       },
     });
     set({ validating: false });

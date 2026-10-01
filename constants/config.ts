@@ -1,4 +1,11 @@
 export const POSTCARD_PRICE_CENTS = 399; // $3.99
+export const INTERNATIONAL_POSTCARD_PRICE_CENTS = 499; // $4.99
+
+export function getPostcardPriceCents(destinationCountry?: string | null) {
+  return (destinationCountry || 'US').toUpperCase() === 'US'
+    ? POSTCARD_PRICE_CENTS
+    : INTERNATIONAL_POSTCARD_PRICE_CENTS;
+}
 
 // Publishable keys are intentionally public — safe to commit.
 // In dev builds (__DEV__) the test key is used automatically so no real charges occur.
@@ -15,5 +22,3 @@ export const STRIPE_PUBLISHABLE_KEY = __DEV__
   : STRIPE_PUBLISHABLE_KEY_LIVE;
 
 export const LOB_POSTCARD_SIZE = '6x4';
-
-export const SUPPORTED_COUNTRIES = ['US'] as const;

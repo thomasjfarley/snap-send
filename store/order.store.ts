@@ -16,6 +16,9 @@ export const useOrderStore = create<OrderState>((set) => ({
 
   fetch: async (userId) => {
     set({ loading: true, error: null });
+    const { error: syncError } = await supabase.functions.invoke('sync-lob-status', {
+      body: {},
+    });
     const { data, error } = await supabase
       .from('postcards')
       .select('*')
@@ -25,7 +28,11 @@ export const useOrderStore = create<OrderState>((set) => ({
     if (error) {
       set({ error: error.message, loading: false });
     } else {
-      set({ postcards: (data as Postcard[] | null) ?? [], loading: false });
+      set({
+        postcards: (data as Postcard[] | null) ?? [],
+        error: syncError?.message ?? null,
+        loading: false,
+      });
     }
   },
 }));
