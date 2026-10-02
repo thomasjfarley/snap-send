@@ -4,6 +4,8 @@ import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
 import { FONT_SIZE, SPACING } from '@/constants/theme';
 import type { AddressFormData } from '@/store/address.store';
+import { CountryPicker } from '@/components/CountryPicker';
+import { getMailingCountry } from '@/constants/countries';
 
 interface AddressFormProps {
   values: AddressFormData;
@@ -30,6 +32,9 @@ export function AddressForm({
 }: AddressFormProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const country = getMailingCountry(values.country);
+  const isUs = country.code === 'US';
+  const isCanada = country.code === 'CA';
   return (
     <View style={styles.container}>
       {showLabel && (
@@ -52,6 +57,8 @@ export function AddressForm({
         autoCapitalize="words"
         autoComplete="name"
       />
+
+      <CountryPicker value={values.country} onChange={(code) => onChange('country', code)} />
 
       <TextInput
         style={styles.input}
@@ -84,22 +91,22 @@ export function AddressForm({
         />
         <TextInput
           style={[styles.input, styles.stateInput]}
-          placeholder="State"
+          placeholder={isUs ? 'State' : isCanada ? 'Province' : 'State / region (optional)'}
           placeholderTextColor={colors.textSecondary}
           value={values.state}
-          onChangeText={(v) => onChange('state', v.toUpperCase().slice(0, 2))}
-          autoCapitalize="characters"
-          maxLength={2}
+          onChangeText={(v) => onChange('state', isUs || isCanada ? v.toUpperCase().slice(0, 2) : v)}
+          autoCapitalize={isUs || isCanada ? 'characters' : 'words'}
+          maxLength={isUs || isCanada ? 2 : 80}
           autoComplete="postal-address-region"
         />
         <TextInput
           style={[styles.input, styles.zipInput]}
-          placeholder="ZIP"
+          placeholder={isUs ? 'ZIP' : 'Postal code'}
           placeholderTextColor={colors.textSecondary}
           value={values.zip}
-          onChangeText={(v) => onChange('zip', v)}
-          keyboardType="number-pad"
-          maxLength={10}
+          onChangeText={(v) => onChange('zip', isUs ? v : v.toUpperCase())}
+          keyboardType={isUs ? 'number-pad' : 'default'}
+          maxLength={20}
           autoComplete="postal-code"
         />
       </View>
@@ -122,6 +129,7 @@ export function AddressForm({
             {suggestedAddress.line1}
             {suggestedAddress.line2 ? `\n${suggestedAddress.line2}` : ''}
             {`\n${suggestedAddress.city}, ${suggestedAddress.state} ${suggestedAddress.zip}`}
+            {suggestedAddress.country !== 'US' ? `\n${getMailingCountry(suggestedAddress.country).name}` : ''}
           </Text>
           <View style={styles.suggestionBtns}>
             <TouchableOpacity style={styles.acceptBtn} onPress={onAcceptSuggestion}>
@@ -142,7 +150,7 @@ export function AddressForm({
       {verified === false && (
         <View style={[styles.badge, styles.badgeWarn]}>
           <Text style={styles.badgeWarnText}>
-            ⚠️ Address could not be verified. Double-check before sending.
+            ⚠️ Address could not be verified. Correct it before saving.
           </Text>
         </View>
       )}
@@ -193,4 +201,3 @@ function makeStyles(colors: AppColors) {
     badgeWarnText: { color: '#854D0E', fontSize: FONT_SIZE.sm },
   });
 }
-

@@ -14,6 +14,7 @@ import * as Contacts from 'expo-contacts';
 import { useAuthStore } from '@/store/auth.store';
 import { useAddressStore } from '@/store/address.store';
 import { AddressForm } from '@/components/AddressForm';
+import { getMailingCountry } from '@/constants/countries';
 import type { AddressFormData } from '@/store/address.store';
 import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
@@ -54,6 +55,7 @@ export default function NewAddressScreen() {
       || '';
 
     const addr = contact.addresses?.[0];
+    const importedCountry = getMailingCountry(addr?.isoCountryCode).code;
     setForm({
       label: 'Friend',
       full_name: fullName,
@@ -62,19 +64,22 @@ export default function NewAddressScreen() {
       city: addr?.city ?? '',
       state: addr?.region ?? '',
       zip: addr?.postalCode ?? '',
-      country: 'US',
+      country: importedCountry,
     });
     setVerified(null);
   }
 
   function handleChange(field: keyof AddressFormData, value: string) {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    setForm((prev) => field === 'country'
+      ? { ...prev, country: value, state: '', zip: '' }
+      : { ...prev, [field]: value });
     setVerified(null);
   }
 
   async function handleVerify() {
-    if (!form.line1.trim() || !form.city.trim() || !form.state.trim() || !form.zip.trim()) {
-      Alert.alert('Incomplete address', 'Please fill in street, city, state, and ZIP first.');
+    if (!form.line1.trim() || !form.city.trim() || !form.zip.trim() ||
+        (['US', 'CA'].includes(form.country) && !form.state.trim())) {
+      Alert.alert('Incomplete address', 'Please fill in street, city, region, and postal code first.');
       return;
     }
     const { result, error } = await validate(form);
@@ -90,6 +95,11 @@ export default function NewAddressScreen() {
           state: result.address.state,
           zip: result.address.zip,
         }));
+      } else {
+        Alert.alert(
+          'Address not deliverable',
+          'Lob could not verify this address. Please review the address and try again.',
+        );
       }
     }
   }
@@ -103,28 +113,17 @@ export default function NewAddressScreen() {
   async function handleSave() {
     if (!user) return;
     if (!form.full_name.trim()) { Alert.alert('Missing name', 'Please enter the recipient\'s full name.'); return; }
-    if (!form.line1.trim() || !form.city.trim() || !form.state.trim() || !form.zip.trim()) {
+    if (!form.line1.trim() || !form.city.trim() || !form.zip.trim() ||
+        (['US', 'CA'].includes(form.country) && !form.state.trim())) {
       Alert.alert('Incomplete address', 'Please fill in all required fields.'); return;
     }
-    if (verified === null) {
+    if (verified !== true) {
       Alert.alert(
-        'Address not verified',
-        "You haven't verified this address yet. We recommend verifying to make sure it's deliverable.",
+        'Verification required',
+        'Every mailing address must be verified by Lob before it can be saved.',
         [
-          { text: 'Verify First', onPress: handleVerify },
-          { text: 'Save Anyway', onPress: doSave },
+          { text: 'Verify Address', onPress: handleVerify },
           { text: 'Cancel', style: 'cancel' },
-        ]
-      );
-      return;
-    }
-    if (verified === false) {
-      Alert.alert(
-        'Unverified address',
-        "We couldn't confirm this with USPS — that's normal for Hawaii, rural Alaska, and some newer addresses. If it's a real address your postcard will be sent, but if it can't be found it won't arrive.",
-        [
-          { text: 'Save Anyway', onPress: doSave },
-          { text: 'Go Back', style: 'cancel' },
         ]
       );
       return;

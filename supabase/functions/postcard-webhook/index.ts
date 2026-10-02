@@ -19,16 +19,28 @@ function reportError(source: string, title: string, severity: 'warning' | 'error
 }
 
 // Lob event → postcard status mapping
-const EVENT_STATUS_MAP: Record<string, 'submitted' | 'mailed' | 'delivered' | 'failed'> = {
+const EVENT_STATUS_MAP: Record<string, 'submitted' | 'in_transit' | 'processed_for_delivery' | 'delivered' | 'failed'> = {
   'postcard.created': 'submitted',
   'postcard.rendered_pdf': 'submitted',
   'postcard.rendered_thumbnails': 'submitted',
-  'postcard.in_transit': 'mailed',
-  'postcard.in_local_area': 'mailed',
-  'postcard.processed_for_delivery': 'delivered',
+  'postcard.mailed': 'in_transit',
+  'postcard.in_transit': 'in_transit',
+  'postcard.in_local_area': 'in_transit',
+  'postcard.processed_for_delivery': 'processed_for_delivery',
   'postcard.delivered': 'delivered',
   'postcard.failed': 'failed',
   'postcard.returned_to_sender': 'failed',
+};
+
+const STATUS_RANK: Record<string, number> = {
+  pending: 0,
+  paid: 0,
+  submitted: 1,
+  mailed: 2,
+  in_transit: 2,
+  processed_for_delivery: 3,
+  delivered: 4,
+  failed: 5,
 };
 
 async function refundPaymentIntent(paymentIntentId: string): Promise<void> {
@@ -90,17 +102,11 @@ serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     const updateData: Record<string, unknown> = { status: newStatus };
-    if (newStatus === 'mailed') {
-      updateData.mailed_at = new Date().toISOString();
-    }
-    if (newStatus === 'delivered') {
-      updateData.delivered_at = new Date().toISOString();
-    }
 
     // Fetch the postcard record so we can refund on failure
     const { data: postcard, error: fetchErr } = await supabase
       .from('postcards')
-      .select('id, stripe_payment_intent_id')
+      .select('id, status, mailed_at, delivered_at, stripe_payment_intent_id')
       .eq('lob_id', lobId)
       .single();
 
@@ -113,6 +119,24 @@ serve(async (req) => {
         `eventType=${eventType}; lobId=${lobId}; error=${fetchErr?.message ?? 'postcard not found'}`,
       );
       // Still try to update status even if fetch failed
+    }
+
+    const currentStatus = postcard?.status === 'mailed' ? 'in_transit' : postcard?.status;
+    const shouldAdvance =
+      newStatus === 'failed'
+        ? currentStatus !== 'failed'
+        : !currentStatus || STATUS_RANK[newStatus] >= STATUS_RANK[currentStatus];
+    if (!shouldAdvance) {
+      return new Response('ok', { status: 200 });
+    }
+    if (
+      ['in_transit', 'processed_for_delivery', 'delivered'].includes(newStatus) &&
+      !postcard?.mailed_at
+    ) {
+      updateData.mailed_at = new Date().toISOString();
+    }
+    if (newStatus === 'delivered' && !postcard?.delivered_at) {
+      updateData.delivered_at = new Date().toISOString();
     }
 
     const { error } = await supabase

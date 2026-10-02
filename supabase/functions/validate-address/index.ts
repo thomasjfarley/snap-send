@@ -3,7 +3,8 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 
-const LOB_API_KEY = Deno.env.get('LOB_API_KEY')!;
+const LOB_API_KEY_LIVE = Deno.env.get('LOB_API_KEY')!;
+const LOB_API_KEY_TEST = Deno.env.get('LOB_API_KEY_TEST')!;
 const LOB_BASE_URL = 'https://api.lob.com/v1';
 
 const corsHeaders = {
@@ -17,9 +18,15 @@ serve(async (req) => {
   }
 
   try {
-    const { line1, line2, city, state, zip, country = 'US' } = await req.json();
+    const {
+      line1, line2, city, state, zip,
+      country: rawCountry = 'US',
+      testMode = false,
+    } = await req.json();
+    const LOB_API_KEY = testMode === true ? LOB_API_KEY_TEST : LOB_API_KEY_LIVE;
+    const country = String(rawCountry).toUpperCase();
 
-    if (!line1 || !city || !state || !zip) {
+    if (!line1 || !city || !zip || (['US', 'CA'].includes(country) && !state)) {
       return new Response(JSON.stringify({ error: 'Missing required address fields' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -30,12 +37,14 @@ serve(async (req) => {
     if (LOB_API_KEY.startsWith('test_')) {
       const stdLine1 = line1.toUpperCase().replace(/\bst\b/gi, 'ST').replace(/\bave\b/gi, 'AVE').replace(/\bdr\b/gi, 'DR').replace(/\brd\b/gi, 'RD').replace(/\bblvd\b/gi, 'BLVD').replace(/\bln\b/gi, 'LN').replace(/\bct\b/gi, 'CT');
       const stdCity = city.toUpperCase();
-      const stdState = state.toUpperCase();
+      const stdState = state ? String(state).toUpperCase() : '';
       const stdZip = zip.length === 5 ? `${zip}-1234` : zip; // simulate ZIP+4
       return new Response(
         JSON.stringify({
           verified: true,
           deliverability: 'deliverable',
+          coverage: country === 'US' ? null : 'SUBBUILDING',
+          status: country === 'US' ? null : 'LV4',
           address: { line1: stdLine1, line2: line2 || null, city: stdCity, state: stdState, zip: stdZip, country },
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
@@ -46,12 +55,18 @@ serve(async (req) => {
     const body: Record<string, string> = {
       primary_line: line1,
       city,
-      state,
-      zip_code: zip,
     };
+    if (state) body.state = state;
+    if (country === 'US') {
+      body.zip_code = zip;
+    } else {
+      body.postal_code = zip;
+      body.country = country;
+    }
     if (line2) body.secondary_line = line2;
 
-    const lobRes = await fetch(`${LOB_BASE_URL}/us_verifications`, {
+    const endpoint = country === 'US' ? 'us_verifications' : 'intl_verifications';
+    const lobRes = await fetch(`${LOB_BASE_URL}/${endpoint}`, {
       method: 'POST',
       headers: {
         Authorization: `Basic ${credentials}`,
@@ -70,20 +85,23 @@ serve(async (req) => {
       });
     }
 
-    // deliverable, deliverable_unnecessary_unit, deliverable_missing_unit,
-    // deliverable_incorrect_unit are all real addresses — only undeliverable is bad
-    const verified = lobData.deliverability !== 'undeliverable' && lobData.deliverability != null;
+    const blockedDeliverability = new Set(['undeliverable', 'no_match']);
+    const verified =
+      lobData.deliverability != null &&
+      !blockedDeliverability.has(lobData.deliverability);
 
     return new Response(
       JSON.stringify({
         verified,
         deliverability: lobData.deliverability,
+        coverage: lobData.coverage ?? null,
+        status: lobData.status ?? null,
         address: {
           line1: lobData.primary_line,
           line2: lobData.secondary_line || null,
           city: lobData.components?.city,
           state: lobData.components?.state,
-          zip: lobData.components?.zip_code,
+          zip: lobData.components?.zip_code ?? lobData.components?.postal_code,
           country,
         },
       }),

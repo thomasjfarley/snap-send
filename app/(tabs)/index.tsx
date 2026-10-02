@@ -7,6 +7,7 @@ import { usePostcardStore } from '@/store/postcard.store';
 import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
 import { FONT_SIZE, SPACING } from '@/constants/theme';
+import { promptForStoreReviewAfterSend } from '@/lib/store-review';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -31,7 +32,7 @@ export default function HomeScreen() {
         <TouchableOpacity style={styles.heroCta} onPress={() => { if (!heroBlockedRef.current) router.push('/postcard'); }}>
           <Text style={styles.heroEmoji}>📬</Text>
           <Text style={styles.heroTitle}>Create a Postcard</Text>
-          <Text style={styles.heroSub}>Take a photo, add a message, and we'll mail it.</Text>
+          <Text style={styles.heroSub}>Take a photo, add a message, and we&apos;ll mail it.</Text>
           <View style={styles.heroBtn}>
             <Text style={styles.heroBtnText}>Get Started →</Text>
           </View>
@@ -81,6 +82,11 @@ export default function HomeScreen() {
               heroBlockedRef.current = true;
               setJustSent(false);
               setTimeout(() => { heroBlockedRef.current = false; }, 600);
+              setTimeout(() => {
+                promptForStoreReviewAfterSend().catch((error) => {
+                  console.error('[store-review] automatic prompt failed:', error);
+                });
+              }, 800);
             }}>
               <Text style={styles.sheetBtnText}>Done</Text>
             </TouchableOpacity>
@@ -146,4 +152,3 @@ function makeStyles(colors: AppColors) {
     sheetBtnSecondaryText: { color: colors.primary, fontSize: FONT_SIZE.md, fontWeight: '600' },
   });
 }
-

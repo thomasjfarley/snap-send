@@ -30,6 +30,7 @@
     "expo-media-library": "^55.0.10",
     "expo-router": "~55.0.7",
     "expo-status-bar": "~55.0.4",
+    "expo-store-review": "~55.0.18",
     "expo-web-browser": "~55.0.10",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -39,6 +40,7 @@
     "react-native-svg": "^15.15.5",
     "react-native-view-shot": "^4.0.3",
     "react-native-web": "^0.21.2",
+    "world-countries": "^5.1.0",
     "zustand": "^5.0.12"
   },
   "devDependencies": {

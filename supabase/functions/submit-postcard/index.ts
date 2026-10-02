@@ -7,9 +7,20 @@ const STRIPE_SECRET_KEY_LIVE = Deno.env.get('STRIPE_SECRET_KEY')!;
 const STRIPE_SECRET_KEY_TEST = Deno.env.get('STRIPE_SECRET_KEY_TEST')!;
 const LOB_API_KEY_LIVE = Deno.env.get('LOB_API_KEY')!;
 const LOB_API_KEY_TEST = Deno.env.get('LOB_API_KEY_TEST')!;
-const GOOGLE_VISION_API_KEY = Deno.env.get('GOOGLE_VISION_API_KE');
+const GOOGLE_VISION_API_KEY =
+  Deno.env.get('GOOGLE_VISION_API_KEY') ??
+  Deno.env.get('GOOGLE_VISION_API_KE');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const SNAP_SEND_RETURN_ADDRESS = {
+  full_name: Deno.env.get('SNAP_SEND_RETURN_NAME') ?? '',
+  line1: Deno.env.get('SNAP_SEND_RETURN_LINE1') ?? '',
+  line2: Deno.env.get('SNAP_SEND_RETURN_LINE2') ?? '',
+  city: Deno.env.get('SNAP_SEND_RETURN_CITY') ?? '',
+  state: Deno.env.get('SNAP_SEND_RETURN_STATE') ?? '',
+  zip: Deno.env.get('SNAP_SEND_RETURN_ZIP') ?? '',
+  country: 'US',
+};
 
 function reportError(source: string, title: string, severity: 'warning' | 'error' | 'critical', details: string, userEmail = '') {
   fetch(`${SUPABASE_URL}/functions/v1/report-error`, {
@@ -230,6 +241,41 @@ function isBlocked(likelihood: string): boolean {
   return LIKELIHOOD_LEVELS.indexOf(likelihood) >= LIKELIHOOD_LEVELS.indexOf(BLOCK_THRESHOLD);
 }
 
+async function runSafeSearch(imageBase64: string) {
+  let lastStatus = 503;
+  let lastData: unknown = null;
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const visionRes = await fetch(
+        `https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_VISION_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            requests: [{ image: { content: imageBase64 }, features: [{ type: 'SAFE_SEARCH_DETECTION' }] }],
+          }),
+        },
+      );
+      const visionData = await visionRes.json();
+      const safeSearch = visionData.responses?.[0]?.safeSearchAnnotation;
+      if (visionRes.ok && safeSearch) {
+        return { safeSearch, status: visionRes.status, data: visionData };
+      }
+      lastStatus = visionRes.status;
+      lastData = visionData;
+    } catch (error) {
+      lastData = { error: String(error) };
+    }
+
+    if (attempt < 3) {
+      await new Promise((resolve) => setTimeout(resolve, attempt * 500));
+    }
+  }
+
+  return { safeSearch: null, status: lastStatus, data: lastData };
+}
+
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -279,7 +325,7 @@ serve(async (req) => {
   try {
     const {
       imageBase64, message, location, frame, filter,
-      fromAddressId, toAddressId, recipientSnapshot, paymentIntentId, testMode,
+      fromAddressId, toAddressId, paymentIntentId, testMode,
     } = await req.json();
 
     if (!imageBase64 || !paymentIntentId || !fromAddressId || !toAddressId) {
@@ -314,27 +360,57 @@ serve(async (req) => {
       return jsonResponse({ success: true, lobId: existingPostcard.lob_id, postcardId: existingPostcard.id });
     }
 
+    const [{ data: fromAddress, error: fromErr }, { data: recipientAddress, error: recipientErr }] =
+      await Promise.all([
+        supabase.from('addresses').select('*')
+          .eq('id', fromAddressId).eq('user_id', userId).single(),
+        supabase.from('addresses').select('*')
+          .eq('id', toAddressId).eq('user_id', userId).single(),
+      ]);
+
+    if (fromErr || !fromAddress || recipientErr || !recipientAddress) {
+      const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId);
+      return jsonResponse({ error: `Sender or recipient address not found. ${refundMsg(succeeded)}` }, 404);
+    }
+
+    const destinationCountry = String(recipientAddress.country || 'US').toUpperCase();
+    const expectedBasePrice = destinationCountry === 'US' ? 399 : 499;
+    if (
+      pi.metadata.sender_address_id !== fromAddressId ||
+      pi.metadata.recipient_address_id !== toAddressId ||
+      pi.metadata.destination_country !== destinationCountry ||
+      Number(pi.metadata.base_price_cents) !== expectedBasePrice
+    ) {
+      const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId);
+      return jsonResponse({ error: `Recipient country changed after checkout. ${refundMsg(succeeded)}` }, 409);
+    }
+
+    const senderCountry = String(fromAddress.country || 'US').toUpperCase();
+    const needsSnapSendReturnAddress = senderCountry !== 'US';
+    const officialReturnConfigured = Boolean(
+      SNAP_SEND_RETURN_ADDRESS.full_name &&
+      SNAP_SEND_RETURN_ADDRESS.line1 &&
+      SNAP_SEND_RETURN_ADDRESS.city &&
+      SNAP_SEND_RETURN_ADDRESS.state &&
+      SNAP_SEND_RETURN_ADDRESS.zip
+    );
+    if (needsSnapSendReturnAddress && !testMode && !officialReturnConfigured) {
+      const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId);
+      return jsonResponse({
+        error: `International sender fulfillment is not available until Snap Send's US return mailbox is configured. ${refundMsg(succeeded)}`,
+      }, 503);
+    }
+
     // ── 2. SafeSearch (LEGAL REQUIREMENT — 18 U.S.C. § 1461) ─────────────────
     if (GOOGLE_VISION_API_KEY) {
-      const visionRes = await fetch(
-        `https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_VISION_API_KEY}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            requests: [{ image: { content: imageBase64 }, features: [{ type: 'SAFE_SEARCH_DETECTION' }] }],
-          }),
-        },
-      );
-      const visionData = await visionRes.json();
-      const safeSearch = visionData.responses?.[0]?.safeSearchAnnotation;
+      const { safeSearch, status, data: visionData } = await runSafeSearch(imageBase64);
       if (!safeSearch) {
         console.error('Vision API failed:', JSON.stringify(visionData));
         reportError(
           'submit-postcard',
           'Vision API unavailable during submit',
           'warning',
-          `paymentIntentId=${paymentIntentId}; userId=${userId}; status=${visionRes.status}; body=${JSON.stringify(visionData).slice(0, 1000)}`,
+          `paymentIntentId=${paymentIntentId}; userId=${userId}; status=${status}; body=${JSON.stringify(visionData).slice(0, 1000)}`,
         );
         const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId);
         return jsonResponse({ error: `Content moderation unavailable. ${refundMsg(succeeded)}` }, 503);
@@ -344,19 +420,12 @@ serve(async (req) => {
         return jsonResponse({ error: `This image cannot be sent. ${refundMsg(succeeded)}`, code: 'CONTENT_REJECTED' }, 422);
       }
     } else {
-      console.warn('GOOGLE_VISION_API_KEY not set — skipping SafeSearch (dev only)');
-    }
-
-    // ── 3. Fetch sender address ───────────────────────────────────────────────
-    const { data: fromAddress, error: fromErr } = await supabase
-      .from('addresses').select('*')
-      .eq('id', fromAddressId).eq('user_id', userId).single();
-    if (fromErr || !fromAddress) {
+      console.error('GOOGLE_VISION_API_KEY not set');
       const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId);
-      return jsonResponse({ error: `Sender address not found. ${refundMsg(succeeded)}` }, 404);
+      return jsonResponse({ error: `Content moderation unavailable. ${refundMsg(succeeded)}` }, 503);
     }
 
-    // ── 4. Upload image to Storage so Lob can fetch via URL ───────────────────
+    // ── 3. Upload image to Storage so Lob can fetch via URL ───────────────────
     // Lob's inline HTML limit is 10,000 chars; base64 images far exceed that.
     tempImagePath = `temp/${userId}/${Date.now()}.jpg`;
     const rawImageBytes = Uint8Array.from(atob(imageBase64), (c) => c.charCodeAt(0));
@@ -559,7 +628,7 @@ serve(async (req) => {
       .from('postcard-fronts')
       .getPublicUrl(tempImagePath);
 
-    // ── 5. Send postcard via Lob ──────────────────────────────────────────────
+    // ── 4. Send postcard via Lob ──────────────────────────────────────────────
     const lobCredentials = btoa(`${LOB_API_KEY}:`);
     const normalizedMessage = (message ?? '').trim();
     const htmlEscapedMessage = normalizedMessage.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -578,36 +647,47 @@ serve(async (req) => {
 
     // Build inline address blocks — {{from_address}}/{{to_address}} merge vars
     // only work with Lob's Templates API, not inline HTML.
-    function addrBlock(label: string, a: { full_name: string; line1: string; line2?: string; city: string; state: string; zip: string }) {
-      const esc = (s: string) => s.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    function addrBlock(label: string, a: { full_name: string; line1: string; line2?: string; city: string; state: string; zip: string; country?: string }) {
+      const esc = (s: string) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       const line2 = a.line2 ? `<br>${esc(a.line2)}` : '';
-      return `<p style="font-size:7px;line-height:1.5;color:#555;margin:0"><span style="font-size:6px;color:#999;text-transform:uppercase;letter-spacing:1px">${label}</span><br><strong>${esc(a.full_name)}</strong><br>${esc(a.line1)}${line2}<br>${esc(a.city)}, ${esc(a.state)} ${esc(String(a.zip))}</p>`;
+      const localityLine = [a.city, a.state, String(a.zip)].filter(Boolean).map(esc).join(' ');
+      const countryName = a.country
+        ? new Intl.DisplayNames(['en'], { type: 'region' }).of(a.country) ?? a.country
+        : '';
+      const countryLine = a.country && a.country !== 'US' ? `<br>${esc(countryName)}` : '';
+      return `<p style="font-size:7px;line-height:1.5;color:#555;margin:0"><span style="font-size:6px;color:#999;text-transform:uppercase;letter-spacing:1px">${label}</span><br><strong>${esc(a.full_name)}</strong><br>${esc(a.line1)}${line2}<br>${localityLine}${countryLine}</p>`;
     }
     const fromHtml = addrBlock('FROM', fromAddress);
-    const toHtml = addrBlock('TO', recipientSnapshot);
+    const senderJoyHtml = addrBlock('SENT WITH JOY FROM', fromAddress);
+    const toHtml = addrBlock('TO', recipientAddress);
+    const qrHtml = `<div style="text-align:center"><p style="font-size:8px;font-weight:bold;color:#444;margin:0 0 8px 0;letter-spacing:2px;text-transform:uppercase">Snap Send</p><img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&color=222222&bgcolor=ffffff&data=https://snapsend.live" width="80" height="80" style="display:block;margin:0 auto" /><p style="font-size:8px;color:#888;margin:8px 0 0 0;letter-spacing:1px">Send Joy</p></div>`;
+    const brandingHtml = needsSnapSendReturnAddress
+      ? `<table style="width:100%;border-collapse:collapse;table-layout:fixed"><tr><td style="width:58%;vertical-align:middle;padding-right:8px">${senderJoyHtml}</td><td style="width:42%;vertical-align:middle">${qrHtml}</td></tr></table>`
+      : qrHtml;
+    const postalReturnAddress = needsSnapSendReturnAddress ? SNAP_SEND_RETURN_ADDRESS : fromAddress;
 
     const lobBody = {
       description: 'Snap Send postcard',
       size: '4x6',
       use_type: 'operational',
       front: frontUrl,
-      back: `<html><body style="margin:0;padding:0;font-family:Helvetica,Arial,sans-serif"><table style="width:100%;height:100%;border-collapse:collapse;table-layout:fixed"><tr><td style="width:44%;vertical-align:top;padding:24px 10px 24px 24px"><p style="font-size:${lobFontSize}px;line-height:1.5;color:#333;margin:0;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word">${lobMessage}</p></td><td style="width:56%;vertical-align:top;padding:0"><table style="width:100%;border-collapse:collapse"><tr><td style="text-align:center;padding:28px 14px 20px 14px"><p style="font-size:8px;font-weight:bold;color:#444;margin:0 0 8px 0;letter-spacing:2px;text-transform:uppercase">Snap Send</p><img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&color=222222&bgcolor=ffffff&data=https://snapsend.live" width="80" height="80" style="display:block;margin:0 auto" /><p style="font-size:8px;color:#888;margin:8px 0 0 0;letter-spacing:1px">Send Joy</p></td></tr><tr><td style="padding:0 14px"><hr style="border:none;border-top:1px solid #ddd;margin:0" /></td></tr><tr><td style="padding:10px 14px 4px 14px">${fromHtml}</td></tr><tr><td style="padding:4px 14px 10px 14px">${toHtml}</td></tr></table></td></tr></table></body></html>`,
+      back: `<html><body style="margin:0;padding:0;font-family:Helvetica,Arial,sans-serif"><table style="width:100%;height:100%;border-collapse:collapse;table-layout:fixed"><tr><td style="width:44%;vertical-align:top;padding:24px 10px 24px 24px"><p style="font-size:${lobFontSize}px;line-height:1.5;color:#333;margin:0;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word">${lobMessage}</p></td><td style="width:56%;vertical-align:top;padding:0"><table style="width:100%;border-collapse:collapse"><tr><td style="padding:28px 14px 20px 14px">${brandingHtml}</td></tr><tr><td style="padding:0 14px"><hr style="border:none;border-top:1px solid #ddd;margin:0" /></td></tr>${needsSnapSendReturnAddress ? '' : `<tr><td style="padding:10px 14px 4px 14px">${fromHtml}</td></tr>`}<tr><td style="padding:4px 14px 10px 14px">${toHtml}</td></tr></table></td></tr></table></body></html>`,
       to: {
-        name: recipientSnapshot.full_name,
-        address_line1: recipientSnapshot.line1,
-        ...(recipientSnapshot.line2 ? { address_line2: recipientSnapshot.line2 } : {}),
-        address_city: recipientSnapshot.city,
-        address_state: recipientSnapshot.state,
-        address_zip: String(recipientSnapshot.zip),
-        address_country: 'US',
+        name: recipientAddress.full_name,
+        address_line1: recipientAddress.line1,
+        ...(recipientAddress.line2 ? { address_line2: recipientAddress.line2 } : {}),
+        address_city: recipientAddress.city,
+        ...(recipientAddress.state ? { address_state: recipientAddress.state } : {}),
+        address_zip: String(recipientAddress.zip),
+        address_country: destinationCountry,
       },
       from: {
-        name: fromAddress.full_name,
-        address_line1: fromAddress.line1,
-        ...(fromAddress.line2 ? { address_line2: fromAddress.line2 } : {}),
-        address_city: fromAddress.city,
-        address_state: fromAddress.state,
-        address_zip: String(fromAddress.zip),
+        name: postalReturnAddress.full_name,
+        address_line1: postalReturnAddress.line1,
+        ...(postalReturnAddress.line2 ? { address_line2: postalReturnAddress.line2 } : {}),
+        address_city: postalReturnAddress.city,
+        ...(postalReturnAddress.state ? { address_state: postalReturnAddress.state } : {}),
+        address_zip: String(postalReturnAddress.zip),
         address_country: 'US',
       },
     };
@@ -640,7 +720,7 @@ serve(async (req) => {
 
     lobSubmitted = true;
 
-    // ── 6. Record in database ─────────────────────────────────────────────────
+    // ── 5. Record in database ─────────────────────────────────────────────────
     const { data: postcard, error: insertErr } = await supabase
       .from('postcards')
       .insert({
@@ -648,7 +728,7 @@ serve(async (req) => {
         frame: frame ?? 'none', filter: filter ?? 'none',
         location: location ?? null,
         from_address_id: fromAddressId, to_address_id: toAddressId,
-        recipient_snapshot: recipientSnapshot, status: 'submitted',
+        recipient_snapshot: recipientAddress, status: 'submitted',
         lob_id: lobData.id,
         lob_front_url: (lobData.thumbnails?.[0]?.medium ?? null) as string | null,
         lob_back_url: (lobData.thumbnails?.[1]?.medium ?? null) as string | null,

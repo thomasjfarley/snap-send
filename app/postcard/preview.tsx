@@ -13,7 +13,8 @@ import { FRAMES } from '@/constants/editor';
 import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
 import { FONT_SIZE, SPACING } from '@/constants/theme';
-import { POSTCARD_PRICE_CENTS, STRIPE_PUBLISHABLE_KEY } from '@/constants/config';
+import { getPostcardPriceCents, STRIPE_PUBLISHABLE_KEY } from '@/constants/config';
+import { getMailingCountry, requiresInternationalRiskWarning } from '@/constants/countries';
 import { supabase } from '@/lib/supabase';
 import { GrayscaleImage } from '@/components/GrayscaleImage';
 
@@ -94,6 +95,7 @@ export default function PreviewScreen() {
   // Tracks whether Stripe payment was already confirmed so we can skip
   // re-presenting the sheet on retry after an edge function failure.
   const paymentConfirmedRef = useRef(false);
+  const riskPromptShownRef = useRef(false);
   // Cached submission payload so retries use identical data.
   const submissionPayloadRef = useRef<object | null>(null);
   // Accumulates error details across retry attempts for the support email.
@@ -104,7 +106,11 @@ export default function PreviewScreen() {
   // 'rejected' = Vision API blocked the image
   // 'error'    = pre-init failed (payment sheet not ready)
   const [preloadStatus, setPreloadStatus] = useState<'checking' | 'ready' | 'rejected' | 'error'>('checking');
-  const [totalAmountCents, setTotalAmountCents] = useState(POSTCARD_PRICE_CENTS);
+  const destinationCountry = recipient?.country?.toUpperCase() || 'US';
+  const senderCountry = personalAddress?.country?.toUpperCase() || 'US';
+  const riskWarningRequired = requiresInternationalRiskWarning(destinationCountry);
+  const basePriceCents = getPostcardPriceCents(destinationCountry);
+  const [riskAccepted, setRiskAccepted] = useState(!riskWarningRequired);
   const [taxAmountCents, setTaxAmountCents] = useState<number | null>(null);
 
   const { colors } = useTheme();
@@ -115,13 +121,29 @@ export default function PreviewScreen() {
     if (!photoUri || !recipient) router.replace('/postcard');
   }, [photoUri, recipient]);
 
+  useEffect(() => {
+    if (!recipient || !riskWarningRequired || riskAccepted || riskPromptShownRef.current) return;
+    riskPromptShownRef.current = true;
+    const countryName = getMailingCountry(destinationCountry).name;
+    Alert.alert(
+      `Sending to ${countryName}`,
+      `Address verification and tracking are limited for ${countryName}. Please carefully review the recipient's address. Delivery will be completed by the destination country's postal service and cannot be guaranteed.`,
+      [
+        { text: 'Review Address', style: 'cancel', onPress: () => router.back() },
+        { text: 'Send Anyway', onPress: () => setRiskAccepted(true) },
+      ],
+      { cancelable: false },
+    );
+  }, [destinationCountry, recipient, riskAccepted, riskWarningRequired, router]);
+
   // On screen load: run safety check then pre-initialize the Stripe payment sheet.
   // By the time the user reads the preview and taps Send, the sheet is already
   // ready and presentPaymentSheet() is called with essentially zero async delay —
   // satisfying iOS's requirement that native payment UI be presented close to the
   // user's touch gesture.
   useEffect(() => {
-    if (!photoUri || Platform.OS === 'web') {
+    if (riskWarningRequired && !riskAccepted) return;
+    if (!photoUri || !recipient || Platform.OS === 'web') {
       setPreloadStatus('ready'); // web payment path is handled separately in handleSend
       return;
     }
@@ -176,13 +198,24 @@ export default function PreviewScreen() {
           );
           return;
         }
-        // 503 = Vision API unavailable, allow through; other errors are non-blocking
+        if (safetyError) {
+          const safetyDetail = await (safetyError as any)?.context?.json?.().catch(() => null);
+          console.error('[preview] safety check failed', safetyError, safetyDetail);
+          Alert.alert(
+            'Safety check unavailable',
+            'We could not check this image right now. No payment was taken. Please try again in a moment.',
+          );
+          setPreloadStatus('error');
+          return;
+        }
 
-        // Step 2: Create PaymentIntent and initialize the sheet
+        // Step 3: Create PaymentIntent and initialize the sheet
         const { data: piData, error: piError } = await supabase.functions.invoke('create-payment-intent', {
           headers: { Authorization: `Bearer ${token}` },
           body: {
             testMode: __DEV__,
+            recipientAddressId: recipient.id,
+            senderAddressId: personalAddress?.id,
             ...(personalAddress ? {
               customerAddress: {
                 line1: personalAddress.line1,
@@ -207,6 +240,13 @@ export default function PreviewScreen() {
               details: `status=${(piError as any)?.context?.status ?? 'unknown'}; body=${JSON.stringify(errDetail).slice(0, 1000)}`,
             },
           }).catch(() => {});
+          if ((piError as any)?.context?.status === 422) {
+            Alert.alert(
+              'Address verification required',
+              errDetail?.error ?? 'Please verify the sender and recipient addresses before checkout.',
+              [{ text: 'Review Addresses', onPress: () => router.back() }],
+            );
+          }
           setPreloadStatus('error');
           return;
         }
@@ -244,7 +284,6 @@ export default function PreviewScreen() {
 
         paymentIntentIdRef.current = piData.paymentIntentId;
         sheetInitializedRef.current = true;
-        if (piData.amount) setTotalAmountCents(piData.amount);
         if (typeof piData.taxAmountCents === 'number') setTaxAmountCents(piData.taxAmountCents);
         setPreloadStatus('ready');
       } catch (err) {
@@ -255,7 +294,7 @@ export default function PreviewScreen() {
       }
     })();
     return () => { cancelled = true; };
-  }, [photoUri]);
+  }, [destinationCountry, photoUri, recipient?.id, riskAccepted, riskWarningRequired]);
 
   const messageFontSize = useMemo(() => {
     const trimmed = (message ?? '').trim();
@@ -285,7 +324,7 @@ export default function PreviewScreen() {
   const activeFrame = FRAMES.find((f) => f.id === frameId)!;
   const overlay = FILTER_OVERLAYS[filterId];
   const isGrayscale = filterId === 'bw';
-  const basePriceStr = `$${(POSTCARD_PRICE_CENTS / 100).toFixed(2)}`;
+  const basePriceStr = `$${(basePriceCents / 100).toFixed(2)}`;
   const priceStr = taxAmountCents
     ? `${basePriceStr} + $${(taxAmountCents / 100).toFixed(2)} tax`
     : basePriceStr;
@@ -352,6 +391,11 @@ export default function PreviewScreen() {
       sendInProgressRef.current = false;
       return;
     }
+    if (riskWarningRequired && !riskAccepted) {
+      riskPromptShownRef.current = false;
+      sendInProgressRef.current = false;
+      return;
+    }
     if (preloadStatus === 'rejected') {
       Alert.alert('Image rejected', 'This image cannot be mailed. Please choose a different photo.');
       sendInProgressRef.current = false;
@@ -404,6 +448,7 @@ export default function PreviewScreen() {
           city: recipient.city,
           state: recipient.state,
           zip: recipient.zip,
+          country: destinationCountry,
         },
         paymentIntentId: paymentIntentIdRef.current,
         testMode: __DEV__,
@@ -531,18 +576,38 @@ export default function PreviewScreen() {
             >{message}</Text>
           </View>
           <View style={styles.backRight}>
-            {/* QR section — mirrors the Lob HTML top table row */}
-            <View style={styles.qrSection}>
-              <Text style={styles.snapSendText}>SNAP SEND</Text>
-              <Image
-                source={{ uri: 'https://api.qrserver.com/v1/create-qr-code/?size=100x100&color=222222&bgcolor=ffffff&data=https://snapsend.live' }}
-                style={styles.qrImage}
-              />
-              <Text style={styles.sendJoyText}>Send Joy</Text>
-            </View>
+            {personalAddress && senderCountry !== 'US' ? (
+              <View style={styles.internationalSenderRow}>
+                <View style={styles.senderJoyBlock}>
+                  <Text style={styles.senderJoyHeading}>Sent with joy from</Text>
+                  <Text style={styles.fromAddrText}>{personalAddress.full_name}</Text>
+                  <Text style={styles.fromAddrText}>{personalAddress.line1}</Text>
+                  {personalAddress.line2 ? <Text style={styles.fromAddrText}>{personalAddress.line2}</Text> : null}
+                  <Text style={styles.fromAddrText}>{personalAddress.city}, {personalAddress.state} {personalAddress.zip}</Text>
+                  <Text style={styles.fromAddrText}>{getMailingCountry(personalAddress.country).name}</Text>
+                </View>
+                <View style={styles.qrSectionInternational}>
+                  <Text style={styles.snapSendText}>SNAP SEND</Text>
+                  <Image
+                    source={{ uri: 'https://api.qrserver.com/v1/create-qr-code/?size=100x100&color=222222&bgcolor=ffffff&data=https://snapsend.live' }}
+                    style={styles.qrImage}
+                  />
+                  <Text style={styles.sendJoyText}>Send Joy</Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.qrSection}>
+                <Text style={styles.snapSendText}>SNAP SEND</Text>
+                <Image
+                  source={{ uri: 'https://api.qrserver.com/v1/create-qr-code/?size=100x100&color=222222&bgcolor=ffffff&data=https://snapsend.live' }}
+                  style={styles.qrImage}
+                />
+                <Text style={styles.sendJoyText}>Send Joy</Text>
+              </View>
+            )}
             {/* FROM address + POSTAGE INDICIA — Lob overlays postage on printed card */}
             <View style={styles.fromPostageRow}>
-              {personalAddress ? (
+              {personalAddress && senderCountry === 'US' ? (
                 <View style={[styles.addressBlock, { flex: 1 }]}>
                   <Text style={styles.fromAddrText}>{personalAddress.full_name}</Text>
                   <Text style={styles.fromAddrText}>{personalAddress.line1}</Text>
@@ -563,6 +628,9 @@ export default function PreviewScreen() {
                 <Text style={styles.addrText}>{recipient.line1}</Text>
                 {recipient.line2 ? <Text style={styles.addrText}>{recipient.line2}</Text> : null}
                 <Text style={styles.addrText}>{recipient.city}, {recipient.state} {recipient.zip}</Text>
+                {destinationCountry !== 'US' && (
+                  <Text style={styles.addrText}>{getMailingCountry(destinationCountry).name}</Text>
+                )}
               </View>
             </View>
           </View>
@@ -650,6 +718,17 @@ function makeStyles(colors: AppColors) {
       paddingBottom: Math.round(20 * LOB_SCALE),
       paddingHorizontal: Math.round(14 * LOB_SCALE),
     },
+    internationalSenderRow: {
+      flexDirection: 'row', alignItems: 'center',
+      paddingTop: Math.round(20 * LOB_SCALE), paddingBottom: Math.round(14 * LOB_SCALE),
+      paddingHorizontal: Math.round(14 * LOB_SCALE), gap: Math.round(8 * LOB_SCALE),
+    },
+    senderJoyBlock: { flex: 1, gap: 1 },
+    senderJoyHeading: {
+      fontSize: Math.max(5, Math.round(8 * LOB_SCALE)), color: '#777',
+      fontWeight: '600', marginBottom: Math.round(4 * LOB_SCALE),
+    },
+    qrSectionInternational: { alignItems: 'center', width: Math.round(98 * LOB_SCALE) },
     qrImage: { width: QR_SIZE, height: QR_SIZE },
     snapSendText: { fontSize: Math.max(5, Math.round(8 * LOB_SCALE)), fontWeight: '700', color: '#444', letterSpacing: Math.round(2 * LOB_SCALE), textTransform: 'uppercase', marginBottom: Math.round(8 * LOB_SCALE) },
     sendJoyText: { fontSize: Math.max(5, Math.round(8 * LOB_SCALE)), color: '#888', letterSpacing: Math.round(LOB_SCALE), marginTop: Math.round(8 * LOB_SCALE) },

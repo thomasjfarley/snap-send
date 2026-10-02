@@ -11,14 +11,7 @@ import type { Postcard } from '@/lib/database.types';
 import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
 import { FONT_SIZE, SPACING } from '@/constants/theme';
-
-const STATUS_CONFIG: Record<Postcard['status'], { label: string; color: string; bg: string; emoji: string }> = {
-  pending:   { label: 'Pending',   color: '#92400E', bg: '#FEF3C7', emoji: '⏳' },
-  paid:      { label: 'Paid',      color: '#1E40AF', bg: '#DBEAFE', emoji: '💳' },
-  submitted: { label: 'Printing',  color: '#6B21A8', bg: '#F3E8FF', emoji: '🖨️' },
-  mailed:    { label: 'Mailed',    color: '#14532D', bg: '#DCFCE7', emoji: '✉️' },
-  failed:    { label: 'Failed',    color: '#991B1B', bg: '#FEE2E2', emoji: '❌' },
-};
+import { POSTCARD_STATUS_INFO } from '@/constants/order-status';
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -39,7 +32,7 @@ export default function HistoryScreen() {
 
   function renderItem({ item }: { item: Postcard }) {
     const snapshot = item.recipient_snapshot as any;
-    const status = STATUS_CONFIG[item.status] ?? STATUS_CONFIG.pending;
+    const status = POSTCARD_STATUS_INFO[item.status] ?? POSTCARD_STATUS_INFO.pending;
     const price = `$${(item.price_cents / 100).toFixed(2)}`;
 
     return (
@@ -135,4 +128,3 @@ function makeStyles(colors: AppColors) {
     ctaBtnText: { color: '#fff', fontSize: FONT_SIZE.md, fontWeight: '600' },
   });
 }
-

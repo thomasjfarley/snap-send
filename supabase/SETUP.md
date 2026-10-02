@@ -47,17 +47,31 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 In Supabase dashboard → **Edge Functions → Secrets** (or use the CLI):
 ```sh
 npx supabase secrets set LOB_API_KEY=your_lob_api_key
+npx supabase secrets set LOB_API_KEY_TEST=your_lob_test_api_key
 npx supabase secrets set STRIPE_SECRET_KEY=sk_test_...
 npx supabase secrets set STRIPE_WEBHOOK_SECRET=whsec_...
 npx supabase secrets set GOOGLE_VISION_API_KEY=AIza...
 npx supabase secrets set LOB_WEBHOOK_SECRET=your_lob_webhook_secret
+npx supabase secrets set SNAP_SEND_RETURN_NAME="Snap Send"
+npx supabase secrets set SNAP_SEND_RETURN_LINE1="your US mailbox street"
+npx supabase secrets set SNAP_SEND_RETURN_LINE2="optional unit"
+npx supabase secrets set SNAP_SEND_RETURN_CITY="your city"
+npx supabase secrets set SNAP_SEND_RETURN_STATE="your state"
+npx supabase secrets set SNAP_SEND_RETURN_ZIP="your ZIP"
 ```
+
+The `SNAP_SEND_RETURN_*` secrets are required before enabling fulfillment for
+senders whose personal address is outside the United States. Their personal
+address is shown on the postcard artwork while this US mailbox is used as
+Lob's official postal return address.
 
 ## 6. Deploy Edge Functions
 ```sh
 npx supabase functions deploy validate-address
+npx supabase functions deploy check-image-safety
 npx supabase functions deploy create-payment-intent
 npx supabase functions deploy submit-postcard
+npx supabase functions deploy sync-lob-status
 npx supabase functions deploy postcard-webhook
 npx supabase functions deploy stripe-webhook
 ```

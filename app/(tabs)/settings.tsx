@@ -13,6 +13,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { FONT_SIZE, SPACING } from '@/constants/theme';
 import type { AppColors } from '@/constants/theme';
 import Constants from 'expo-constants';
+import { requestStoreReview } from '@/lib/store-review';
 
 const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 
@@ -261,7 +262,15 @@ export default function SettingsScreen() {
           />
           <SettingsRow
             label="Rate Snap Send ⭐"
-            onPress={() => Alert.alert('Thank you!', 'Rating will be available once the app is live on the stores.')}
+            onPress={() => {
+              requestStoreReview().then((opened) => {
+                if (!opened) {
+                  Alert.alert('Unable to open store', 'Please try again after installing Snap Send from the App Store or Google Play.');
+                }
+              }).catch(() => {
+                Alert.alert('Unable to open store', 'Please try again in a moment.');
+              });
+            }}
           />
         </View>
 
@@ -319,4 +328,3 @@ function makeStyles(colors: AppColors) {
     },
   });
 }
-
