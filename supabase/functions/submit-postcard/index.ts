@@ -1,6 +1,8 @@
 // Edge Function: submit-postcard
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getAddressRestriction } from '../_shared/market-compliance.ts';
+import { recordTaxTransaction } from '../_shared/stripe-tax.ts';
 import { Image } from 'https://deno.land/x/imagescript@1.3.0/mod.ts';
 
 const STRIPE_SECRET_KEY_LIVE = Deno.env.get('STRIPE_SECRET_KEY')!;
@@ -348,6 +350,23 @@ serve(async (req) => {
     confirmedUserId = userId;
     confirmedPaymentIntentId = paymentIntentId;
 
+    const taxTransaction = await recordTaxTransaction(
+      STRIPE_SECRET_KEY,
+      paymentIntentId,
+      pi.metadata.tax_calculation,
+    );
+    if (!taxTransaction.succeeded) {
+      reportError(
+        'submit-postcard',
+        'Stripe Tax transaction recording failed',
+        'error',
+        `paymentIntentId=${paymentIntentId}; userId=${userId}; calculationId=${pi.metadata.tax_calculation || 'missing'}`,
+      );
+      return jsonResponse({
+        error: 'We could not finalize the tax record. Your payment is safe; please retry your order.',
+      }, 503);
+    }
+
     // Idempotency: if a postcard was already created with this payment intent
     // (e.g. client timed out but the function completed), return success so the
     // client can treat it as a clean retry without double-charging or double-mailing.
@@ -386,6 +405,13 @@ serve(async (req) => {
     }
 
     const senderCountry = String(fromAddress.country || 'US').toUpperCase();
+    const addressRestriction =
+      getAddressRestriction(fromAddress) || getAddressRestriction(recipientAddress);
+    if (addressRestriction) {
+      const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId);
+      return jsonResponse({ error: `${addressRestriction} ${refundMsg(succeeded)}` }, 422);
+    }
+
     const needsSnapSendReturnAddress = senderCountry !== 'US';
     const officialReturnConfigured = Boolean(
       SNAP_SEND_RETURN_ADDRESS.full_name &&

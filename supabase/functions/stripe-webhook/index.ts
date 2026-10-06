@@ -4,10 +4,12 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { recordTaxTransaction, reverseTaxTransaction } from '../_shared/stripe-tax.ts';
 
 const STRIPE_WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET')!;
 const STRIPE_WEBHOOK_SECRET_TEST = Deno.env.get('STRIPE_WEBHOOK_SECRET_TEST') ?? '';
 const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')!;
+const STRIPE_SECRET_KEY_TEST = Deno.env.get('STRIPE_SECRET_KEY_TEST') ?? '';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -66,9 +68,60 @@ serve(async (req) => {
     const event = JSON.parse(body);
     reportEventType = event.type ?? '';
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const stripeKey = event.livemode ? STRIPE_SECRET_KEY : STRIPE_SECRET_KEY_TEST;
+    if (!stripeKey) {
+      throw new Error(`Stripe API key is not configured for livemode=${Boolean(event.livemode)}`);
+    }
 
     try {
-      if (event.type === 'payment_intent.payment_failed') {
+      if (event.type === 'payment_intent.succeeded') {
+        const paymentIntent = event.data.object;
+        reportPaymentIntentId = paymentIntent.id;
+        const taxResult = await recordTaxTransaction(
+          stripeKey,
+          paymentIntent.id,
+          paymentIntent.metadata?.tax_calculation,
+        );
+        if (!taxResult.succeeded) {
+          throw new Error(`Failed to record Stripe Tax transaction for ${paymentIntent.id}`);
+        }
+      } else if (event.type === 'refund.created') {
+        const refund = event.data.object;
+        const paymentIntentId = String(refund.payment_intent || '');
+        reportPaymentIntentId = paymentIntentId;
+        if (!paymentIntentId) {
+          throw new Error(`Refund ${refund.id} is missing its PaymentIntent`);
+        }
+
+        const piResponse = await fetch(`https://api.stripe.com/v1/payment_intents/${paymentIntentId}`, {
+          headers: { Authorization: `Bearer ${stripeKey}` },
+        });
+        const paymentIntent = await piResponse.json();
+        if (!piResponse.ok) {
+          throw new Error(`Could not retrieve PaymentIntent ${paymentIntentId} for tax reversal`);
+        }
+        if (refund.amount !== paymentIntent.amount) {
+          reportError(
+            'stripe-webhook',
+            'Partial refund needs manual tax reversal',
+            'warning',
+            `refundId=${refund.id}; paymentIntentId=${paymentIntentId}; refundAmount=${refund.amount}; paymentAmount=${paymentIntent.amount}`,
+          );
+        } else {
+          let transactionId = paymentIntent.metadata?.tax_transaction_id;
+          if (!transactionId) {
+            const taxResult = await recordTaxTransaction(
+              stripeKey,
+              paymentIntentId,
+              paymentIntent.metadata?.tax_calculation,
+            );
+            transactionId = taxResult.transactionId;
+          }
+          if (!transactionId || !await reverseTaxTransaction(stripeKey, paymentIntentId, transactionId)) {
+            throw new Error(`Failed to reverse Stripe Tax transaction for ${paymentIntentId}`);
+          }
+        }
+      } else if (event.type === 'payment_intent.payment_failed') {
         const paymentIntentId: string = event.data.object.id;
         reportPaymentIntentId = paymentIntentId;
         const { error: ordersError } = await supabase

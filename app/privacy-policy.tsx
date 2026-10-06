@@ -48,7 +48,7 @@ export default function PrivacyPolicyScreen() {
           <Text style={styles.back}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Privacy Policy</Text>
-        <Text style={styles.effective}>Effective Date: March 31, 2026</Text>
+        <Text style={styles.effective}>Effective Date: October 6, 2026</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -106,15 +106,34 @@ export default function PrivacyPolicyScreen() {
           <Bullet>Stripe — payment processing (stripe.com/privacy)</Bullet>
           <Bullet>Supabase — authentication, database, and file storage (supabase.com/privacy)</Bullet>
           <Bullet>Google — sign-in via Google OAuth (policies.google.com/privacy)</Bullet>
+          <Bullet>Google Cloud Vision — automated safety screening of postcard images</Bullet>
           <Bullet>Apple — sign-in via Apple (apple.com/legal/privacy)</Bullet>
           <Bullet>
-            Postcard Printing Partner — your photo, message, and recipient address are shared with
-            our fulfillment partner to produce and mail your postcard.
+            Lob — your photo, message, sender address, and recipient address are shared with our
+            fulfillment partner to produce and mail your postcard (lob.com/legal/privacy).
           </Bullet>
           <Para>We do not sell your personal information to third parties.</Para>
         </Section>
 
-        <Section title="4. Data Retention">
+        <Section title="4. International Data Transfers">
+          <Para>
+            Snap Send is operated from the United States. If you use the app from another country, your
+            information may be transferred to and processed in the United States and other countries where
+            our service providers operate. We use service-provider agreements and other safeguards required
+            by applicable law for these transfers.
+          </Para>
+        </Section>
+
+        <Section title="5. Your Privacy Rights">
+          <Para>
+            Depending on where you live, you may have rights to access, correct, delete, restrict, or obtain
+            a copy of your personal information, or to object to certain processing. You may delete your
+            account in the app or contact support@snapsend.live to exercise a privacy right. You may also
+            have the right to complain to your local data-protection authority.
+          </Para>
+        </Section>
+
+        <Section title="6. Data Retention">
           <Para>
             We retain your account information and order history for as long as your account is active.
             You may request deletion of your data by contacting us at support@snapsend.live. We process
@@ -122,7 +141,7 @@ export default function PrivacyPolicyScreen() {
           </Para>
         </Section>
 
-        <Section title="5. Data Security">
+        <Section title="7. Data Security">
           <Para>
             We take reasonable measures to protect your information using industry-standard secure
             infrastructure. However, no method of internet transmission is 100% secure and we cannot
@@ -130,7 +149,7 @@ export default function PrivacyPolicyScreen() {
           </Para>
         </Section>
 
-        <Section title="6. Children's Privacy">
+        <Section title="8. Children's Privacy">
           <Para>
             Snap Send is not intended for use by children under the age of 13. We do not knowingly
             collect personal information from children under 13. If you believe a child has provided
@@ -138,7 +157,7 @@ export default function PrivacyPolicyScreen() {
           </Para>
         </Section>
 
-        <Section title="7. Changes to This Policy">
+        <Section title="9. Changes to This Policy">
           <Para>
             We may update this Privacy Policy from time to time. We will notify you of material changes
             by posting the updated policy within the app. Continued use of Snap Send after changes
@@ -146,7 +165,7 @@ export default function PrivacyPolicyScreen() {
           </Para>
         </Section>
 
-        <Section title="8. Contact Us">
+        <Section title="10. Contact Us">
           <Para>
             If you have questions or concerns about this Privacy Policy, please contact us at:
           </Para>

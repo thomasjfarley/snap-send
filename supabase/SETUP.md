@@ -81,7 +81,13 @@ npx supabase functions deploy stripe-webhook
   `https://YOUR_PROJECT_REF.supabase.co/functions/v1/postcard-webhook`
 - **Stripe:** Dashboard → Developers → Webhooks → Add endpoint:
   `https://YOUR_PROJECT_REF.supabase.co/functions/v1/stripe-webhook`
-  Events to listen for: `payment_intent.payment_failed`
+  Events to listen for:
+  - `payment_intent.succeeded`
+  - `payment_intent.payment_failed`
+  - `refund.created`
+
+The succeeded and refund events create and reverse Stripe Tax transactions so
+the Stripe Tax reports match completed payments and full refunds.
 
 ## 8. Regenerate TypeScript types (optional but recommended)
 After running migrations:

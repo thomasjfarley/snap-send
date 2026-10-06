@@ -2,6 +2,7 @@
 // Calls the Lob Address Verification API and returns a standardized, verified address.
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+import { getAddressRestriction } from '../_shared/market-compliance.ts';
 
 const LOB_API_KEY_LIVE = Deno.env.get('LOB_API_KEY')!;
 const LOB_API_KEY_TEST = Deno.env.get('LOB_API_KEY_TEST')!;
@@ -29,6 +30,14 @@ serve(async (req) => {
     if (!line1 || !city || !zip || (['US', 'CA'].includes(country) && !state)) {
       return new Response(JSON.stringify({ error: 'Missing required address fields' }), {
         status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const restriction = getAddressRestriction({ line1, line2, city, state, zip, country });
+    if (restriction) {
+      return new Response(JSON.stringify({ error: restriction }), {
+        status: 422,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }

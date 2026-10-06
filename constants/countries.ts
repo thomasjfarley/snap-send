@@ -24,6 +24,10 @@ const SUSPENDED_CODES = new Set([
   'AF', 'BY', 'BT', 'CU', 'ER', 'HT', 'IR', 'KI', 'CG', 'SC', 'SS', 'SD', 'TM', 'YE',
 ]);
 
+// Countries where Snap Send cannot transact because of sanctions or payment
+// processor restrictions, even when Lob address verification is available.
+const RESTRICTED_CODES = new Set(['BY', 'CU', 'IR', 'KP', 'RU', 'SY']);
+
 // Markets with comparatively strong Lob verification data and established
 // postal systems. All remaining enabled destinations are still available but
 // receive a limited-verification warning before purchase.
@@ -35,7 +39,8 @@ const STANDARD_MARKET_CODES = new Set([
 const internationalCountries: MailingCountry[] = countries
   .filter((country) =>
     LOB_INTERNATIONAL_AV_CODES.has(country.cca2) &&
-    !SUSPENDED_CODES.has(country.cca2),
+    !SUSPENDED_CODES.has(country.cca2) &&
+    !RESTRICTED_CODES.has(country.cca2),
   )
   .map((country) => ({
     code: country.cca2,
@@ -72,4 +77,3 @@ export function requiresInternationalRiskWarning(code?: string | null) {
   const country = getMailingCountry(code);
   return country.code !== 'US' && country.riskTier === 'limited';
 }
-

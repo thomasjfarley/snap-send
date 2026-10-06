@@ -48,7 +48,7 @@ export default function TermsOfServiceScreen() {
           <Text style={styles.back}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Terms of Service</Text>
-        <Text style={styles.effective}>Effective Date: March 31, 2026</Text>
+        <Text style={styles.effective}>Effective Date: October 6, 2026</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -60,7 +60,8 @@ export default function TermsOfServiceScreen() {
         <Section title="1. About Snap Send">
           <Para>
             Snap Send is a mobile application that lets you create personalized postcards from your photos.
-            We print your postcard and mail it to your chosen recipient via USPS First Class Mail.
+            We arrange printing and delivery through our fulfillment partner, the United States Postal
+            Service, and destination-country postal services.
           </Para>
         </Section>
 
@@ -101,7 +102,9 @@ export default function TermsOfServiceScreen() {
           <Text style={[styles.subheading, { color: colors.textPrimary }]}>Pricing</Text>
           <Para>
             The price for each postcard is displayed before you complete your purchase. Prices may change
-            at any time; the price shown at checkout is what you will be charged.
+            at any time; the price shown at checkout, including any tax we are required to collect, is what
+            you will be charged. Prices are presented in U.S. dollars, and your bank may charge currency
+            conversion or international transaction fees.
           </Para>
 
           <Text style={[styles.subheading, { color: colors.textPrimary }]}>Payment Processing</Text>
@@ -113,27 +116,42 @@ export default function TermsOfServiceScreen() {
 
           <Text style={[styles.subheading, { color: colors.textPrimary }]}>Refunds</Text>
           <Para>
-            Once a postcard order has been submitted to our printing partner, it cannot be cancelled or
-            refunded. If you believe there was an error with your order, contact us at support@snapsend.live
-            within 1 hour of placing it and we will make every reasonable effort to assist. Refunds for
-            printing or delivery errors on our part will be handled on a case-by-case basis.
+            Each postcard is personalized to your specifications. Once an order has been submitted to our
+            printing partner, it cannot be cancelled or refunded except where required by applicable law.
+            If you believe there was an error with your order, contact us at support@snapsend.live within
+            1 hour of placing it and we will make every reasonable effort to assist. Refunds for printing
+            or delivery errors on our part will be handled on a case-by-case basis.
           </Para>
         </Section>
 
         <Section title="6. Delivery">
           <Para>
-            Postcards are mailed via USPS First Class Mail. Estimated delivery is 3–7 business days after
-            printing (typically 1 business day after your order is placed). Delivery times are estimates
-            only and are not guaranteed.
+            Domestic postcards are generally mailed through USPS. International postcards are transferred
+            to the destination country's postal service. Delivery estimates shown in the app are estimates
+            only; international delivery may take several weeks and may be affected by customs, local mail
+            service, holidays, or service suspensions.
           </Para>
           <Para>
             We are not responsible for delays, losses, or damages caused by USPS, incorrect recipient
-            addresses provided by you, or circumstances outside our control (including weather events,
-            holidays, or carrier disruptions).
+            addresses provided by you, destination postal services, customs authorities, or circumstances
+            outside our control. The recipient may be responsible for import charges or postal handling
+            fees that are not collected at checkout.
           </Para>
         </Section>
 
-        <Section title="7. Your Content">
+        <Section title="7. International Use and Trade Compliance">
+          <Para>
+            You may not use Snap Send from, or send postcards to, a country, territory, person, or entity
+            restricted by applicable sanctions or export-control laws. Availability may change immediately
+            when postal service, payment processing, or legal restrictions change.
+          </Para>
+          <Para>
+            You are responsible for complying with laws that apply to the content you send and for providing
+            complete and accurate customs, billing, sender, and recipient information where required.
+          </Para>
+        </Section>
+
+        <Section title="8. Your Content">
           <Para>
             You retain ownership of the photos and messages you submit through Snap Send. By submitting
             content, you grant us a limited, non-exclusive license to use that content solely to fulfill
@@ -146,7 +164,7 @@ export default function TermsOfServiceScreen() {
           </Para>
         </Section>
 
-        <Section title="8. Intellectual Property">
+        <Section title="9. Intellectual Property">
           <Para>
             The Snap Send app, its design, logo, and original content are owned by us and are protected
             by copyright, trademark, and other intellectual property laws. You may not copy, modify,
@@ -154,7 +172,7 @@ export default function TermsOfServiceScreen() {
           </Para>
         </Section>
 
-        <Section title="9. Disclaimer of Warranties">
+        <Section title="10. Disclaimer of Warranties">
           <Para>
             Snap Send is provided "as is" and "as available" without warranties of any kind, either
             express or implied, including but not limited to implied warranties of merchantability,
@@ -163,7 +181,7 @@ export default function TermsOfServiceScreen() {
           </Para>
         </Section>
 
-        <Section title="10. Limitation of Liability">
+        <Section title="11. Limitation of Liability">
           <Para>
             To the fullest extent permitted by applicable law, Snap Send and its operators shall not be
             liable for any indirect, incidental, special, consequential, or punitive damages arising out
@@ -173,7 +191,7 @@ export default function TermsOfServiceScreen() {
           </Para>
         </Section>
 
-        <Section title="11. Termination">
+        <Section title="12. Termination">
           <Para>
             We reserve the right to suspend or terminate your account at any time if you violate these
             Terms or engage in conduct we reasonably believe is harmful to other users, third parties, or
@@ -182,7 +200,7 @@ export default function TermsOfServiceScreen() {
           </Para>
         </Section>
 
-        <Section title="12. Changes to These Terms">
+        <Section title="13. Changes to These Terms">
           <Para>
             We may update these Terms from time to time. We will notify you of material changes by
             posting the updated Terms within the app. Continued use of Snap Send after changes constitutes
@@ -190,15 +208,16 @@ export default function TermsOfServiceScreen() {
           </Para>
         </Section>
 
-        <Section title="13. Governing Law">
+        <Section title="14. Governing Law">
           <Para>
-            These Terms are governed by and construed in accordance with the laws of the United States.
-            Any disputes arising under these Terms shall be resolved through binding arbitration or in
-            the applicable courts of the United States.
+            These Terms are governed by the laws of the United States and the state where Snap Send is
+            established, without limiting any mandatory consumer protections that apply in your country.
+            Disputes will be resolved in the applicable United States courts unless local law requires
+            another forum.
           </Para>
         </Section>
 
-        <Section title="14. Contact Us">
+        <Section title="15. Contact Us">
           <Para>
             If you have questions or concerns about these Terms, please contact us at:
           </Para>

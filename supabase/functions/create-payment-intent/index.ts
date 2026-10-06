@@ -5,6 +5,7 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getAddressRestriction } from '../_shared/market-compliance.ts';
 
 const STRIPE_SECRET_KEY_LIVE = Deno.env.get('STRIPE_SECRET_KEY')!;
 const STRIPE_SECRET_KEY_TEST = Deno.env.get('STRIPE_SECRET_KEY_TEST')!;
@@ -165,7 +166,7 @@ serve(async (req) => {
 
     const { data: senderAddress, error: senderError } = await supabase
       .from('addresses')
-      .select('id, lob_verified')
+      .select('id, line1, line2, city, state, zip, country, lob_verified')
       .eq('id', senderAddressId)
       .eq('user_id', user.id)
       .single();
@@ -177,6 +178,15 @@ serve(async (req) => {
     }
     if (!senderAddress.lob_verified) {
       return new Response(JSON.stringify({ error: 'Sender address must be verified before checkout' }), {
+        status: 422,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const recipientRestriction = getAddressRestriction(recipientAddress);
+    const senderRestriction = getAddressRestriction(senderAddress);
+    if (recipientRestriction || senderRestriction) {
+      return new Response(JSON.stringify({ error: recipientRestriction || senderRestriction }), {
         status: 422,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -211,6 +221,21 @@ serve(async (req) => {
         JSON.stringify({ error: 'Customer billing address is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
+    }
+
+    const billingRestriction = getAddressRestriction({
+      line1: addr.line1,
+      line2: addr.line2,
+      city: addr.city,
+      state: addr.state,
+      zip: addr.postalCode,
+      country: addr.country,
+    });
+    if (billingRestriction) {
+      return new Response(JSON.stringify({ error: billingRestriction }), {
+        status: 422,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const stripeHeaders = {
@@ -250,16 +275,21 @@ serve(async (req) => {
       taxAmountCents = taxData.tax_amount_exclusive ?? 0;
       taxCalculationId = taxData.id;
     } else {
-      // For non-transient errors (bad address, invalid params), fail hard
-      if (taxRes.status < 500) {
-        console.error('[create-payment-intent] Tax calculation error:', JSON.stringify(taxData));
-        return new Response(
-          JSON.stringify({ error: 'Tax calculation failed', detail: taxData }),
-          { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-        );
-      }
-      // Transient Stripe outage — proceed without tax
-      console.error('[create-payment-intent] Transient tax calc failure, proceeding without tax:', JSON.stringify(taxData));
+      console.error('[create-payment-intent] Tax calculation error:', JSON.stringify(taxData));
+      reportError(
+        'create-payment-intent',
+        'Stripe Tax calculation failed',
+        taxRes.status >= 500 ? 'error' : 'warning',
+        `userId=${reportUserId}; status=${taxRes.status}; response=${JSON.stringify(taxData).slice(0, 1000)}`,
+        reportUserEmail,
+      );
+      return new Response(
+        JSON.stringify({ error: 'Tax calculation is temporarily unavailable', detail: taxData }),
+        {
+          status: taxRes.status >= 500 ? 503 : 422,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      );
     }
 
     // Step 2: Create PaymentIntent with the tax-inclusive amount.
