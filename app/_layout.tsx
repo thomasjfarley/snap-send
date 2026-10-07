@@ -97,8 +97,12 @@ function AuthGate() {
 
     if (!onboardingComplete) {
       if (!inOnboarding) {
+        const signedInWithApple =
+          user.identities?.some((identity) => identity.provider === 'apple') ?? false;
         router.replace(
-          profile.full_name ? '/(onboarding)/your-address' : '/(onboarding)/profile-setup',
+          profile.full_name || signedInWithApple
+            ? '/(onboarding)/your-address'
+            : '/(onboarding)/profile-setup',
         );
       }
     } else {

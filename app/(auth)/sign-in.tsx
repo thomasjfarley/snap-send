@@ -13,10 +13,11 @@ import {
 import { useRouter } from 'expo-router';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as WebBrowser from 'expo-web-browser';
-import * as Crypto from 'expo-crypto';
 import { makeRedirectUri } from 'expo-auth-session';
 import { useAuthStore } from '@/store/auth.store';
+import { useProfileStore } from '@/store/profile.store';
 import { supabase } from '@/lib/supabase';
+import { signInWithApple } from '@/lib/apple-auth';
 import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
 import { FONT_SIZE, SPACING } from '@/constants/theme';
@@ -26,6 +27,7 @@ WebBrowser.maybeCompleteAuthSession();
 export default function SignInScreen() {
   const router = useRouter();
   const { signIn, loading } = useAuthStore();
+  const fetchProfile = useProfileStore((state) => state.fetch);
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [email, setEmail] = useState('');
@@ -79,30 +81,13 @@ export default function SignInScreen() {
   }
 
   async function handleAppleSignIn() {
-    try {
-      const rawNonce = Crypto.randomUUID();
-      const hashedNonce = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        rawNonce
-      );
-      const credential = await AppleAuthentication.signInAsync({
-        requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-          AppleAuthentication.AppleAuthenticationScope.EMAIL,
-        ],
-        nonce: hashedNonce,
-      });
-      if (!credential.identityToken) throw new Error('No identity token');
-      const { error } = await supabase.auth.signInWithIdToken({
-        provider: 'apple',
-        token: credential.identityToken,
-        nonce: rawNonce,
-      });
-      if (error) Alert.alert('Apple sign-in failed', error.message);
-    } catch (e: any) {
-      if (e?.code !== 'ERR_REQUEST_CANCELED') {
-        Alert.alert('Apple sign-in failed', e.message);
-      }
+    const result = await signInWithApple();
+    if (result.error) {
+      Alert.alert('Apple sign-in failed', result.error);
+      return;
+    }
+    if (result.user) {
+      await fetchProfile(result.user.id);
     }
   }
 
@@ -170,7 +155,7 @@ export default function SignInScreen() {
 
         <TouchableOpacity onPress={() => router.replace('/(auth)/sign-up')}>
           <Text style={styles.switchText}>
-            Don't have an account? <Text style={styles.link}>Sign up</Text>
+            Don&apos;t have an account? <Text style={styles.link}>Sign up</Text>
           </Text>
         </TouchableOpacity>
       </ScrollView>

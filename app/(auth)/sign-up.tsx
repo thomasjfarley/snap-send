@@ -13,10 +13,11 @@ import {
 import { useRouter } from 'expo-router';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as WebBrowser from 'expo-web-browser';
-import * as Crypto from 'expo-crypto';
 import { makeRedirectUri } from 'expo-auth-session';
 import { useAuthStore } from '@/store/auth.store';
+import { useProfileStore } from '@/store/profile.store';
 import { supabase } from '@/lib/supabase';
+import { signInWithApple } from '@/lib/apple-auth';
 import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
 import { FONT_SIZE, SPACING } from '@/constants/theme';
@@ -26,6 +27,7 @@ WebBrowser.maybeCompleteAuthSession();
 export default function SignUpScreen() {
   const router = useRouter();
   const { signUp, loading } = useAuthStore();
+  const fetchProfile = useProfileStore((state) => state.fetch);
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [fullName, setFullName] = useState('');
@@ -78,44 +80,13 @@ export default function SignUpScreen() {
   }
 
   async function handleAppleSignUp() {
-    try {
-      const rawNonce = Crypto.randomUUID();
-      const hashedNonce = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        rawNonce
-      );
-      const credential = await AppleAuthentication.signInAsync({
-        requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-          AppleAuthentication.AppleAuthenticationScope.EMAIL,
-        ],
-        nonce: hashedNonce,
-      });
-      if (!credential.identityToken) throw new Error('No identity token');
-      const fullNameStr = [credential.fullName?.givenName, credential.fullName?.familyName]
-        .filter(Boolean)
-        .join(' ');
-      const { data, error } = await supabase.auth.signInWithIdToken({
-        provider: 'apple',
-        token: credential.identityToken,
-        nonce: rawNonce,
-      });
-      if (error) {
-        Alert.alert('Apple sign-in failed', error.message);
-        return;
-      }
-      // Apple only provides the user's name on the very first sign-in.
-      // Persist it to the profile immediately while we have it.
-      if (fullNameStr && data.user) {
-        await supabase
-          .from('profiles')
-          .update({ full_name: fullNameStr })
-          .eq('id', data.user.id);
-      }
-    } catch (e: any) {
-      if (e?.code !== 'ERR_REQUEST_CANCELED') {
-        Alert.alert('Apple sign-in failed', e.message);
-      }
+    const result = await signInWithApple();
+    if (result.error) {
+      Alert.alert('Apple sign-in failed', result.error);
+      return;
+    }
+    if (result.user) {
+      await fetchProfile(result.user.id);
     }
   }
 
