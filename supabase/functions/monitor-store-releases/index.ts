@@ -18,6 +18,18 @@ interface Observation {
   checked_at: string | null;
 }
 
+class StoreApiError extends Error {
+  status: number | null;
+  transient: boolean;
+
+  constructor(message: string, status: number | null, transient: boolean) {
+    super(message);
+    this.name = 'StoreApiError';
+    this.status = status;
+    this.transient = transient;
+  }
+}
+
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 const APPLE_APP_ID = Deno.env.get('APPLE_APP_ID') ?? '';
@@ -32,6 +44,8 @@ const GOOGLE_PACKAGE_NAME = Deno.env.get('GOOGLE_PACKAGE_NAME') ?? '';
 
 const CONFIRMATION_DELAY_MS = 30 * 60 * 1000;
 const ALERT_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const TRANSIENT_ALERT_THRESHOLD = 3;
+const RETRY_DELAYS_MS = [1000, 3000];
 const RELEASED_APPLE_STATES = new Set(['READY_FOR_SALE', 'READY_FOR_DISTRIBUTION']);
 const VERSION_PATTERN = /^\d+(?:\.\d+)*$/;
 
@@ -42,24 +56,74 @@ function json(body: unknown, status = 200) {
   });
 }
 
-function assertConfiguration() {
-  const required = {
-    SUPABASE_URL,
-    SUPABASE_SERVICE_ROLE_KEY,
-    APPLE_APP_ID,
-    APPLE_ISSUER_ID,
-    APPLE_KEY_ID,
-    APPLE_PRIVATE_KEY,
-    GOOGLE_CLIENT_ID,
-    GOOGLE_CLIENT_SECRET,
-    GOOGLE_REFRESH_TOKEN,
-    GOOGLE_QUOTA_PROJECT,
-    GOOGLE_PACKAGE_NAME,
-  };
+function assertConfiguration(required: Record<string, string>) {
   const missing = Object.entries(required)
     .filter(([, value]) => !value)
     .map(([name]) => name);
   if (missing.length) throw new Error(`Missing required secrets: ${missing.join(', ')}`);
+}
+
+function isTransientStatus(status: number) {
+  return status === 429 || status >= 500;
+}
+
+function sleep(milliseconds: number) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function fetchJson(
+  label: string,
+  input: string,
+  init: RequestInit = {},
+): Promise<any> {
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      const response = await fetch(input, init);
+      const text = await response.text();
+      let body: any = null;
+
+      if (text) {
+        try {
+          body = JSON.parse(text);
+        } catch {
+          throw new StoreApiError(
+            `${label} ${response.status} returned invalid JSON`,
+            response.status,
+            response.ok || isTransientStatus(response.status),
+          );
+        }
+      }
+
+      if (!response.ok) {
+        throw new StoreApiError(
+          `${label} ${response.status}: ${JSON.stringify(body)}`,
+          response.status,
+          isTransientStatus(response.status),
+        );
+      }
+
+      return body;
+    } catch (error) {
+      const storeError =
+        error instanceof StoreApiError
+          ? error
+          : new StoreApiError(
+              `${label} network failure: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+              null,
+              true,
+            );
+
+      if (!storeError.transient || attempt === RETRY_DELAYS_MS.length) {
+        throw storeError;
+      }
+
+      await sleep(RETRY_DELAYS_MS[attempt]);
+    }
+  }
+
+  throw new StoreApiError(`${label} request failed`, null, true);
 }
 
 function compareVersions(left: string, right: string) {
@@ -85,17 +149,18 @@ async function appleToken() {
 }
 
 async function appleRequest(path: string, token: string) {
-  const response = await fetch(`https://api.appstoreconnect.apple.com${path}`, {
+  return fetchJson('Apple API', `https://api.appstoreconnect.apple.com${path}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  const body = await response.json();
-  if (!response.ok) {
-    throw new Error(`Apple API ${response.status}: ${JSON.stringify(body)}`);
-  }
-  return body;
 }
 
 async function getAppleCandidate(): Promise<StoreCandidate> {
+  assertConfiguration({
+    APPLE_APP_ID,
+    APPLE_ISSUER_ID,
+    APPLE_KEY_ID,
+    APPLE_PRIVATE_KEY,
+  });
   const token = await appleToken();
   const versions = await appleRequest(
     `/v1/apps/${APPLE_APP_ID}/appStoreVersions?filter%5Bplatform%5D=IOS&limit=50`,
@@ -110,19 +175,18 @@ async function getAppleCandidate(): Promise<StoreCandidate> {
   const version = released[0];
   if (!version) throw new Error('Apple has no released iOS version');
 
-  const publicResponse = await fetch(
+  const publicListing = await fetchJson(
+    'Apple public lookup',
     `https://itunes.apple.com/lookup?id=${APPLE_APP_ID}&country=us`,
   );
-  if (!publicResponse.ok) {
-    throw new Error(`Apple public lookup failed with ${publicResponse.status}`);
-  }
-  const publicListing = await publicResponse.json();
   const publicVersion = publicListing.results?.[0]?.version;
   if (publicVersion !== version.attributes.versionString) {
-    throw new Error(
+    throw new StoreApiError(
       `Apple release ${version.attributes.versionString} is not publicly propagated (public: ${
         publicVersion ?? 'none'
       })`,
+      null,
+      true,
     );
   }
 
@@ -140,7 +204,7 @@ async function getAppleCandidate(): Promise<StoreCandidate> {
 }
 
 async function googleAccessToken() {
-  const response = await fetch('https://oauth2.googleapis.com/token', {
+  const body = await fetchJson('Google OAuth', 'https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -150,15 +214,14 @@ async function googleAccessToken() {
       grant_type: 'refresh_token',
     }),
   });
-  const body = await response.json();
-  if (!response.ok || !body.access_token) {
-    throw new Error(`Google OAuth ${response.status}: ${JSON.stringify(body)}`);
+  if (!body?.access_token) {
+    throw new Error('Google OAuth returned no access token');
   }
   return body.access_token as string;
 }
 
 async function googleRequest(path: string, token: string, init: RequestInit = {}) {
-  const response = await fetch(`https://androidpublisher.googleapis.com${path}`, {
+  return fetchJson('Google Play API', `https://androidpublisher.googleapis.com${path}`, {
     ...init,
     headers: {
       Authorization: `Bearer ${token}`,
@@ -167,15 +230,16 @@ async function googleRequest(path: string, token: string, init: RequestInit = {}
       ...init.headers,
     },
   });
-  const text = await response.text();
-  const body = text ? JSON.parse(text) : null;
-  if (!response.ok) {
-    throw new Error(`Google Play API ${response.status}: ${JSON.stringify(body)}`);
-  }
-  return body;
 }
 
 async function getGoogleCandidate(): Promise<StoreCandidate> {
+  assertConfiguration({
+    GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET,
+    GOOGLE_REFRESH_TOKEN,
+    GOOGLE_QUOTA_PROJECT,
+    GOOGLE_PACKAGE_NAME,
+  });
   const token = await googleAccessToken();
   const packagePath = `/androidpublisher/v3/applications/${GOOGLE_PACKAGE_NAME}`;
   const edit = await googleRequest(`${packagePath}/edits`, token, {
@@ -220,26 +284,34 @@ async function recordError(
   error: unknown,
 ) {
   const message = error instanceof Error ? error.message : String(error);
+  const transient = error instanceof StoreApiError && error.transient;
   const now = new Date();
-  const { data: previous } = await supabase
+  const { data: previous, error: previousError } = await supabase
     .from('store_release_observations')
-    .select('last_error,last_alerted_at')
+    .select('last_error,last_alerted_at,consecutive_error_count')
     .eq('platform', platform)
     .single();
-  const shouldAlert =
-    previous?.last_error !== message ||
+  if (previousError) throw previousError;
+
+  const consecutiveErrorCount = (previous?.consecutive_error_count ?? 0) + 1;
+  const alertIntervalElapsed =
     !previous?.last_alerted_at ||
     now.getTime() - new Date(previous.last_alerted_at).getTime() >= ALERT_INTERVAL_MS;
+  const shouldAlert = transient
+    ? consecutiveErrorCount >= TRANSIENT_ALERT_THRESHOLD && alertIntervalElapsed
+    : previous?.last_error !== message || alertIntervalElapsed;
 
   const { error: updateError } = await supabase
     .from('store_release_observations')
     .update({
       checked_at: now.toISOString(),
       last_error: message.slice(0, 2000),
+      consecutive_error_count: consecutiveErrorCount,
     })
     .eq('platform', platform);
-  if (updateError) console.error(`Failed to record ${platform} monitor error`, updateError);
+  if (updateError) throw updateError;
 
+  let alerted = false;
   if (shouldAlert) {
     try {
       const response = await fetch(`${SUPABASE_URL}/functions/v1/report-error`, {
@@ -258,16 +330,25 @@ async function recordError(
       if (!response.ok) {
         throw new Error(`report-error returned ${response.status}`);
       }
-      await supabase
+      const { error: alertUpdateError } = await supabase
         .from('store_release_observations')
         .update({ last_alerted_at: now.toISOString() })
         .eq('platform', platform);
+      if (alertUpdateError) throw alertUpdateError;
+      alerted = true;
     } catch (alertError) {
       console.error(`Failed to alert for ${platform} monitor error`, alertError);
     }
   }
 
-  return { platform, status: 'error', error: message };
+  return {
+    platform,
+    status: 'error',
+    error: message,
+    transient,
+    consecutiveErrorCount,
+    alerted,
+  };
 }
 
 async function processCandidate(
@@ -291,14 +372,17 @@ async function processCandidate(
   const observation = data as Observation;
 
   if (candidate.buildNumber <= policy.minimum_build_number) {
-    await supabase
+    const { error: updateError } = await supabase
       .from('store_release_observations')
       .update({
         checked_at: now.toISOString(),
         last_observed_at: now.toISOString(),
         last_error: null,
+        last_alerted_at: null,
+        consecutive_error_count: 0,
       })
       .eq('platform', candidate.platform);
+    if (updateError) throw updateError;
     return { platform: candidate.platform, status: 'current', candidate };
   }
 
@@ -318,6 +402,8 @@ async function processCandidate(
         enforced_at: null,
         checked_at: now.toISOString(),
         last_error: null,
+        last_alerted_at: null,
+        consecutive_error_count: 0,
       })
       .eq('platform', candidate.platform);
     if (updateError) throw updateError;
@@ -336,6 +422,8 @@ async function processCandidate(
         observation_count: observationCount,
         checked_at: now.toISOString(),
         last_error: null,
+        last_alerted_at: null,
+        consecutive_error_count: 0,
       })
       .eq('platform', candidate.platform);
     if (updateError) throw updateError;
@@ -367,6 +455,8 @@ async function processCandidate(
       enforced_at: now.toISOString(),
       checked_at: now.toISOString(),
       last_error: null,
+      last_alerted_at: null,
+      consecutive_error_count: 0,
     })
     .eq('platform', candidate.platform);
   if (observationUpdateError) throw observationUpdateError;
@@ -378,7 +468,7 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
   try {
-    assertConfiguration();
+    assertConfiguration({ SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY });
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     const { data: claimed, error: claimError } = await supabase.rpc(

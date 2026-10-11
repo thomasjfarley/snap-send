@@ -51,6 +51,7 @@ export interface Database {
           checked_at: string | null;
           last_error: string | null;
           last_alerted_at: string | null;
+          consecutive_error_count: number;
         };
         Insert: {
           platform: 'ios' | 'android';
@@ -63,6 +64,7 @@ export interface Database {
           checked_at?: string | null;
           last_error?: string | null;
           last_alerted_at?: string | null;
+          consecutive_error_count?: number;
         };
         Update: {
           candidate_version?: string | null;
@@ -74,6 +76,7 @@ export interface Database {
           checked_at?: string | null;
           last_error?: string | null;
           last_alerted_at?: string | null;
+          consecutive_error_count?: number;
         };
       };
       profiles: {
