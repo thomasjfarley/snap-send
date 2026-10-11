@@ -6,6 +6,32 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export interface Database {
   public: {
     Tables: {
+      app_version_policy: {
+        Relationships: [];
+        Row: {
+          platform: 'ios' | 'android';
+          minimum_version: string;
+          latest_version: string;
+          message: string;
+          store_url: string;
+          updated_at: string;
+        };
+        Insert: {
+          platform: 'ios' | 'android';
+          minimum_version: string;
+          latest_version: string;
+          message?: string;
+          store_url: string;
+          updated_at?: string;
+        };
+        Update: {
+          minimum_version?: string;
+          latest_version?: string;
+          message?: string;
+          store_url?: string;
+          updated_at?: string;
+        };
+      };
       profiles: {
         Relationships: [];
         Row: {
@@ -157,6 +183,7 @@ export interface Database {
 
 // Convenience row types
 export type Profile = Database['public']['Tables']['profiles']['Row'];
+export type AppVersionPolicy = Database['public']['Tables']['app_version_policy']['Row'];
 export type Address = Database['public']['Tables']['addresses']['Row'];
 export type Postcard = Database['public']['Tables']['postcards']['Row'];
 export type Order = Database['public']['Tables']['orders']['Row'];

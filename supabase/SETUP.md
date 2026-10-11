@@ -94,3 +94,23 @@ After running migrations:
 ```sh
 npx supabase gen types typescript --project-id YOUR_PROJECT_REF > lib/database.types.ts
 ```
+## Required app updates
+
+The app reads `public.app_version_policy` at launch and whenever it returns to the
+foreground. To require an update after a new store release is available, update
+the matching platform row:
+
+```sql
+update public.app_version_policy
+set
+  minimum_version = '1.0.6',
+  latest_version = '1.0.6',
+  message = 'Update Snap Send to continue.',
+  updated_at = now()
+where platform = 'ios';
+```
+
+Only raise `minimum_version` after that version is available in the corresponding
+store. `latest_version` is informational and can be advanced without blocking
+older versions. The last successful policy is cached on-device, so a required
+update remains enforced during a temporary backend outage.

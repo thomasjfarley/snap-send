@@ -8,6 +8,7 @@ import { useProfileStore } from '@/store/profile.store';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 import { STRIPE_PUBLISHABLE_KEY } from '@/constants/config';
+import { RequiredUpdateGate } from '@/components/RequiredUpdateGate';
 
 // Suppress dev-mode LogBox overlays for errors we already handle gracefully
 // in the UI (retry dialog, refund flow). These are harmless in production
@@ -176,22 +177,24 @@ export default function RootLayout() {
   }
 
   return (
-    <StripeProvider
-      publishableKey={STRIPE_PUBLISHABLE_KEY}
-      merchantIdentifier="merchant.com.snapsend.live"
-      urlScheme="snapsend"
-    >
-      <StatusBar style={isDark ? 'light' : 'dark'} />
-      {Platform.OS !== 'web' && <StripeDeepLinkHandler />}
-      <AuthGate />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(onboarding)" />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="postcard" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="address" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="order" />
-      </Stack>
-    </StripeProvider>
+    <RequiredUpdateGate>
+      <StripeProvider
+        publishableKey={STRIPE_PUBLISHABLE_KEY}
+        merchantIdentifier="merchant.com.snapsend.live"
+        urlScheme="snapsend"
+      >
+        <StatusBar style={isDark ? 'light' : 'dark'} />
+        {Platform.OS !== 'web' && <StripeDeepLinkHandler />}
+        <AuthGate />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(onboarding)" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="postcard" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="address" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="order" />
+        </Stack>
+      </StripeProvider>
+    </RequiredUpdateGate>
   );
 }
