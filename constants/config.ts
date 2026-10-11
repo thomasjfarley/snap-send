@@ -1,11 +1,9 @@
-export const POSTCARD_PRICE_CENTS = 399; // $3.99
-export const INTERNATIONAL_POSTCARD_PRICE_CENTS = 499; // $4.99
-
-export function getPostcardPriceCents(destinationCountry?: string | null) {
-  return (destinationCountry || 'US').toUpperCase() === 'US'
-    ? POSTCARD_PRICE_CENTS
-    : INTERNATIONAL_POSTCARD_PRICE_CENTS;
-}
+export {
+  getPostcardPriceCents,
+  INTERNATIONAL_POSTCARD_PRICE_CENTS,
+  POSTCARD_PRICING_VERSION,
+  US_POSTCARD_PRICE_CENTS as POSTCARD_PRICE_CENTS,
+} from '@/shared/postcard-pricing';
 
 // Publishable keys are intentionally public — safe to commit.
 // In dev builds (__DEV__) the test key is used automatically so no real charges occur.

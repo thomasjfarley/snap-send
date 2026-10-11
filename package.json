@@ -8,6 +8,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "eslint . --ext .ts,.tsx",
+    "test:pricing": "node --no-warnings --test shared/postcard-pricing.test.mjs",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "deploy:functions": "npx supabase functions deploy submit-postcard --no-verify-jwt"
   },

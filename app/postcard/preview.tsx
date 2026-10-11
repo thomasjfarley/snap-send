@@ -13,7 +13,11 @@ import { FRAMES } from '@/constants/editor';
 import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
 import { FONT_SIZE, SPACING } from '@/constants/theme';
-import { getPostcardPriceCents, STRIPE_PUBLISHABLE_KEY } from '@/constants/config';
+import {
+  getPostcardPriceCents,
+  POSTCARD_PRICING_VERSION,
+  STRIPE_PUBLISHABLE_KEY,
+} from '@/constants/config';
 import { getMailingCountry, requiresInternationalRiskWarning } from '@/constants/countries';
 import { supabase } from '@/lib/supabase';
 import { GrayscaleImage } from '@/components/GrayscaleImage';
@@ -109,7 +113,7 @@ export default function PreviewScreen() {
   const destinationCountry = recipient?.country?.toUpperCase() || 'US';
   const senderCountry = personalAddress?.country?.toUpperCase() || 'US';
   const riskWarningRequired = requiresInternationalRiskWarning(destinationCountry);
-  const basePriceCents = getPostcardPriceCents(destinationCountry);
+  const basePriceCents = getPostcardPriceCents(senderCountry, destinationCountry);
   const [riskAccepted, setRiskAccepted] = useState(!riskWarningRequired);
   const [taxAmountCents, setTaxAmountCents] = useState<number | null>(null);
 
@@ -214,6 +218,7 @@ export default function PreviewScreen() {
           headers: { Authorization: `Bearer ${token}` },
           body: {
             testMode: __DEV__,
+            pricingVersion: POSTCARD_PRICING_VERSION,
             recipientAddressId: recipient.id,
             senderAddressId: personalAddress?.id,
             ...(personalAddress ? {
@@ -294,7 +299,7 @@ export default function PreviewScreen() {
       }
     })();
     return () => { cancelled = true; };
-  }, [destinationCountry, photoUri, recipient?.id, riskAccepted, riskWarningRequired]);
+  }, [destinationCountry, photoUri, recipient?.id, riskAccepted, riskWarningRequired, senderCountry]);
 
   const messageFontSize = useMemo(() => {
     const trimmed = (message ?? '').trim();

@@ -6,6 +6,11 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getAddressRestriction } from '../_shared/market-compliance.ts';
+import {
+  getLegacyPostcardPriceCents,
+  getPostcardPriceCents,
+  POSTCARD_PRICING_VERSION,
+} from '../../../shared/postcard-pricing.ts';
 
 const STRIPE_SECRET_KEY_LIVE = Deno.env.get('STRIPE_SECRET_KEY')!;
 const STRIPE_SECRET_KEY_TEST = Deno.env.get('STRIPE_SECRET_KEY_TEST')!;
@@ -22,8 +27,6 @@ function reportError(source: string, title: string, severity: 'warning' | 'error
   }).catch(() => {});
 }
 
-const DOMESTIC_PRICE_CENTS = 399;
-const INTERNATIONAL_PRICE_CENTS = 499;
 // General - Tangible Personal Property (provisional; confirm with tax advisor)
 const POSTCARD_TAX_CODE = 'txcd_99999999';
 
@@ -135,6 +138,7 @@ serve(async (req) => {
     const STRIPE_SECRET_KEY = testMode ? STRIPE_SECRET_KEY_TEST : STRIPE_SECRET_KEY_LIVE;
     const LOB_API_KEY = testMode ? LOB_API_KEY_TEST : LOB_API_KEY_LIVE;
     const addr = body?.customerAddress;
+    const pricingVersion = String(body?.pricingVersion ?? '');
     const recipientAddressId = String(body?.recipientAddressId ?? '');
     const senderAddressId = String(body?.senderAddressId ?? '');
     if (!recipientAddressId || !senderAddressId) {
@@ -199,10 +203,6 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    const postcardPriceCents = destinationCountry === 'US'
-      ? DOMESTIC_PRICE_CENTS
-      : INTERNATIONAL_PRICE_CENTS;
-
     const verification = await verifyRecipientAddress(recipientAddress, LOB_API_KEY, testMode);
     if (!verification.verified) {
       return new Response(
@@ -230,6 +230,9 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+    const postcardPriceCents = pricingVersion === POSTCARD_PRICING_VERSION
+      ? getPostcardPriceCents(billingCountry, destinationCountry)
+      : getLegacyPostcardPriceCents(destinationCountry);
 
     const billingRestriction = getAddressRestriction({
       line1: addr.line1,
@@ -312,6 +315,8 @@ serve(async (req) => {
       'metadata[recipient_address_id]': recipientAddress.id,
       'metadata[destination_country]': destinationCountry,
       'metadata[billing_country]': billingCountry,
+      'metadata[pricing_version]':
+        pricingVersion === POSTCARD_PRICING_VERSION ? POSTCARD_PRICING_VERSION : 'legacy',
       'metadata[base_price_cents]': String(postcardPriceCents),
       'metadata[tax_amount_cents]': String(taxAmountCents),
       'metadata[address_deliverability]': verification.deliverability ?? '',
