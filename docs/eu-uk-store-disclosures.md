@@ -4,10 +4,11 @@ This document is the submission checklist and source text for distributing
 Snap Send through Apple App Store and Google Play storefronts in the European
 Union and United Kingdom.
 
-Snap Send is free to download. Users purchase personalized physical postcards
-individually through Stripe. Apple and Google distribute the app but do not
-process postcard payments and are not the seller or merchant of record for
-postcard orders.
+Snap Send is free to download. Users purchase a personalized physical
+correspondence service through Stripe. Snap Send arranges the creation,
+printing, and postal delivery of each postcard. Apple and Google distribute the
+app but do not process postcard payments and are not the seller or merchant of
+record for postcard orders.
 
 ## Information that must be finalized
 
@@ -31,8 +32,9 @@ monetization status.
 
 ### EU Digital Services Act trader declaration
 
-Snap Send should be declared a **trader**. It is a commercial app that promotes
-and sells personalized physical postcards.
+Snap Send should be declared a **trader**. It is a commercial app offering a
+paid service for composing, printing, and mailing personalized physical
+correspondence.
 
 App Store Connect path:
 
@@ -58,10 +60,12 @@ product label or marking becomes legally required for the postcard product.
 
 Use this text when submitting the release that opens EU/UK availability:
 
-> Snap Send is free to download and sells personalized physical postcards.
-> Postcard payments are processed by Stripe because the transaction is for a
-> physical good. No digital content, subscription, app functionality, virtual
-> currency, or premium feature is unlocked by payment.
+> Snap Send is free to download and provides a paid service for composing,
+> printing, and mailing personalized physical correspondence. Postcard
+> payments are processed by Stripe because each paid transaction results in
+> the production and postal delivery of a physical postcard. No digital
+> content, subscription, app functionality, virtual currency, or premium
+> feature is unlocked by payment.
 >
 > The checkout page displays the postcard price in U.S. dollars and any tax
 > calculated by Stripe before the user confirms payment. The customer supplies
@@ -115,16 +119,19 @@ Verify:
 
 Use this text in policy-review responses or other reviewer instructions:
 
-> Snap Send is free to download. Users pay only when ordering a personalized
-> physical postcard that is printed and delivered through postal services.
-> Stripe processes the physical-goods payment. The purchase does not unlock
-> digital content, app functionality, subscriptions, virtual currency, or
-> other digital goods.
+> Snap Send is free to download. Users pay only for the service of composing,
+> printing, and mailing personalized physical correspondence. Each transaction
+> results in a physical postcard being produced and delivered through postal
+> services. Stripe processes the payment. The purchase does not unlock digital
+> content, app functionality, subscriptions, virtual currency, or other
+> digital goods.
 
 Google Play Billing must not be used for purchases of physical goods and
-physical services. Continue using Stripe only for the physical-postcard
-transaction. Any future digital-only product or premium app feature must be
-reviewed separately under Google Play's Payments policy.
+physical services. Snap Send's correspondence service falls within this
+category because payment results in a printed postcard being physically mailed.
+Continue using Stripe only for that transaction. Any future digital-only
+product or premium app feature must be reviewed separately under Google Play's
+Payments policy.
 
 ### Google Data Safety
 
@@ -158,8 +165,8 @@ or another objective legal limitation.
 
 Neither Apple nor Google currently documents a separate UK trader-verification
 form comparable to Apple's EU DSA process. Use the same seller identity,
-support contacts, pricing disclosure, Stripe physical-goods explanation, and
-consumer-rights language for UK customers.
+support contacts, pricing disclosure, physical correspondence and store-payment
+explanation, and consumer-rights language for UK customers.
 
 Before UK availability:
 
@@ -168,8 +175,8 @@ Before UK availability:
 - Display the complete price before payment.
 - State that prices are in U.S. dollars and banks may charge conversion fees.
 - Preserve non-waivable UK consumer rights.
-- Explain that personalized goods may be excluded from cancellation or
-  withdrawal rights once production begins.
+- Explain that personalized printed correspondence may be excluded from
+  cancellation or withdrawal rights once production begins.
 - Keep transaction and refund records by billing country and date.
 
 ## Store-listing transaction disclosure
@@ -177,8 +184,9 @@ Before UK availability:
 Add this paragraph to the full App Store and Google Play description when
 EU/UK distribution opens:
 
-> Snap Send is free to download. Physical postcards are purchased individually
-> in the app, with the complete price shown before payment. Payments are
+> Snap Send is free to download. Users pay individually for personalized
+> correspondence to be printed as a physical postcard and delivered through
+> postal services, with the complete price shown before payment. Payments are
 > processed securely by Stripe, and Snap Send does not store full card details.
 > Apple and Google do not process postcard payments or provide printing,
 > delivery, refund, or order-support services.
@@ -190,7 +198,8 @@ EU/UK distribution opens:
 3. Replace every placeholder in this document with verified information.
 4. Review Apple App Privacy and Google Data Safety answers.
 5. Confirm the Privacy Policy and Terms effective dates match the release.
-6. Add the physical-goods transaction explanation to reviewer notes.
+6. Add the physical correspondence and store-payment explanation to reviewer
+   notes.
 7. Add the store-listing transaction disclosure.
 8. Enable supported EU countries together unless an objective restriction
    applies.

@@ -119,10 +119,11 @@ export default function TermsOfServiceScreen() {
             (stripe.com/legal).
           </Para>
           <Para>
-            Each postcard purchase is a transaction with Snap Send for a personalized physical good. Apple
-            and Google provide the app distribution platform but are not the seller, merchant of record, or
-            payment processor for postcard orders and are not responsible for printing, delivery, refunds,
-            or customer support for those orders.
+            Each postcard purchase is a transaction with Snap Send for a personalized physical correspondence
+            service. Snap Send arranges the creation, printing, and mailing of the correspondence. Apple and
+            Google provide the app distribution platform but are not the seller, merchant of record, or payment
+            processor for postcard orders and are not responsible for printing, delivery, refunds, or customer
+            support for those orders.
           </Para>
 
           <Text style={[styles.subheading, { color: colors.textPrimary }]}>Refunds</Text>
@@ -135,8 +136,8 @@ export default function TermsOfServiceScreen() {
           </Para>
           <Para>
             Nothing in these Terms limits a non-waivable consumer right. Where applicable law provides a
-            cancellation or withdrawal right, personalized goods made to your specifications may be excluded
-            from that right once production begins.
+            cancellation or withdrawal right, the printed correspondence is made to your specifications and
+            may be excluded from that right once production begins.
           </Para>
         </Section>
 
