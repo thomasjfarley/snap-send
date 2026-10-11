@@ -223,6 +223,14 @@ serve(async (req) => {
       );
     }
 
+    const billingCountry = String(addr.country ?? 'US').toUpperCase();
+    if (!/^[A-Z]{2}$/.test(billingCountry)) {
+      return new Response(JSON.stringify({ error: 'Invalid billing country' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const billingRestriction = getAddressRestriction({
       line1: addr.line1,
       line2: addr.line2,
@@ -253,7 +261,7 @@ serve(async (req) => {
       'customer_details[address][line1]': addr.line1,
       'customer_details[address][city]': addr.city,
       'customer_details[address][postal_code]': addr.postalCode,
-      'customer_details[address][country]': addr.country ?? 'US',
+      'customer_details[address][country]': billingCountry,
       'customer_details[address_source]': 'billing',
     });
     if (addr.state) taxParams.set('customer_details[address][state]', addr.state);
@@ -303,7 +311,9 @@ serve(async (req) => {
       'metadata[sender_address_id]': senderAddress.id,
       'metadata[recipient_address_id]': recipientAddress.id,
       'metadata[destination_country]': destinationCountry,
+      'metadata[billing_country]': billingCountry,
       'metadata[base_price_cents]': String(postcardPriceCents),
+      'metadata[tax_amount_cents]': String(taxAmountCents),
       'metadata[address_deliverability]': verification.deliverability ?? '',
       'metadata[address_coverage]': verification.coverage ?? '',
       'metadata[address_status]': verification.status ?? '',

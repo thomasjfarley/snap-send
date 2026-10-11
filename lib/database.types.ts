@@ -79,6 +79,90 @@ export interface Database {
           consecutive_error_count?: number;
         };
       };
+      eu_uk_order_ledger: {
+        Relationships: [];
+        Row: {
+          id: string;
+          stripe_payment_intent_id: string;
+          stripe_tax_transaction_id: string | null;
+          user_id: string | null;
+          billing_country: string;
+          destination_country: string;
+          currency: string;
+          base_amount_cents: number;
+          tax_amount_cents: number;
+          gross_amount_cents: number;
+          livemode: boolean;
+          paid_at: string;
+          order_date: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          stripe_payment_intent_id: string;
+          stripe_tax_transaction_id?: string | null;
+          user_id?: string | null;
+          billing_country: string;
+          destination_country: string;
+          currency: string;
+          base_amount_cents: number;
+          tax_amount_cents: number;
+          gross_amount_cents: number;
+          livemode: boolean;
+          paid_at: string;
+          order_date: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          stripe_tax_transaction_id?: string | null;
+          user_id?: string | null;
+          billing_country?: string;
+          destination_country?: string;
+          currency?: string;
+          base_amount_cents?: number;
+          tax_amount_cents?: number;
+          gross_amount_cents?: number;
+          livemode?: boolean;
+          paid_at?: string;
+          order_date?: string;
+          updated_at?: string;
+        };
+      };
+      eu_uk_order_refunds: {
+        Relationships: [];
+        Row: {
+          stripe_refund_id: string;
+          stripe_payment_intent_id: string;
+          amount_cents: number;
+          currency: string;
+          status: string;
+          livemode: boolean;
+          refunded_at: string;
+          refund_date: string;
+          created_at: string;
+        };
+        Insert: {
+          stripe_refund_id: string;
+          stripe_payment_intent_id: string;
+          amount_cents: number;
+          currency: string;
+          status: string;
+          livemode: boolean;
+          refunded_at: string;
+          refund_date: string;
+          created_at?: string;
+        };
+        Update: {
+          amount_cents?: number;
+          currency?: string;
+          status?: string;
+          livemode?: boolean;
+          refunded_at?: string;
+          refund_date?: string;
+        };
+      };
       profiles: {
         Relationships: [];
         Row: {
@@ -221,7 +305,21 @@ export interface Database {
         };
       };
     };
-    Views: Record<string, never>;
+    Views: {
+      eu_uk_orders_by_country_date: {
+        Relationships: [];
+        Row: {
+          billing_country: string | null;
+          order_date: string | null;
+          order_count: number | null;
+          base_amount_cents: number | null;
+          tax_amount_cents: number | null;
+          gross_amount_cents: number | null;
+          refunded_amount_cents: number | null;
+          net_amount_cents: number | null;
+        };
+      };
+    };
     Functions: Record<string, never>;
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
@@ -231,6 +329,8 @@ export interface Database {
 // Convenience row types
 export type Profile = Database['public']['Tables']['profiles']['Row'];
 export type AppVersionPolicy = Database['public']['Tables']['app_version_policy']['Row'];
+export type EuUkOrderLedger = Database['public']['Tables']['eu_uk_order_ledger']['Row'];
+export type EuUkOrderRefund = Database['public']['Tables']['eu_uk_order_refunds']['Row'];
 export type Address = Database['public']['Tables']['addresses']['Row'];
 export type Postcard = Database['public']['Tables']['postcards']['Row'];
 export type Order = Database['public']['Tables']['orders']['Row'];

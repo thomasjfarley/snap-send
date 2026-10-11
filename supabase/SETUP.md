@@ -85,9 +85,15 @@ npx supabase functions deploy stripe-webhook
   - `payment_intent.succeeded`
   - `payment_intent.payment_failed`
   - `refund.created`
+  - `refund.updated`
 
 The succeeded and refund events create and reverse Stripe Tax transactions so
 the Stripe Tax reports match completed payments and full refunds.
+
+Paid orders whose billing country is the United Kingdom or an EU member state
+are also recorded in the service-only `eu_uk_order_ledger`. Refund events are
+stored separately, and `eu_uk_orders_by_country_date` summarizes order counts,
+gross amounts, tax, refunds, and net amounts by billing country and UTC date.
 
 ## 8. Regenerate TypeScript types (optional but recommended)
 After running migrations:

@@ -12,6 +12,11 @@ const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')!;
 const STRIPE_SECRET_KEY_TEST = Deno.env.get('STRIPE_SECRET_KEY_TEST') ?? '';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const EU_UK_COUNTRIES = new Set([
+  'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE',
+  'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT',
+  'RO', 'SK', 'SI', 'ES', 'SE', 'GB',
+]);
 
 function reportError(source: string, title: string, severity: 'warning' | 'error' | 'critical', details: string, userEmail = '') {
   fetch(`${SUPABASE_URL}/functions/v1/report-error`, {
@@ -46,6 +51,89 @@ async function verifyStripeSignature(body: string, signature: string, secret: st
     .join('');
 
   return computedSig === expectedSig;
+}
+
+function stripeDate(timestamp: unknown) {
+  const seconds = Number(timestamp);
+  if (!Number.isSafeInteger(seconds) || seconds <= 0) {
+    throw new Error(`Invalid Stripe timestamp: ${String(timestamp)}`);
+  }
+  return new Date(seconds * 1000);
+}
+
+function metadataAmount(value: unknown, label: string) {
+  const amount = Number(value);
+  if (!Number.isSafeInteger(amount) || amount < 0) {
+    throw new Error(`Invalid ${label}: ${String(value)}`);
+  }
+  return amount;
+}
+
+async function recordEuUkOrder(
+  supabase: ReturnType<typeof createClient>,
+  paymentIntent: any,
+  stripeTaxTransactionId: string | undefined,
+  paidTimestamp: unknown,
+) {
+  const billingCountry = String(paymentIntent.metadata?.billing_country ?? '').toUpperCase();
+  if (!EU_UK_COUNTRIES.has(billingCountry)) return false;
+
+  const { data: existing, error: existingError } = await supabase
+    .from('eu_uk_order_ledger')
+    .select('stripe_tax_transaction_id')
+    .eq('stripe_payment_intent_id', paymentIntent.id)
+    .maybeSingle();
+  if (existingError) throw existingError;
+  if (existing) {
+    if (!existing.stripe_tax_transaction_id && stripeTaxTransactionId) {
+      const { error: updateError } = await supabase
+        .from('eu_uk_order_ledger')
+        .update({
+          stripe_tax_transaction_id: stripeTaxTransactionId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('stripe_payment_intent_id', paymentIntent.id);
+      if (updateError) throw updateError;
+    }
+    return true;
+  }
+
+  const paidAt = stripeDate(paidTimestamp);
+  const grossAmountCents = metadataAmount(
+    paymentIntent.amount_received ?? paymentIntent.amount,
+    'gross amount',
+  );
+  const taxAmountCents = metadataAmount(
+    paymentIntent.metadata?.tax_amount_cents ?? 0,
+    'tax amount',
+  );
+  const baseAmountCents = metadataAmount(
+    paymentIntent.metadata?.base_price_cents ?? grossAmountCents - taxAmountCents,
+    'base amount',
+  );
+
+  const { error } = await supabase
+    .from('eu_uk_order_ledger')
+    .insert({
+      stripe_payment_intent_id: paymentIntent.id,
+      stripe_tax_transaction_id:
+        stripeTaxTransactionId ?? paymentIntent.metadata?.tax_transaction_id ?? null,
+      user_id: paymentIntent.metadata?.user_id || null,
+      billing_country: billingCountry,
+      destination_country: String(
+        paymentIntent.metadata?.destination_country ?? 'US',
+      ).toUpperCase(),
+      currency: String(paymentIntent.currency ?? 'usd').toLowerCase(),
+      base_amount_cents: baseAmountCents,
+      tax_amount_cents: taxAmountCents,
+      gross_amount_cents: grossAmountCents,
+      livemode: Boolean(paymentIntent.livemode),
+      paid_at: paidAt.toISOString(),
+      order_date: paidAt.toISOString().slice(0, 10),
+      updated_at: new Date().toISOString(),
+    });
+  if (error) throw error;
+  return true;
 }
 
 serve(async (req) => {
@@ -85,7 +173,13 @@ serve(async (req) => {
         if (!taxResult.succeeded) {
           throw new Error(`Failed to record Stripe Tax transaction for ${paymentIntent.id}`);
         }
-      } else if (event.type === 'refund.created') {
+        await recordEuUkOrder(
+          supabase,
+          paymentIntent,
+          taxResult.transactionId,
+          event.created ?? paymentIntent.created,
+        );
+      } else if (event.type === 'refund.created' || event.type === 'refund.updated') {
         const refund = event.data.object;
         const paymentIntentId = String(refund.payment_intent || '');
         reportPaymentIntentId = paymentIntentId;
@@ -100,26 +194,52 @@ serve(async (req) => {
         if (!piResponse.ok) {
           throw new Error(`Could not retrieve PaymentIntent ${paymentIntentId} for tax reversal`);
         }
-        if (refund.amount !== paymentIntent.amount) {
+        let taxTransactionId = paymentIntent.metadata?.tax_transaction_id;
+        if (event.type === 'refund.created' && refund.amount !== paymentIntent.amount) {
           reportError(
             'stripe-webhook',
             'Partial refund needs manual tax reversal',
             'warning',
             `refundId=${refund.id}; paymentIntentId=${paymentIntentId}; refundAmount=${refund.amount}; paymentAmount=${paymentIntent.amount}`,
           );
-        } else {
-          let transactionId = paymentIntent.metadata?.tax_transaction_id;
-          if (!transactionId) {
+        } else if (event.type === 'refund.created') {
+          if (!taxTransactionId) {
             const taxResult = await recordTaxTransaction(
               stripeKey,
               paymentIntentId,
               paymentIntent.metadata?.tax_calculation,
             );
-            transactionId = taxResult.transactionId;
+            taxTransactionId = taxResult.transactionId;
           }
-          if (!transactionId || !await reverseTaxTransaction(stripeKey, paymentIntentId, transactionId)) {
+          if (
+            !taxTransactionId ||
+            !await reverseTaxTransaction(stripeKey, paymentIntentId, taxTransactionId)
+          ) {
             throw new Error(`Failed to reverse Stripe Tax transaction for ${paymentIntentId}`);
           }
+        }
+
+        const tracked = await recordEuUkOrder(
+          supabase,
+          paymentIntent,
+          taxTransactionId,
+          paymentIntent.created,
+        );
+        if (tracked) {
+          const refundedAt = stripeDate(refund.created ?? event.created);
+          const { error: refundError } = await supabase
+            .from('eu_uk_order_refunds')
+            .upsert({
+              stripe_refund_id: refund.id,
+              stripe_payment_intent_id: paymentIntentId,
+              amount_cents: refund.amount,
+              currency: String(refund.currency ?? paymentIntent.currency ?? 'usd').toLowerCase(),
+              status: String(refund.status ?? 'unknown'),
+              livemode: Boolean(event.livemode),
+              refunded_at: refundedAt.toISOString(),
+              refund_date: refundedAt.toISOString().slice(0, 10),
+            }, { onConflict: 'stripe_refund_id' });
+          if (refundError) throw refundError;
         }
       } else if (event.type === 'payment_intent.payment_failed') {
         const paymentIntentId: string = event.data.object.id;
