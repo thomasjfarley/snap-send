@@ -12,7 +12,9 @@ export type NativePlatform = 'ios' | 'android';
 
 export interface RequiredUpdate {
   currentVersion: string;
+  currentBuildNumber: number;
   minimumVersion: string;
+  minimumBuildNumber: number;
   latestVersion: string;
   message: string;
   storeUrl: string;
@@ -49,6 +51,12 @@ function isPolicy(value: unknown): value is AppVersionPolicy {
     isNativePlatform(policy.platform ?? '') &&
     typeof policy.minimum_version === 'string' &&
     typeof policy.latest_version === 'string' &&
+    typeof policy.minimum_build_number === 'number' &&
+    Number.isSafeInteger(policy.minimum_build_number) &&
+    policy.minimum_build_number > 0 &&
+    typeof policy.latest_build_number === 'number' &&
+    Number.isSafeInteger(policy.latest_build_number) &&
+    policy.latest_build_number > 0 &&
     typeof policy.message === 'string' &&
     typeof policy.store_url === 'string' &&
     parseVersion(policy.minimum_version) !== null &&
@@ -101,8 +109,14 @@ export async function getRequiredUpdate(): Promise<RequiredUpdate | null> {
 
   const platform = Platform.OS;
   const currentVersion = Constants.nativeAppVersion ?? Constants.expoConfig?.version;
+  const currentBuildNumber = Number(Constants.nativeBuildVersion);
   if (!currentVersion || !parseVersion(currentVersion)) {
     throw new Error(`Unable to determine the installed app version: "${currentVersion ?? ''}"`);
+  }
+  if (!Number.isSafeInteger(currentBuildNumber) || currentBuildNumber <= 0) {
+    throw new Error(
+      `Unable to determine the installed app build number: "${Constants.nativeBuildVersion ?? ''}"`,
+    );
   }
 
   let policy: AppVersionPolicy | null = null;
@@ -113,13 +127,15 @@ export async function getRequiredUpdate(): Promise<RequiredUpdate | null> {
     policy = await readCachedPolicy(platform);
   }
 
-  if (!policy || compareVersions(currentVersion, policy.minimum_version) >= 0) {
+  if (!policy || currentBuildNumber >= policy.minimum_build_number) {
     return null;
   }
 
   return {
     currentVersion,
+    currentBuildNumber,
     minimumVersion: policy.minimum_version,
+    minimumBuildNumber: policy.minimum_build_number,
     latestVersion: policy.latest_version,
     message: policy.message,
     storeUrl: policy.store_url,

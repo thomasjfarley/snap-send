@@ -77,7 +77,8 @@ export function RequiredUpdateGate({ children }: RequiredUpdateGateProps) {
         <Text style={styles.title}>Update required</Text>
         <Text style={styles.message}>{requiredUpdate.message}</Text>
         <Text style={styles.version}>
-          Installed: {requiredUpdate.currentVersion} · Required: {requiredUpdate.minimumVersion}
+          Installed: {requiredUpdate.currentVersion} ({requiredUpdate.currentBuildNumber}) · Required:{' '}
+          {requiredUpdate.minimumVersion} ({requiredUpdate.minimumBuildNumber})
         </Text>
         <TouchableOpacity style={styles.button} onPress={openStore}>
           <Text style={styles.buttonText}>

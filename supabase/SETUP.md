@@ -97,20 +97,26 @@ npx supabase gen types typescript --project-id YOUR_PROJECT_REF > lib/database.t
 ## Required app updates
 
 The app reads `public.app_version_policy` at launch and whenever it returns to the
-foreground. To require an update after a new store release is available, update
-the matching platform row:
+foreground.
 
-```sql
-update public.app_version_policy
-set
-  minimum_version = '1.0.6',
-  latest_version = '1.0.6',
-  message = 'Update Snap Send to continue.',
-  updated_at = now()
-where platform = 'ios';
-```
+`monitor-store-releases` runs every 15 minutes and updates this table
+automatically. Apple releases must be in a released App Store Connect state and
+visible through Apple's public lookup API. Google releases must have a completed
+production rollout. The same candidate must be observed for at least 30 minutes
+before its native build number is enforced.
 
-Only raise `minimum_version` after that version is available in the corresponding
-store. `latest_version` is informational and can be advanced without blocking
-older versions. The last successful policy is cached on-device, so a required
-update remains enforced during a temporary backend outage.
+The app compares native build numbers (`CFBundleVersion` on iOS and `versionCode`
+on Android), while semantic versions are retained for display. iOS and Android
+are enforced independently. The last successful policy is cached on-device, so
+a required update remains enforced during a temporary backend outage.
+
+The function requires these Edge Function secrets:
+
+- `APPLE_APP_ID`, `APPLE_ISSUER_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`
+- `GOOGLE_QUOTA_PROJECT`, `GOOGLE_PACKAGE_NAME`
+
+The `store_monitor_publishable_key` Vault secret authorizes the scheduled
+invocation. Store API failures are recorded in `store_release_observations` and
+reported through the central `report-error` function at most once per platform
+per day for the same recurring error.

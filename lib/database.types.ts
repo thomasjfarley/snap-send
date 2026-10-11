@@ -12,6 +12,8 @@ export interface Database {
           platform: 'ios' | 'android';
           minimum_version: string;
           latest_version: string;
+          minimum_build_number: number;
+          latest_build_number: number;
           message: string;
           store_url: string;
           updated_at: string;
@@ -20,6 +22,8 @@ export interface Database {
           platform: 'ios' | 'android';
           minimum_version: string;
           latest_version: string;
+          minimum_build_number: number;
+          latest_build_number: number;
           message?: string;
           store_url: string;
           updated_at?: string;
@@ -27,9 +31,49 @@ export interface Database {
         Update: {
           minimum_version?: string;
           latest_version?: string;
+          minimum_build_number?: number;
+          latest_build_number?: number;
           message?: string;
           store_url?: string;
           updated_at?: string;
+        };
+      };
+      store_release_observations: {
+        Relationships: [];
+        Row: {
+          platform: 'ios' | 'android';
+          candidate_version: string | null;
+          candidate_build_number: number | null;
+          first_observed_at: string | null;
+          last_observed_at: string | null;
+          observation_count: number;
+          enforced_at: string | null;
+          checked_at: string | null;
+          last_error: string | null;
+          last_alerted_at: string | null;
+        };
+        Insert: {
+          platform: 'ios' | 'android';
+          candidate_version?: string | null;
+          candidate_build_number?: number | null;
+          first_observed_at?: string | null;
+          last_observed_at?: string | null;
+          observation_count?: number;
+          enforced_at?: string | null;
+          checked_at?: string | null;
+          last_error?: string | null;
+          last_alerted_at?: string | null;
+        };
+        Update: {
+          candidate_version?: string | null;
+          candidate_build_number?: number | null;
+          first_observed_at?: string | null;
+          last_observed_at?: string | null;
+          observation_count?: number;
+          enforced_at?: string | null;
+          checked_at?: string | null;
+          last_error?: string | null;
+          last_alerted_at?: string | null;
         };
       };
       profiles: {
