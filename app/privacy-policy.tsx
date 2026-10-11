@@ -48,12 +48,12 @@ export default function PrivacyPolicyScreen() {
           <Text style={styles.back}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Privacy Policy</Text>
-        <Text style={styles.effective}>Effective Date: October 6, 2026</Text>
+        <Text style={styles.effective}>Effective Date: October 11, 2026</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Para>
-          Snap Send ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy
+          Snap Send (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;) is committed to protecting your privacy. This Privacy Policy
           explains how we collect, use, and share your information when you use the Snap Send mobile application.
         </Para>
 
@@ -82,6 +82,12 @@ export default function PrivacyPolicyScreen() {
             sensitive payment details on our servers. Stripe retains payment information per their own
             Privacy Policy (stripe.com/privacy).
           </Para>
+          <Para>
+            We retain limited transaction records needed to operate the service and meet accounting,
+            tax, fraud-prevention, and legal obligations. These records may include Stripe transaction
+            identifiers, purchase and refund dates, amounts, currency, tax amounts, and billing and
+            destination country codes. They do not include your full card number or CVV.
+          </Para>
 
           <Text style={[styles.subheading, { color: colors.textPrimary }]}>Usage Data</Text>
           <Para>
@@ -96,6 +102,7 @@ export default function PrivacyPolicyScreen() {
           <Bullet>Process and fulfill postcard orders</Bullet>
           <Bullet>Communicate with you about your orders or account</Bullet>
           <Bullet>Improve and maintain the Snap Send service</Bullet>
+          <Bullet>Maintain transaction, refund, and country-level compliance records</Bullet>
           <Bullet>Comply with legal obligations</Bullet>
         </Section>
 
@@ -137,7 +144,10 @@ export default function PrivacyPolicyScreen() {
           <Para>
             We retain your account information and order history for as long as your account is active.
             You may request deletion of your data by contacting us at support@snapsend.live. We process
-            deletion requests within 48 hours.
+            account-deletion requests within 48 hours. We may retain transaction, tax, fraud-prevention,
+            dispute, and other records for the period required by law or reasonably necessary to establish,
+            exercise, or defend legal claims. Where practical, retained records are minimized or
+            de-identified.
           </Para>
         </Section>
 

@@ -48,13 +48,13 @@ export default function TermsOfServiceScreen() {
           <Text style={styles.back}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Terms of Service</Text>
-        <Text style={styles.effective}>Effective Date: October 6, 2026</Text>
+        <Text style={styles.effective}>Effective Date: October 11, 2026</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Para>
           Welcome to Snap Send. By creating an account or using the Snap Send application, you agree to
-          these Terms of Service ("Terms"). Please read them carefully.
+          these Terms of Service (&quot;Terms&quot;). Please read them carefully.
         </Para>
 
         <Section title="1. About Snap Send">
@@ -88,7 +88,7 @@ export default function TermsOfServiceScreen() {
           </Para>
           <Bullet>Is illegal, obscene, pornographic, defamatory, threatening, or harassing</Bullet>
           <Bullet>Contains hate speech or content that promotes discrimination, violence, or hostility toward any individual or group based on race, ethnicity, religion, gender, sexual orientation, disability, or national origin</Bullet>
-          <Bullet>Infringes on any third party's intellectual property or privacy rights</Bullet>
+          <Bullet>Infringes on any third party&apos;s intellectual property or privacy rights</Bullet>
           <Bullet>Contains spam, advertising, or unsolicited commercial messages</Bullet>
           <Bullet>Depicts minors in any inappropriate manner</Bullet>
           <Bullet>Violates any applicable local, state, national, or international law</Bullet>
@@ -106,12 +106,23 @@ export default function TermsOfServiceScreen() {
             you will be charged. Prices are presented in U.S. dollars, and your bank may charge currency
             conversion or international transaction fees.
           </Para>
+          <Para>
+            Prices may vary based on the customer billing country and postcard destination because fulfillment,
+            regulatory, and regional operating costs differ. The complete price and any separately calculated
+            tax are shown before payment.
+          </Para>
 
           <Text style={[styles.subheading, { color: colors.textPrimary }]}>Payment Processing</Text>
           <Para>
             All payments are processed securely through Stripe. By submitting payment, you authorize us
-            to charge the displayed amount to your payment method. You agree to Stripe's Terms of Service
+            to charge the displayed amount to your payment method. You agree to Stripe&apos;s Terms of Service
             (stripe.com/legal).
+          </Para>
+          <Para>
+            Each postcard purchase is a transaction with Snap Send for a personalized physical good. Apple
+            and Google provide the app distribution platform but are not the seller, merchant of record, or
+            payment processor for postcard orders and are not responsible for printing, delivery, refunds,
+            or customer support for those orders.
           </Para>
 
           <Text style={[styles.subheading, { color: colors.textPrimary }]}>Refunds</Text>
@@ -122,12 +133,17 @@ export default function TermsOfServiceScreen() {
             1 hour of placing it and we will make every reasonable effort to assist. Refunds for printing
             or delivery errors on our part will be handled on a case-by-case basis.
           </Para>
+          <Para>
+            Nothing in these Terms limits a non-waivable consumer right. Where applicable law provides a
+            cancellation or withdrawal right, personalized goods made to your specifications may be excluded
+            from that right once production begins.
+          </Para>
         </Section>
 
         <Section title="6. Delivery">
           <Para>
             Domestic postcards are generally mailed through USPS. International postcards are transferred
-            to the destination country's postal service. Delivery estimates shown in the app are estimates
+            to the destination country&apos;s postal service. Delivery estimates shown in the app are estimates
             only; international delivery may take several weeks and may be affected by customs, local mail
             service, holidays, or service suspensions.
           </Para>
@@ -160,7 +176,7 @@ export default function TermsOfServiceScreen() {
           </Para>
           <Para>
             You represent and warrant that you have all necessary rights to the photos and content you
-            submit, and that submitting them does not violate any third party's rights.
+            submit, and that submitting them does not violate any third party&apos;s rights.
           </Para>
         </Section>
 
@@ -174,7 +190,7 @@ export default function TermsOfServiceScreen() {
 
         <Section title="10. Disclaimer of Warranties">
           <Para>
-            Snap Send is provided "as is" and "as available" without warranties of any kind, either
+            Snap Send is provided &quot;as is&quot; and &quot;as available&quot; without warranties of any kind, either
             express or implied, including but not limited to implied warranties of merchantability,
             fitness for a particular purpose, or non-infringement. We do not warrant that the service
             will be uninterrupted, error-free, or that defects will be corrected.
