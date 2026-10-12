@@ -1,7 +1,6 @@
 export {
   getPostcardPriceCents,
   INTERNATIONAL_POSTCARD_PRICE_CENTS,
-  POSTCARD_PRICING_VERSION,
   US_POSTCARD_PRICE_CENTS as POSTCARD_PRICE_CENTS,
 } from '@/shared/postcard-pricing';
 

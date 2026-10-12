@@ -204,8 +204,8 @@ EU/UK distribution opens:
 8. Enable supported EU countries together unless an objective restriction
    applies.
 9. Enable the United Kingdom when the product rollout is approved.
-10. Confirm the EU/UK pricing-version release displays the same amount Stripe
-    charges.
+10. Confirm the release displays $3.99 for U.S. destinations and $4.99 for all
+    international destinations, matching the amount Stripe charges.
 11. Keep the EU/UK order ledger and refund report operational.
 
 ## Authoritative references

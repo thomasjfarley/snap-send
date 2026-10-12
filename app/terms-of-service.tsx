@@ -107,9 +107,8 @@ export default function TermsOfServiceScreen() {
             conversion or international transaction fees.
           </Para>
           <Para>
-            Prices may vary based on the customer billing country and postcard destination because fulfillment,
-            regulatory, and regional operating costs differ. The complete price and any separately calculated
-            tax are shown before payment.
+            Domestic and international postcard prices may differ based on the destination. The complete price
+            and any separately calculated tax are shown before payment.
           </Para>
 
           <Text style={[styles.subheading, { color: colors.textPrimary }]}>Payment Processing</Text>

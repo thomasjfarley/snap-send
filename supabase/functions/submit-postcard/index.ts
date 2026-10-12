@@ -3,11 +3,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getAddressRestriction } from '../_shared/market-compliance.ts';
 import { recordTaxTransaction } from '../_shared/stripe-tax.ts';
-import {
-  getLegacyPostcardPriceCents,
-  getPostcardPriceCents,
-  POSTCARD_PRICING_VERSION,
-} from '../../../shared/postcard-pricing.ts';
+import { getPostcardPriceCents } from '../../../shared/postcard-pricing.ts';
 import { Image } from 'https://deno.land/x/imagescript@1.3.0/mod.ts';
 
 const STRIPE_SECRET_KEY_LIVE = Deno.env.get('STRIPE_SECRET_KEY')!;
@@ -398,15 +394,10 @@ serve(async (req) => {
     }
 
     const destinationCountry = String(recipientAddress.country || 'US').toUpperCase();
-    const metadataBillingCountry = String(pi.metadata.billing_country || '');
-    const billingCountry = (metadataBillingCountry || 'US').toUpperCase();
-    const expectedBasePrice = pi.metadata.pricing_version === POSTCARD_PRICING_VERSION
-      ? getPostcardPriceCents(billingCountry, destinationCountry)
-      : getLegacyPostcardPriceCents(destinationCountry);
+    const expectedBasePrice = getPostcardPriceCents(destinationCountry);
     if (
       pi.metadata.sender_address_id !== fromAddressId ||
       pi.metadata.recipient_address_id !== toAddressId ||
-      (metadataBillingCountry && metadataBillingCountry !== billingCountry) ||
       pi.metadata.destination_country !== destinationCountry ||
       Number(pi.metadata.base_price_cents) !== expectedBasePrice
     ) {

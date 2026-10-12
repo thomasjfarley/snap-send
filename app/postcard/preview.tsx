@@ -15,7 +15,6 @@ import type { AppColors } from '@/constants/theme';
 import { FONT_SIZE, SPACING } from '@/constants/theme';
 import {
   getPostcardPriceCents,
-  POSTCARD_PRICING_VERSION,
   STRIPE_PUBLISHABLE_KEY,
 } from '@/constants/config';
 import { getMailingCountry, requiresInternationalRiskWarning } from '@/constants/countries';
@@ -113,7 +112,7 @@ export default function PreviewScreen() {
   const destinationCountry = recipient?.country?.toUpperCase() || 'US';
   const senderCountry = personalAddress?.country?.toUpperCase() || 'US';
   const riskWarningRequired = requiresInternationalRiskWarning(destinationCountry);
-  const basePriceCents = getPostcardPriceCents(senderCountry, destinationCountry);
+  const basePriceCents = getPostcardPriceCents(destinationCountry);
   const [riskAccepted, setRiskAccepted] = useState(!riskWarningRequired);
   const [taxAmountCents, setTaxAmountCents] = useState<number | null>(null);
 
@@ -218,7 +217,6 @@ export default function PreviewScreen() {
           headers: { Authorization: `Bearer ${token}` },
           body: {
             testMode: __DEV__,
-            pricingVersion: POSTCARD_PRICING_VERSION,
             recipientAddressId: recipient.id,
             senderAddressId: personalAddress?.id,
             ...(personalAddress ? {
