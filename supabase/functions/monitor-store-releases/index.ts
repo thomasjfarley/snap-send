@@ -172,19 +172,26 @@ async function getAppleCandidate(): Promise<StoreCandidate> {
     .sort((left: any, right: any) =>
       compareVersions(right.attributes.versionString, left.attributes.versionString)
     );
-  const version = released[0];
-  if (!version) throw new Error('Apple has no released iOS version');
+  if (!released.length) throw new Error('Apple has no released iOS version');
 
   const publicListing = await fetchJson(
     'Apple public lookup',
     `https://itunes.apple.com/lookup?id=${APPLE_APP_ID}&country=us`,
   );
   const publicVersion = publicListing.results?.[0]?.version;
-  if (publicVersion !== version.attributes.versionString) {
+  if (!VERSION_PATTERN.test(publicVersion ?? '')) {
     throw new StoreApiError(
-      `Apple release ${version.attributes.versionString} is not publicly propagated (public: ${
-        publicVersion ?? 'none'
-      })`,
+      `Apple public lookup returned an invalid version: ${publicVersion ?? 'none'}`,
+      null,
+      true,
+    );
+  }
+  const version = released.find(
+    (item: any) => item.attributes.versionString === publicVersion,
+  );
+  if (!version) {
+    throw new StoreApiError(
+      `Apple public release ${publicVersion} was not found among released App Store Connect versions`,
       null,
       true,
     );
