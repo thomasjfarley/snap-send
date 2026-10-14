@@ -12,7 +12,7 @@ export type NativePlatform = 'ios' | 'android';
 
 export interface RequiredUpdate {
   currentVersion: string;
-  currentBuildNumber: number;
+  currentBuildNumber: number | null;
   minimumVersion: string;
   minimumBuildNumber: number;
   latestVersion: string;
@@ -113,11 +113,8 @@ export async function getRequiredUpdate(): Promise<RequiredUpdate | null> {
   if (!currentVersion || !parseVersion(currentVersion)) {
     throw new Error(`Unable to determine the installed app version: "${currentVersion ?? ''}"`);
   }
-  if (!Number.isSafeInteger(currentBuildNumber) || currentBuildNumber <= 0) {
-    throw new Error(
-      `Unable to determine the installed app build number: "${Constants.nativeBuildVersion ?? ''}"`,
-    );
-  }
+  const hasValidBuildNumber =
+    Number.isSafeInteger(currentBuildNumber) && currentBuildNumber > 0;
 
   let policy: AppVersionPolicy | null = null;
   try {
@@ -127,13 +124,18 @@ export async function getRequiredUpdate(): Promise<RequiredUpdate | null> {
     policy = await readCachedPolicy(platform);
   }
 
-  if (!policy || currentBuildNumber >= policy.minimum_build_number) {
+  if (!policy) {
     return null;
   }
 
+  const updateRequired = hasValidBuildNumber
+    ? currentBuildNumber < policy.minimum_build_number
+    : compareVersions(currentVersion, policy.minimum_version) < 0;
+  if (!updateRequired) return null;
+
   return {
     currentVersion,
-    currentBuildNumber,
+    currentBuildNumber: hasValidBuildNumber ? currentBuildNumber : null,
     minimumVersion: policy.minimum_version,
     minimumBuildNumber: policy.minimum_build_number,
     latestVersion: policy.latest_version,

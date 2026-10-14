@@ -45,7 +45,13 @@ export function RequiredUpdateGate({ children }: RequiredUpdateGateProps) {
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') checkForUpdate(false);
     });
-    return () => subscription.remove();
+    const retryInterval = setInterval(() => {
+      if (AppState.currentState === 'active') checkForUpdate(false);
+    }, 60_000);
+    return () => {
+      subscription.remove();
+      clearInterval(retryInterval);
+    };
   }, [checkForUpdate]);
 
   async function openStore() {
@@ -77,7 +83,11 @@ export function RequiredUpdateGate({ children }: RequiredUpdateGateProps) {
         <Text style={styles.title}>Update required</Text>
         <Text style={styles.message}>{requiredUpdate.message}</Text>
         <Text style={styles.version}>
-          Installed: {requiredUpdate.currentVersion} ({requiredUpdate.currentBuildNumber}) · Required:{' '}
+          Installed: {requiredUpdate.currentVersion}
+          {requiredUpdate.currentBuildNumber === null
+            ? ' (build unavailable)'
+            : ` (${requiredUpdate.currentBuildNumber})`}{' '}
+          · Required:{' '}
           {requiredUpdate.minimumVersion} ({requiredUpdate.minimumBuildNumber})
         </Text>
         <TouchableOpacity style={styles.button} onPress={openStore}>

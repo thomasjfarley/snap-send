@@ -15,7 +15,8 @@ import type { AppColors } from '@/constants/theme';
 import Constants from 'expo-constants';
 import { requestStoreReview } from '@/lib/store-review';
 
-const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
+const APP_VERSION = Constants.nativeAppVersion ?? Constants.expoConfig?.version ?? 'Unknown';
+const APP_BUILD = Constants.nativeBuildVersion ?? 'Unavailable';
 
 function SectionHeader({ title }: { title: string }) {
   const { colors } = useTheme();
@@ -251,7 +252,7 @@ export default function SettingsScreen() {
         {/* About */}
         <SectionHeader title="About" />
         <View style={styles.card}>
-          <SettingsRow label="Version" value={APP_VERSION} />
+          <SettingsRow label="Version" value={`${APP_VERSION} (${APP_BUILD})`} />
           <SettingsRow
             label="Privacy Policy"
             onPress={() => router.push('/privacy-policy')}
