@@ -8,6 +8,7 @@ import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
 import { FONT_SIZE, SPACING } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { analytics } from '@/lib/analytics';
 
 export default function PostcardPhotoScreen() {
   const router = useRouter();
@@ -69,6 +70,7 @@ export default function PostcardPhotoScreen() {
       quality: 1,
     });
     if (!result.canceled && result.assets[0]) {
+      analytics.postcardStarted();
       setPhoto(result.assets[0].uri);
       return;
     }
@@ -104,6 +106,7 @@ export default function PostcardPhotoScreen() {
       } catch {
         // non-fatal
       }
+      analytics.postcardStarted();
       setPhoto(result.assets[0].uri);
       return;
     }

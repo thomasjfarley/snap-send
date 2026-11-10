@@ -20,6 +20,8 @@ import {
 import { getMailingCountry, requiresInternationalRiskWarning } from '@/constants/countries';
 import { supabase } from '@/lib/supabase';
 import { GrayscaleImage } from '@/components/GrayscaleImage';
+import { analytics } from '@/lib/analytics';
+import { getAnalyticsContext } from '@/store/analytics.store';
 
 const SUPPORT_EMAIL = 'support@snapsend.live';
 
@@ -125,6 +127,10 @@ export default function PreviewScreen() {
   }, [photoUri, recipient]);
 
   useEffect(() => {
+    if (photoUri && recipient) analytics.beginCheckout(basePriceCents, destinationCountry);
+  }, [photoUri, recipient, basePriceCents, destinationCountry]);
+
+  useEffect(() => {
     if (!recipient || !riskWarningRequired || riskAccepted || riskPromptShownRef.current) return;
     riskPromptShownRef.current = true;
     const countryName = getMailingCountry(destinationCountry).name;
@@ -213,10 +219,12 @@ export default function PreviewScreen() {
         }
 
         // Step 3: Create PaymentIntent and initialize the sheet
+        const analyticsContext = await getAnalyticsContext();
         const { data: piData, error: piError } = await supabase.functions.invoke('create-payment-intent', {
           headers: { Authorization: `Bearer ${token}` },
           body: {
             testMode: __DEV__,
+            analyticsContext,
             recipientAddressId: recipient.id,
             senderAddressId: personalAddress?.id,
             ...(personalAddress ? {
@@ -425,7 +433,8 @@ export default function PreviewScreen() {
         sendInProgressRef.current = false;
         return;
       }
-      // Payment confirmed — mark so retries skip this step
+      // Payment confirmed — mark so retries skip this step. The purchase event is
+      // reported server-side from the verified Stripe payment (stripe-webhook).
       paymentConfirmedRef.current = true;
       sheetInitializedRef.current = false; // sheet is consumed; can't re-use
     }
@@ -521,6 +530,7 @@ export default function PreviewScreen() {
       }
 
       submittedRef.current = true;
+      analytics.postcardSent();
       paymentConfirmedRef.current = false;
       submissionPayloadRef.current = null;
       errorLogRef.current = [];

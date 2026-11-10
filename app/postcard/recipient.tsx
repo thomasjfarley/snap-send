@@ -11,6 +11,7 @@ import type { Address } from '@/lib/database.types';
 import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
 import { FONT_SIZE, SPACING } from '@/constants/theme';
+import { analytics } from '@/lib/analytics';
 
 export default function RecipientScreen() {
   const router = useRouter();
@@ -32,6 +33,11 @@ export default function RecipientScreen() {
 
   function handleSelect(address: Address) {
     setRecipient(address);
+    analytics.postcardCompleted(
+      !!usePostcardStore.getState().photoUri &&
+        !!usePostcardStore.getState().message?.trim() &&
+        address.lob_verified !== false,
+    );
     router.push('/postcard/preview');
   }
 

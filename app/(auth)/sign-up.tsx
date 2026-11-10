@@ -21,6 +21,7 @@ import { signInWithApple } from '@/lib/apple-auth';
 import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
 import { FONT_SIZE, SPACING } from '@/constants/theme';
+import { analytics } from '@/lib/analytics';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -44,6 +45,7 @@ export default function SignUpScreen() {
       return;
     }
     const { error } = await signUp(email.trim(), password, fullName.trim());
+    if (!error) analytics.signUp('email');
     if (!error || error.toLowerCase().includes('security purposes') || error.toLowerCase().includes('already registered')) {
       Alert.alert('Check your email', 'We sent a confirmation link to ' + email.trim() + '. Tap it to activate your account.\n\nIf you don\'t see it, check your junk or spam folder.');
     } else {
@@ -75,6 +77,7 @@ export default function SignUpScreen() {
       const refreshToken = url.searchParams.get('refresh_token');
       if (accessToken && refreshToken) {
         await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+        analytics.signUp('google');
       }
     }
   }
@@ -86,6 +89,7 @@ export default function SignUpScreen() {
       return;
     }
     if (result.user) {
+      analytics.signUp('apple');
       await fetchProfile(result.user.id);
     }
   }

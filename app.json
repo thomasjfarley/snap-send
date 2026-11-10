@@ -15,6 +15,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.snapsend.live",
+      "googleServicesFile": "./GoogleService-Info.plist",
       "appStoreUrl": "https://apps.apple.com/app/id6762068752",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -30,6 +31,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.snapsend.live",
+      "googleServicesFile": "./google-services.json",
       "blockedPermissions": [
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_MEDIA_VIDEO"
@@ -74,7 +76,19 @@
         {
           "merchantIdentifier": "merchant.com.snapsend.live"
         }
-      ]
+      ],
+      "@react-native-firebase/app",
+      "@react-native-firebase/analytics",
+      "./plugins/withFirebaseNoIdfa",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "dynamic"
+          }
+        }
+      ],
+      "expo-localization"
     ],
     "experiments": {
       "typedRoutes": false

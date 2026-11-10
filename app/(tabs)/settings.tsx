@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  Alert, TextInput, ActivityIndicator, Platform,
+  Alert, TextInput, ActivityIndicator, Platform, Switch,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,6 +14,7 @@ import { FONT_SIZE, SPACING } from '@/constants/theme';
 import type { AppColors } from '@/constants/theme';
 import Constants from 'expo-constants';
 import { requestStoreReview } from '@/lib/store-review';
+import { useAnalyticsStore, useAnalyticsEnabled } from '@/store/analytics.store';
 
 const APP_VERSION = Constants.nativeAppVersion ?? Constants.expoConfig?.version ?? 'Unknown';
 const APP_BUILD = Constants.nativeBuildVersion ?? 'Unavailable';
@@ -91,6 +92,8 @@ export default function SettingsScreen() {
   }, [user?.id]);
 
   const personalAddress = addresses.find((a) => a.is_personal);
+  const analyticsEnabled = useAnalyticsEnabled();
+  const setAnalyticsEnabled = useAnalyticsStore((s) => s.setChoice);
 
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(profile?.full_name ?? '');
@@ -246,6 +249,21 @@ export default function SettingsScreen() {
           <SettingsRow
             label="Address Book"
             onPress={() => router.push('/(tabs)/address-book')}
+          />
+        </View>
+
+        {/* Privacy */}
+        <SectionHeader title="Privacy" />
+        <View style={styles.card}>
+          <SettingsRow
+            label="Share usage analytics"
+            rightElement={
+              <Switch
+                value={analyticsEnabled}
+                onValueChange={setAnalyticsEnabled}
+                trackColor={{ true: colors.primary }}
+              />
+            }
           />
         </View>
 

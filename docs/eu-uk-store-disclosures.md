@@ -92,8 +92,26 @@ Confirm before enabling EU storefronts:
   - Purchase history and transaction identifiers
   - Location information if transmitted off-device
   - Diagnostics or usage data if later added
+  - Analytics (Google Analytics for Firebase), see the table below
 - App Review has an active demo account and the exact username
   `support@snapsend.live`.
+
+#### Apple App Privacy: analytics additions
+
+Add these in **App Store Connect -> App Privacy**. Apple has no API for this
+form; it must be edited manually, then published.
+
+| Apple data type | Collected | Linked to user | Used for tracking | Purpose |
+|---|---|---|---|---|
+| Usage Data -> Product Interaction | Yes | Yes (Firebase user ID is the account ID) | No | Analytics |
+| Identifiers -> Device ID (Firebase app-instance ID) | Yes | Yes | No | Analytics |
+| Purchases -> Purchase History | Already declared | Yes | No | App Functionality, Analytics |
+| Identifiers -> User ID | Already declared | Yes | No | App Functionality, Analytics |
+
+- Do not answer "tracking": data is not combined with other companies' data
+  for advertising and no ATT prompt is used. Revisit if Meta SDK, an
+  attribution partner, or Google Ads linking is added.
+- Confirm Google's Firebase disclosure guidance before publishing.
 
 ## Google Play Console
 
@@ -149,6 +167,16 @@ Expected disclosures include:
 | User ID | Account and order association | Collected |
 | Purchase history | Orders, refunds, support and compliance | Collected |
 | Payment data | Processed by Stripe; Snap Send does not receive full card data | Service-provider processing |
+| App activity -> App interactions | Analytics (screens, funnel events) via Google Analytics for Firebase | Collected; optional (EU/UK users opt in, others can opt out in Settings -> Privacy) |
+| Device or other IDs | Firebase app-instance ID, analytics | Collected; optional |
+| Approximate location | Country/region derived from IP by Firebase, analytics | Collected; optional |
+
+Google Play Data Safety has no API; edit it manually in Play Console. For the
+analytics rows: purpose is **Analytics**, data is processed by Google as a
+service provider (not "shared" for advertising), and collection is **optional**
+because users can decline or turn it off. Check Google's "Firebase and Google
+Play Data safety" guidance for the exact Firebase Analytics data types before
+submitting.
 
 The Data Safety form must link to the current Privacy Policy and accurately
 describe the in-app account-deletion mechanism.

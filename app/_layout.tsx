@@ -1,6 +1,6 @@
 import { useEffect, useCallback } from 'react';
 import { ActivityIndicator, Linking, LogBox, Platform, View } from 'react-native';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, usePathname, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as ExpoLinking from 'expo-linking';
 import { useAuthStore } from '@/store/auth.store';
@@ -9,6 +9,9 @@ import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 import { STRIPE_PUBLISHABLE_KEY } from '@/constants/config';
 import { RequiredUpdateGate } from '@/components/RequiredUpdateGate';
+import { logScreenView, setAnalyticsUserId } from '@/lib/analytics';
+import { useAnalyticsEnabled } from '@/store/analytics.store';
+import { AnalyticsConsentPrompt } from '@/components/AnalyticsConsentPrompt';
 
 // Suppress dev-mode LogBox overlays for errors we already handle gracefully
 // in the UI (retry dialog, refund flow). These are harmless in production
@@ -54,6 +57,23 @@ function StripeDeepLinkHandler() {
     const sub = Linking.addEventListener('url', (event) => handleDeepLink(event.url));
     return () => sub.remove();
   }, [handleDeepLink]);
+
+  return null;
+}
+
+function AnalyticsTracker() {
+  const pathname = usePathname();
+  const userId = useAuthStore((s) => s.user?.id ?? null);
+  // Subscribing also initializes the store, which re-applies a saved opt-out at launch
+  const enabled = useAnalyticsEnabled();
+
+  useEffect(() => {
+    if (enabled && pathname) logScreenView(pathname);
+  }, [pathname, enabled]);
+
+  useEffect(() => {
+    setAnalyticsUserId(enabled ? userId : null);
+  }, [userId, enabled]);
 
   return null;
 }
@@ -186,7 +206,9 @@ export default function RootLayout() {
         <StatusBar style={isDark ? 'light' : 'dark'} />
         {Platform.OS !== 'web' && <StripeDeepLinkHandler />}
         <AuthGate />
-        <Stack screenOptions={{ headerShown: false }}>
+        <AnalyticsTracker />
+        <AnalyticsConsentPrompt />
+        <Stack  screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(onboarding)" />
           <Stack.Screen name="(tabs)" />

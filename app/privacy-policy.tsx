@@ -48,7 +48,7 @@ export default function PrivacyPolicyScreen() {
           <Text style={styles.back}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Privacy Policy</Text>
-        <Text style={styles.effective}>Effective Date: October 11, 2026</Text>
+        <Text style={styles.effective}>Effective Date: November 2, 2026</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -91,8 +91,24 @@ export default function PrivacyPolicyScreen() {
 
           <Text style={[styles.subheading, { color: colors.textPrimary }]}>Usage Data</Text>
           <Para>
-            We may collect information about how you use the app — such as order history and in-app
-            activity — to improve our service.
+            We collect information about how you use the app — such as order history and in-app
+            activity — to improve our service. We use Google Analytics for Firebase, a service
+            provided by Google, to collect analytics data such as when you first open or install
+            the app, the screens you view, actions you take (for example signing up, starting a
+            postcard, or completing a purchase), basic device and app information (such as device
+            model, operating system, app version, and approximate location derived from your IP
+            address), and a unique app-instance identifier. If you are signed in, we also associate
+            your account ID with this data. Google processes this data under its own privacy policy
+            (policies.google.com/privacy). We use it only to understand and improve Snap Send; we do
+            not use it for third-party advertising.
+          </Para>
+          <Para>
+            If you are in the European Economic Area, the United Kingdom, or Switzerland, analytics
+            is off until you choose to allow it: we ask for your consent the first time you open the
+            app, and we rely on that consent as our legal basis. You can withdraw or change your
+            choice at any time in Settings → Privacy → Share usage analytics. In other regions,
+            analytics is on by default and you can turn it off in the same place. When turned off,
+            the app stops sending analytics data and resets its analytics identifier.
           </Para>
         </Section>
 
@@ -101,7 +117,7 @@ export default function PrivacyPolicyScreen() {
           <Bullet>Create and manage your account</Bullet>
           <Bullet>Process and fulfill postcard orders</Bullet>
           <Bullet>Communicate with you about your orders or account</Bullet>
-          <Bullet>Improve and maintain the Snap Send service</Bullet>
+          <Bullet>Improve and maintain the Snap Send service, including through usage analytics</Bullet>
           <Bullet>Maintain transaction, refund, and country-level compliance records</Bullet>
           <Bullet>Comply with legal obligations</Bullet>
         </Section>
@@ -113,6 +129,7 @@ export default function PrivacyPolicyScreen() {
           <Bullet>Stripe — payment processing (stripe.com/privacy)</Bullet>
           <Bullet>Supabase — authentication, database, and file storage (supabase.com/privacy)</Bullet>
           <Bullet>Google — sign-in via Google OAuth (policies.google.com/privacy)</Bullet>
+          <Bullet>Google Analytics for Firebase — app usage analytics (policies.google.com/privacy)</Bullet>
           <Bullet>Google Cloud Vision — automated safety screening of postcard images</Bullet>
           <Bullet>Apple — sign-in via Apple (apple.com/legal/privacy)</Bullet>
           <Bullet>

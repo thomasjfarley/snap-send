@@ -320,6 +320,18 @@ serve(async (req) => {
     });
     if (taxCalculationId) piParams.set('metadata[tax_calculation]', taxCalculationId);
 
+    // Lets the webhook report the verified purchase to GA4 (only present when the user allows analytics)
+    const ga = body?.analyticsContext;
+    if (
+      ga && typeof ga.appInstanceId === 'string' && /^[A-Za-z0-9]{16,64}$/.test(ga.appInstanceId) &&
+      (ga.platform === 'ios' || ga.platform === 'android')
+    ) {
+      piParams.set('metadata[ga_app_instance_id]', ga.appInstanceId);
+      piParams.set('metadata[ga_platform]', ga.platform);
+      if (typeof ga.creationId === 'string' && /^[A-Za-z0-9-]{8,64}$/.test(ga.creationId)) {
+        piParams.set('metadata[ga_creation_id]', ga.creationId);
+      }
+    }
     const piRes = await fetch('https://api.stripe.com/v1/payment_intents', {
       method: 'POST',
       headers: stripeHeaders,

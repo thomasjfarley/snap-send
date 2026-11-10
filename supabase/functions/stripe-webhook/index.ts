@@ -5,6 +5,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { recordTaxTransaction, reverseTaxTransaction } from '../_shared/stripe-tax.ts';
+import { sendGa4Purchase } from '../_shared/ga4.ts';
 
 const STRIPE_WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET')!;
 const STRIPE_WEBHOOK_SECRET_TEST = Deno.env.get('STRIPE_WEBHOOK_SECRET_TEST') ?? '';
@@ -179,6 +180,17 @@ serve(async (req) => {
           taxResult.transactionId,
           event.created ?? paymentIntent.created,
         );
+        // Analytics must never fail the payment webhook
+        try {
+          await sendGa4Purchase(supabase, paymentIntent, event.created ?? paymentIntent.created);
+        } catch (gaError) {
+          reportError(
+            'stripe-webhook',
+            'GA4 purchase event failed',
+            'warning',
+            `paymentIntentId=${paymentIntent.id}; error=${gaError instanceof Error ? gaError.message : String(gaError)}`,
+          );
+        }
       } else if (event.type === 'refund.created' || event.type === 'refund.updated') {
         const refund = event.data.object;
         const paymentIntentId = String(refund.payment_intent || '');

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "249035465635",
+    "project_id": "snapsend-postcards",
+    "storage_bucket": "snapsend-postcards.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:249035465635:android:45edf5a8bfd5334090f016",
+        "android_client_info": {
+          "package_name": "com.snapsend.live"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC87H3bZ_2UnwOcGEn38dhAnSkEZaKM8S4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
