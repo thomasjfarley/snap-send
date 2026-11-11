@@ -114,7 +114,9 @@ export default function PreviewScreen() {
   const destinationCountry = recipient?.country?.toUpperCase() || 'US';
   const senderCountry = personalAddress?.country?.toUpperCase() || 'US';
   const riskWarningRequired = requiresInternationalRiskWarning(destinationCountry);
-  const basePriceCents = getPostcardPriceCents(destinationCountry);
+  // null until the lookup finishes, so begin_checkout isn't logged with the wrong price
+  const [atCost, setAtCost] = useState<boolean | null>(null);
+  const basePriceCents = getPostcardPriceCents(destinationCountry, atCost === true);
   const [riskAccepted, setRiskAccepted] = useState(!riskWarningRequired);
   const [taxAmountCents, setTaxAmountCents] = useState<number | null>(null);
 
@@ -122,13 +124,29 @@ export default function PreviewScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data } = user
+          ? await supabase.from('at_cost_accounts').select('user_id').eq('user_id', user.id).maybeSingle()
+          : { data: null };
+        if (!cancelled) setAtCost(!!data);
+      } catch {
+        if (!cancelled) setAtCost(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
     if (submittedRef.current) return;
     if (!photoUri || !recipient) router.replace('/postcard');
   }, [photoUri, recipient]);
 
   useEffect(() => {
-    if (photoUri && recipient) analytics.beginCheckout(basePriceCents, destinationCountry);
-  }, [photoUri, recipient, basePriceCents, destinationCountry]);
+    if (atCost !== null && photoUri && recipient) analytics.beginCheckout(basePriceCents, destinationCountry);
+  }, [atCost, photoUri, recipient, basePriceCents, destinationCountry]);
 
   useEffect(() => {
     if (!recipient || !riskWarningRequired || riskAccepted || riskPromptShownRef.current) return;

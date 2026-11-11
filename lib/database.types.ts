@@ -38,6 +38,12 @@ export interface Database {
           updated_at?: string;
         };
       };
+      at_cost_accounts: {
+        Relationships: [];
+        Row: { user_id: string; created_at: string };
+        Insert: { user_id: string; created_at?: string };
+        Update: { user_id?: string; created_at?: string };
+      };
       store_release_observations: {
         Relationships: [];
         Row: {

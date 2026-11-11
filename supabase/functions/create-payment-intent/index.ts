@@ -228,7 +228,12 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    const postcardPriceCents = getPostcardPriceCents(destinationCountry);
+    const { data: atCostRow } = await supabase
+      .from('at_cost_accounts')
+      .select('user_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    const postcardPriceCents = getPostcardPriceCents(destinationCountry, !!atCostRow);
 
     const billingRestriction = getAddressRestriction({
       line1: addr.line1,

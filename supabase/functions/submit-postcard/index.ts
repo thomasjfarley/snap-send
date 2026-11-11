@@ -405,7 +405,12 @@ serve(async (req) => {
     }
 
     const destinationCountry = String(recipientAddress.country || 'US').toUpperCase();
-    const expectedBasePrice = getPostcardPriceCents(destinationCountry);
+    const { data: atCostRow } = await supabase
+      .from('at_cost_accounts')
+      .select('user_id')
+      .eq('user_id', userId)
+      .maybeSingle();
+    const expectedBasePrice = getPostcardPriceCents(destinationCountry, !!atCostRow);
     if (
       pi.metadata.sender_address_id !== fromAddressId ||
       pi.metadata.recipient_address_id !== toAddressId ||
