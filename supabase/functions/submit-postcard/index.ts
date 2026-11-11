@@ -739,6 +739,17 @@ serve(async (req) => {
       },
     };
 
+    // Emoji-heavy messages can exceed Lob's 10k inline-HTML limit; factor the
+    // shared storage URL prefix into a <base> tag and use relative srcs.
+    if (lobBody.back.length > 9500) {
+      const prefix = lobBody.back.match(/src="(https:\/\/[^"]*\/emoji\/)/)?.[1];
+      if (prefix) {
+        lobBody.back = lobBody.back
+          .split(`src="${prefix}`).join('src="')
+          .replace('<head>', `<head><base href="${prefix}">`);
+      }
+    }
+
     console.log(`[submit-postcard] Lob back HTML length: ${lobBody.back.length}`);
 
     const lobRes = await fetch(`${LOB_BASE_URL}/postcards`, {
