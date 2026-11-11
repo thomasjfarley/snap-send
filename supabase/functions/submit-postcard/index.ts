@@ -130,14 +130,14 @@ function roundCorners(image: InstanceType<typeof Image>, radius: number): void {
 // modern Unicode emojis (15+) including newer Android emojis.
 // Matches full emoji sequences: flag pairs, simple emoji, skin-tone variants,
 // and ZWJ sequences (e.g. 👨‍👩‍👧).
-const EMOJI_REGEX = /\p{Regional_Indicator}{2}|\p{Extended_Pictographic}(?:\uFE0F\u20E3?|[\u{1F3FB}-\u{1F3FF}])?(?:\u200D\p{Extended_Pictographic}(?:\uFE0F\u20E3?|[\u{1F3FB}-\u{1F3FF}])?)*/gu;
+const EMOJI_REGEX = /[#*0-9]\uFE0F?\u20E3|\u{1F3F4}[\u{E0020}-\u{E007E}]+\u{E007F}|\p{Regional_Indicator}{2}|\p{Extended_Pictographic}(?:\uFE0F\u20E3?|[\u{1F3FB}-\u{1F3FF}])?(?:\u200D\p{Extended_Pictographic}(?:\uFE0F\u20E3?|[\u{1F3FB}-\u{1F3FF}])?)*/gu;
 
 // CDN sources to try in order when an emoji is not yet cached in Supabase Storage.
-// Noto uses underscore-separated codepoints prefixed with "emoji_u".
-// jsDelivr is tried first (fast CDN mirror), GitHub raw as fallback.
+// Google's Noto host serves every current emoji (the noto-emoji repo's png/ folder was
+// removed from main); Twemoji is a fallback. Codes use "_" separators and may need U+FE0F.
 const EMOJI_CDN_URLS = [
-  (code: string) => `https://cdn.jsdelivr.net/gh/googlefonts/noto-emoji@main/png/128/emoji_u${code.replace(/-/g, '_')}.png`,
-  (code: string) => `https://raw.githubusercontent.com/googlefonts/noto-emoji/main/png/128/emoji_u${code.replace(/-/g, '_')}.png`,
+  (code: string) => `https://fonts.gstatic.com/s/e/notoemoji/latest/${code.replace(/-/g, '_')}/512.png`,
+  (code: string) => `https://cdn.jsdelivr.net/gh/jdecked/twemoji@latest/assets/72x72/${code.replace(/_/g, '-')}.png`,
 ];
 
 // Lob may not assume UTF-8 for the HTML it renders; iOS keyboards type curly quotes (U+2019),
@@ -151,13 +151,13 @@ function encodeNonAsciiAsEntities(html: string): string {
   return out;
 }
 
-function emojiToCode(emoji: string): string {
+function emojiToCode(emoji: string, keepVariationSelector = false): string {
   // Spread by Unicode code points (not UTF-16 code units) so surrogate pairs
-  // are handled correctly, then join hex values with dashes.
-  // Strip U+FE0F (variation selector-16) — Noto/Twemoji filenames never include it.
+  // are handled correctly, then join hex values with dashes. The cache key strips
+  // U+FE0F (variation selector-16); CDN lookups also retry with it kept.
   return [...emoji]
     .map(c => c.codePointAt(0)!.toString(16))
-    .filter(hex => hex !== 'fe0f')
+    .filter(hex => keepVariationSelector || hex !== 'fe0f')
     .join('-');
 }
 
@@ -167,6 +167,7 @@ function emojiToCode(emoji: string): string {
 async function getOrCacheEmojiUrl(
   supabase: ReturnType<typeof createClient>,
   code: string,
+  fullCode = code,
 ): Promise<string | null> {
   const fileName = `${code}.png`;
   const { data: { publicUrl } } = supabase.storage.from('emoji').getPublicUrl(fileName);
@@ -178,18 +179,21 @@ async function getOrCacheEmojiUrl(
   } catch { /* fall through to upload */ }
 
   // Slow path: fetch from CDN and cache in Supabase Storage
+  const candidates = [...new Set([code, fullCode])];
   for (const makeUrl of EMOJI_CDN_URLS) {
-    try {
-      const res = await fetch(makeUrl(code));
-      if (!res.ok) continue;
-      const bytes = await res.arrayBuffer();
-      const { error } = await supabase.storage
-        .from('emoji')
-        .upload(fileName, bytes, { contentType: 'image/png', upsert: true });
-      if (error) console.error(`[submit-postcard] emoji storage upload failed for ${code}: ${error.message}`);
-      return publicUrl; // URL is deterministic regardless of upload success
-    } catch (err) {
-      console.error(`[submit-postcard] emoji CDN fetch threw for ${code}:`, err);
+    for (const candidate of candidates) {
+      try {
+        const res = await fetch(makeUrl(candidate));
+        if (!res.ok) continue;
+        const bytes = await res.arrayBuffer();
+        const { error } = await supabase.storage
+          .from('emoji')
+          .upload(fileName, bytes, { contentType: 'image/png', upsert: true });
+        if (error) console.error(`[submit-postcard] emoji storage upload failed for ${code}: ${error.message}`);
+        return publicUrl; // URL is deterministic regardless of upload success
+      } catch (err) {
+        console.error(`[submit-postcard] emoji CDN fetch threw for ${candidate}:`, err);
+      }
     }
   }
 
@@ -214,7 +218,7 @@ async function replaceEmojisWithHtmlImages(
   const emojiUrls = new Map<string, string | null>();
   await Promise.all(uniqueEmojis.map(async (emoji) => {
     const code = emojiToCode(emoji);
-    emojiUrls.set(emoji, await getOrCacheEmojiUrl(supabase, code));
+    emojiUrls.set(emoji, await getOrCacheEmojiUrl(supabase, code, emojiToCode(emoji, true)));
   }));
 
   return text.replace(EMOJI_REGEX, (emoji) => {
