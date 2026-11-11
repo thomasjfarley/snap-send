@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  KeyboardAvoidingView, Platform, ActivityIndicator, FlatList,
+  KeyboardAvoidingView, Platform, ActivityIndicator, FlatList, Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,6 +13,7 @@ import { FONT_SIZE, SPACING } from '@/constants/theme';
 
 const MAX_CHARS = 500;
 const MAX_LINES = 18;
+const MAX_EMOJIS = 60;
 // Lob renders at 10px min, 219px content width. At 0.5 avg char width: 43 chars/line.
 // Using 40 as a conservative safety margin.
 const LOB_CHARS_PER_LINE = 40;
@@ -94,6 +95,14 @@ export default function MessageScreen() {
 
   function handleNext() {
     if (message.trim().length === 0) return;
+    const emojiCount = (message.match(EMOJI_REGEX) ?? []).length;
+    if (emojiCount > MAX_EMOJIS) {
+      Alert.alert(
+        'Oops, that’s a lot of emojis!',
+        `Emojis take a lot of rendering on a postcard, so we have to limit them to ${MAX_EMOJIS}. Your message has ${emojiCount}. Please remove ${emojiCount - MAX_EMOJIS} to continue.`,
+      );
+      return;
+    }
     router.push('/postcard/recipient');
   }
 

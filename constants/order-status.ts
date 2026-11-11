@@ -41,7 +41,7 @@ export const POSTCARD_STATUS_INFO: Record<
   },
   failed: {
     label: 'Failed', color: '#991B1B', bg: '#FEE2E2', emoji: '❌',
-    desc: 'Something went wrong with this order.',
+    desc: "We couldn't complete this order. Any payment is automatically refunded to your original payment method within 5–10 business days.",
   },
 };
 

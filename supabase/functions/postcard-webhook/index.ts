@@ -43,7 +43,7 @@ const STATUS_RANK: Record<string, number> = {
   failed: 5,
 };
 
-async function refundPaymentIntent(paymentIntentId: string): Promise<void> {
+async function refundPaymentIntent(paymentIntentId: string): Promise<boolean> {
   try {
     const res = await fetch('https://api.stripe.com/v1/refunds', {
       method: 'POST',
@@ -64,6 +64,7 @@ async function refundPaymentIntent(paymentIntentId: string): Promise<void> {
       );
     } else {
       console.log('[postcard-webhook] Stripe refund issued:', data.id, 'for PI', paymentIntentId);
+      return true;
     }
   } catch (err) {
     console.error('[postcard-webhook] Stripe refund threw:', err);
@@ -73,6 +74,44 @@ async function refundPaymentIntent(paymentIntentId: string): Promise<void> {
       'error',
       `paymentIntentId=${paymentIntentId}; error=${err instanceof Error ? `${err.name}: ${err.message}` : String(err)}`,
     );
+  }
+  return false;
+}
+
+// Lets the customer know their order failed and has been refunded.
+async function sendRefundEmail(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+): Promise<void> {
+  try {
+    const { data, error } = await supabase.auth.admin.getUserById(userId);
+    const to = data?.user?.email;
+    if (error || !to) {
+      console.error('[postcard-webhook] refund email: no email for user', userId, error?.message);
+      return;
+    }
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${Deno.env.get('RESEND_API_KEY')}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'Snap Send <support@snapsend.live>',
+        to: [to],
+        subject: 'Your Snap Send order was refunded',
+        text:
+          "We're sorry, your postcard couldn't be printed and mailed, so we've refunded your payment in full. " +
+          'The refund goes back to your original payment method and usually appears within 5-10 business days.\n\n' +
+          'You can try sending it again anytime. If you have questions, just reply to this email or contact support@snapsend.live.\n\n' +
+          '- The Snap Send team',
+      }),
+    });
+    if (!res.ok) {
+      console.error('[postcard-webhook] refund email failed:', res.status, await res.text().catch(() => ''));
+    }
+  } catch (err) {
+    console.error('[postcard-webhook] refund email threw:', err);
   }
 }
 
@@ -106,7 +145,7 @@ serve(async (req) => {
     // Fetch the postcard record so we can refund on failure
     const { data: postcard, error: fetchErr } = await supabase
       .from('postcards')
-      .select('id, status, mailed_at, delivered_at, stripe_payment_intent_id')
+      .select('id, user_id, status, mailed_at, delivered_at, stripe_payment_intent_id')
       .eq('lob_id', lobId)
       .single();
 
@@ -157,7 +196,10 @@ serve(async (req) => {
 
     // Issue a refund when Lob fails to deliver the mailpiece
     if (newStatus === 'failed' && postcard?.stripe_payment_intent_id) {
-      await refundPaymentIntent(postcard.stripe_payment_intent_id);
+      const refunded = await refundPaymentIntent(postcard.stripe_payment_intent_id);
+      if (refunded && postcard.user_id) {
+        await sendRefundEmail(supabase, postcard.user_id);
+      }
     }
 
     return new Response('ok', { status: 200 });
