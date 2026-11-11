@@ -189,8 +189,12 @@ async function getOrCacheEmojiUrl(
         const { error } = await supabase.storage
           .from('emoji')
           .upload(fileName, bytes, { contentType: 'image/png', upsert: true });
-        if (error) console.error(`[submit-postcard] emoji storage upload failed for ${code}: ${error.message}`);
-        return publicUrl; // URL is deterministic regardless of upload success
+        if (error) {
+          // A URL for a missing file would make Lob fail the render, so skip it
+          console.error(`[submit-postcard] emoji storage upload failed for ${code}: ${error.message}`);
+          continue;
+        }
+        return publicUrl;
       } catch (err) {
         console.error(`[submit-postcard] emoji CDN fetch threw for ${candidate}:`, err);
       }
