@@ -224,7 +224,7 @@ async function replaceEmojisWithHtmlImages(
   return text.replace(EMOJI_REGEX, (emoji) => {
     const url = emojiUrls.get(emoji);
     if (!url) return ''; // drop unsupported emojis — raw characters show as boxes in Lob's renderer
-    return `<img src="${url}" style="height:1em;width:1em;vertical-align:-0.2em;display:inline-block;margin:0 0.08em" alt="${emoji}">`;
+    return `<img class="e" src="${url}" alt="">`;
   });
 }
 
@@ -718,7 +718,7 @@ serve(async (req) => {
       size: '4x6',
       use_type: 'operational',
       front: frontUrl,
-      back: encodeNonAsciiAsEntities(`<html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;font-family:Helvetica,Arial,sans-serif"><table style="width:100%;height:100%;border-collapse:collapse;table-layout:fixed"><tr><td style="width:44%;vertical-align:top;padding:24px 10px 24px 24px"><p style="font-size:${lobFontSize}px;line-height:1.5;color:#333;margin:0;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word">${lobMessage}</p></td><td style="width:56%;vertical-align:top;padding:0"><table style="width:100%;border-collapse:collapse"><tr><td style="padding:28px 14px 20px 14px">${brandingHtml}</td></tr><tr><td style="padding:0 14px"><hr style="border:none;border-top:1px solid #ddd;margin:0" /></td></tr>${needsSnapSendReturnAddress ? '' : `<tr><td style="padding:10px 14px 4px 14px">${fromHtml}</td></tr>`}<tr><td style="padding:4px 14px 10px 14px">${toHtml}</td></tr>      </table></td></tr></table></body></html>`),
+      back: encodeNonAsciiAsEntities(`<html><head><meta charset="utf-8"><style>img.e{height:1em;width:1em;vertical-align:-0.2em;display:inline-block;margin:0 0.08em}</style></head><body style="margin:0;padding:0;font-family:Helvetica,Arial,sans-serif"><table style="width:100%;height:100%;border-collapse:collapse;table-layout:fixed"><tr><td style="width:44%;vertical-align:top;padding:24px 10px 24px 24px"><p style="font-size:${lobFontSize}px;line-height:1.5;color:#333;margin:0;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word">${lobMessage}</p></td><td style="width:56%;vertical-align:top;padding:0"><table style="width:100%;border-collapse:collapse"><tr><td style="padding:28px 14px 20px 14px">${brandingHtml}</td></tr><tr><td style="padding:0 14px"><hr style="border:none;border-top:1px solid #ddd;margin:0" /></td></tr>${needsSnapSendReturnAddress ? '' : `<tr><td style="padding:10px 14px 4px 14px">${fromHtml}</td></tr>`}<tr><td style="padding:4px 14px 10px 14px">${toHtml}</td></tr>      </table></td></tr></table></body></html>`),
       to: {
         name: recipientAddress.full_name,
         address_line1: recipientAddress.line1,
@@ -738,6 +738,8 @@ serve(async (req) => {
         address_country: 'US',
       },
     };
+
+    console.log(`[submit-postcard] Lob back HTML length: ${lobBody.back.length}`);
 
     const lobRes = await fetch(`${LOB_BASE_URL}/postcards`, {
       method: 'POST',
