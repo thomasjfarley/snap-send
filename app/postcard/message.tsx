@@ -25,6 +25,13 @@ const LOB_MAX_VISUAL = 22;
 // Lob font), so we need to count them separately from regular characters.
 const EMOJI_REGEX = /\p{Regional_Indicator}{2}|\p{Extended_Pictographic}(?:\uFE0F\u20E3?|[\u{1F3FB}-\u{1F3FF}])?(?:\u200D\p{Extended_Pictographic}(?:\uFE0F\u20E3?|[\u{1F3FB}-\u{1F3FF}])?)*/gu;
 
+// Character count where each emoji (including multi-codepoint ones) counts as 1.
+function countChars(text: string): number {
+  const emojiMatches = text.match(EMOJI_REGEX) ?? [];
+  const emojiStrLen = emojiMatches.reduce((s, e) => s + e.length, 0);
+  return text.length - emojiStrLen + emojiMatches.length;
+}
+
 function countLobVisualLines(text: string): number {
   return text
     .split('\n')
@@ -203,8 +210,8 @@ export default function MessageScreen() {
         <View style={styles.body}>
           <View style={styles.labelRow}>
             <Text style={styles.label}>Your message</Text>
-            <Text style={[styles.charCount, message.length > MAX_CHARS * 0.9 && { color: colors.error }]}>
-              {message.length}/{MAX_CHARS} · {countLobVisualLines(message.trim())}/{LOB_MAX_VISUAL} lines
+            <Text style={[styles.charCount, countChars(message) > MAX_CHARS * 0.9 && { color: colors.error }]}>
+              {countChars(message)}/{MAX_CHARS} · {countLobVisualLines(message.trim())}/{LOB_MAX_VISUAL} lines
             </Text>
           </View>
 
@@ -218,9 +225,9 @@ export default function MessageScreen() {
             onChangeText={(t) => {
               if (t.split('\n').length > MAX_LINES) return;
               if (countLobVisualLines(t.trim()) > LOB_MAX_VISUAL) return;
-              setMessage(t.slice(0, MAX_CHARS));
+              if (countChars(t) > MAX_CHARS) return;
+              setMessage(t);
             }}
-            maxLength={MAX_CHARS}
             textAlignVertical="top"
             autoFocus
           />
