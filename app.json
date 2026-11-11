@@ -22,6 +22,7 @@
       }
     },
     "android": {
+      "blockedPermissions": ["com.google.android.gms.permission.AD_ID"],
       "playStoreUrl": "https://play.google.com/store/apps/details?id=com.snapsend.live",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
