@@ -87,7 +87,7 @@
           "android": {
             "enableMinifyInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
-            "extraProguardRules": "-dontwarn com.stripe.android.pushProvisioning.**"
+            "extraProguardRules": "-dontwarn com.stripe.android.pushProvisioning.**\n-keep class io.invertase.firebase.** { *; }\n-keep class com.reactnativestripesdk.** { *; }"
           },
           "ios": {
             "useFrameworks": "dynamic"
