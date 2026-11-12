@@ -13,8 +13,6 @@ import {
 
 const STRIPE_SECRET_KEY_LIVE = Deno.env.get('STRIPE_SECRET_KEY')!;
 const STRIPE_SECRET_KEY_TEST = Deno.env.get('STRIPE_SECRET_KEY_TEST')!;
-const LOB_API_KEY_LIVE = Deno.env.get('LOB_API_KEY')!;
-const LOB_API_KEY_TEST = Deno.env.get('LOB_API_KEY_TEST')!;
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -33,71 +31,6 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-async function verifyRecipientAddress(
-  address: {
-    line1: string;
-    line2?: string | null;
-    city: string;
-    state?: string | null;
-    zip: string;
-    country?: string | null;
-  },
-  lobApiKey: string,
-  testMode: boolean,
-) {
-  const country = String(address.country || 'US').toUpperCase();
-
-  // Lob test keys return canned responses selected by special input strings,
-  // so ordinary development addresses cannot be meaningfully verified.
-  if (testMode) {
-    return { verified: true, deliverability: 'deliverable', coverage: 'TEST', status: 'TEST' };
-  }
-
-  const requestBody: Record<string, string> = {
-    primary_line: address.line1,
-    city: address.city,
-  };
-  if (address.line2) requestBody.secondary_line = address.line2;
-  if (address.state) requestBody.state = address.state;
-
-  const endpoint = country === 'US' ? 'us_verifications' : 'intl_verifications';
-  if (country === 'US') {
-    requestBody.zip_code = address.zip;
-  } else {
-    requestBody.postal_code = address.zip;
-    requestBody.country = country;
-  }
-
-  const response = await fetch(`https://api.lob.com/v1/${endpoint}`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${btoa(`${lobApiKey}:`)}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(requestBody),
-  });
-  const data = await response.json();
-
-  if (!response.ok) {
-    console.error('[create-payment-intent] Lob verification error:', response.status, JSON.stringify(data));
-    return {
-      verified: false,
-      deliverability: null,
-      coverage: null,
-      status: null,
-      detail: data,
-    };
-  }
-
-  const deliverability = data.deliverability ?? null;
-  return {
-    verified: deliverability !== null && !['undeliverable', 'no_match'].includes(deliverability),
-    deliverability,
-    coverage: data.coverage ?? null,
-    status: data.status ?? null,
-  };
-}
 
 serve(async (req) => {
   let reportUserId = '';
@@ -135,7 +68,6 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const testMode = body?.testMode === true;
     const STRIPE_SECRET_KEY = testMode ? STRIPE_SECRET_KEY_TEST : STRIPE_SECRET_KEY_LIVE;
-    const LOB_API_KEY = testMode ? LOB_API_KEY_TEST : LOB_API_KEY_LIVE;
     const addr = body?.customerAddress;
     const recipientAddressId = String(body?.recipientAddressId ?? '');
     const senderAddressId = String(body?.senderAddressId ?? '');
@@ -159,7 +91,12 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    if (!recipientAddress.lob_verified) {
+    // US recipients (e.g. rural Alaska, tribal lands) may be undeliverable per Lob yet still
+    // mailable; the sender must have explicitly accepted the delivery-risk warning.
+    const allowUnverifiedRecipient =
+      body?.acceptUnverifiedRecipient === true &&
+      String(recipientAddress.country ?? 'US').toUpperCase() === 'US';
+    if (!recipientAddress.lob_verified && !allowUnverifiedRecipient) {
       return new Response(JSON.stringify({ error: 'Recipient address must be verified before checkout' }), {
         status: 422,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -200,17 +137,6 @@ serve(async (req) => {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
-    }
-    const verification = await verifyRecipientAddress(recipientAddress, LOB_API_KEY, testMode);
-    if (!verification.verified) {
-      return new Response(
-        JSON.stringify({
-          error: 'Recipient address could not be verified by Lob',
-          deliverability: verification.deliverability,
-          detail: 'detail' in verification ? verification.detail : undefined,
-        }),
-        { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
     }
 
     // Address is required — customers cannot check out without one
@@ -319,9 +245,7 @@ serve(async (req) => {
       'metadata[pricing_version]': POSTCARD_PRICING_VERSION,
       'metadata[base_price_cents]': String(postcardPriceCents),
       'metadata[tax_amount_cents]': String(taxAmountCents),
-      'metadata[address_deliverability]': verification.deliverability ?? '',
-      'metadata[address_coverage]': verification.coverage ?? '',
-      'metadata[address_status]': verification.status ?? '',
+      'metadata[unverified_recipient_accepted]': String(!recipientAddress.lob_verified),
     });
     if (taxCalculationId) piParams.set('metadata[tax_calculation]', taxCalculationId);
 

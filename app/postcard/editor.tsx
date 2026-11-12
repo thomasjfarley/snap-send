@@ -7,11 +7,12 @@ import { useRouter } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePostcardStore } from '@/store/postcard.store';
-import { FILTERS, FRAMES } from '@/constants/editor';
+import { FILTERS, getFrame, getSelectableFrames, isOverlayFrame, type FrameId } from '@/constants/editor';
 import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
 import { FONT_SIZE, SPACING } from '@/constants/theme';
 import { GrayscaleImage } from '@/components/GrayscaleImage';
+import { OverlayFramedPhoto } from '@/components/OverlayFramedPhoto';
 
 const FILTER_OVERLAYS: Record<string, { color: string; opacity: number } | null> = {
   none: null,
@@ -34,6 +35,8 @@ export default function EditorScreen() {
 
   const navigation = useNavigation();
 
+  // Seasonal frames expire from the picker, but a frame already chosen stays usable.
+  const selectableFrames = useMemo(() => getSelectableFrames(), []);
   // Back handler for header: prefer popping the stack; clear draft after navigation completes to avoid re-entrant updates
   const handleBackToPhotoPicker = React.useCallback(() => {
     try {
@@ -84,7 +87,7 @@ export default function EditorScreen() {
     return null;
   }
 
-  const activeFrame = FRAMES.find((f) => f.id === frameId)!;
+  const activeFrame = getFrame(frameId);
   const overlay = FILTER_OVERLAYS[filterId];
 
   return (
@@ -102,6 +105,16 @@ export default function EditorScreen() {
 
       {/* Photo Preview */}
       <View style={styles.photoArea}>
+        {isOverlayFrame(activeFrame) ? (
+          <OverlayFramedPhoto
+            frame={activeFrame}
+            width={PHOTO_W}
+            height={PHOTO_W * (2 / 3)}
+            uri={photoUri}
+            grayscale={filterId === 'bw'}
+            tint={overlay}
+          />
+        ) : (
         <View style={[
           styles.photoFrame,
           {
@@ -117,6 +130,7 @@ export default function EditorScreen() {
             )}
           </View>
         </View>
+        )}
       </View>
 
       {/* Filter Picker */}
@@ -147,17 +161,23 @@ export default function EditorScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>Frame</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollRow}>
-          {FRAMES.map((fr) => {
+          {selectableFrames.map((fr) => {
             const selected = frameId === fr.id;
             return (
               <TouchableOpacity
                 key={fr.id}
                 style={[styles.thumbnail, selected && styles.thumbnailSelected]}
-                onPress={() => setFrame(fr.id)}
+                onPress={() => setFrame(fr.id as FrameId)}
               >
+                {isOverlayFrame(fr) ? (
+                  <View style={styles.thumbImg}>
+                    <OverlayFramedPhoto frame={fr} width={56} height={37.33} uri={photoUri} />
+                  </View>
+                ) : (
                 <View style={[styles.thumbImg, { borderWidth: fr.borderWidth > 0 ? 4 : 0, borderColor: fr.borderColor, backgroundColor: fr.borderColor || '#eee' }]}>
                   <Image source={{ uri: photoUri }} style={[StyleSheet.absoluteFill, { margin: fr.borderWidth > 0 ? 4 : 0 }]} resizeMode="cover" />
                 </View>
+                )}
                 <Text style={[styles.thumbLabel, selected && { color: colors.primary }]}>{fr.label}</Text>
               </TouchableOpacity>
             );

@@ -3,6 +3,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getAddressRestriction } from '../_shared/market-compliance.ts';
 import { recordTaxTransaction } from '../_shared/stripe-tax.ts';
+import { sendRefundEmail } from '../_shared/refund-email.ts';
 import { getPostcardPriceCents } from '../../../shared/postcard-pricing.ts';
 import { Image } from 'https://deno.land/x/imagescript@1.3.0/mod.ts';
 
@@ -46,6 +47,58 @@ const FRAMES_DATA = [
   { id: 'minimal',  borderWidth: 3,  borderColor: '#222222',      padding: 0 },
   { id: 'travel',   borderWidth: 10, borderColor: '#2D6A4F',      padding: 2 },
 ] as const;
+
+// Seasonal overlay frames (mirrors HOLIDAY_FRAMES in constants/editor.ts). The overlay PNGs
+// live in the public `frames` Storage bucket as `<id>.png`. `window` is the photo area as
+// fractions of the overlay; null means the overlay is trim-only art over a full-bleed photo.
+// Expiry is enforced client-side only, so a postcard paid for before expiry always prints.
+type OverlayFrame = { window: { x: number; y: number; w: number; h: number } | null; bg: string };
+const OVERLAY_FRAMES: Record<string, OverlayFrame> = {
+  'fall-cornucopia':       { window: null, bg: '#FFFFFF' },
+  'fall-pumpkin-vines':    { window: null, bg: '#FFFFFF' },
+  'fall-orchard-apples':   { window: null, bg: '#FFFFFF' },
+  'fall-woodland':         { window: null, bg: '#FFFFFF' },
+  'fall-harvest-leaves':   { window: null, bg: '#FFFFFF' },
+  'fall-maple-corners':    { window: null, bg: '#FFFFFF' },
+  'fall-wheat-trim':       { window: null, bg: '#FFFFFF' },
+  'fall-acorn-trim':       { window: null, bg: '#FFFFFF' },
+  'fall-pumpkin-trim':     { window: null, bg: '#FFFFFF' },
+  'fall-maple-dots':       { window: null, bg: '#FFFFFF' },
+  'christmas-holly-vine':  { window: null, bg: '#FFFFFF' },
+  'christmas-holly-ribbon':{ window: { x: 0.0449, y: 0.0986, w: 0.9199, h: 0.8467 }, bg: '#1F4D2B' },
+  'christmas-gingerbread': { window: { x: 0.1152, y: 0.1084, w: 0.7904, h: 0.8193 }, bg: '#F6EBDD' },
+  'christmas-snowy-pines':    { window: { x: 0.0658, y: 0.0889, w: 0.8685, h: 0.8447 }, bg: '#F4F7FA' },
+  'newyear-gold-silver':   { window: { x: 0.0638, y: 0.0811, w: 0.873, h: 0.8496 }, bg: '#F8F4EA' },
+};
+
+class FrameOverlayError extends Error {}
+
+async function applyOverlayFrame(img: Image, frameId: string, def: OverlayFrame): Promise<Image> {
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/public/frames/${frameId}.png`);
+  if (!res.ok) throw new FrameOverlayError(`overlay fetch ${res.status} for ${frameId}`);
+  const overlay = await Image.decode(new Uint8Array(await res.arrayBuffer()));
+  const W = img.width, H = img.height;
+
+  if (!def.window) {
+    // Photo stays full-bleed; the overlay is inset to the trim box (Lob trims 0.125" on each
+    // side) so thin borders near the edge aren't cut off.
+    const bleed = Math.round(0.125 * (W / 6.25));
+    overlay.resize(W - 2 * bleed, H - 2 * bleed);
+    img.composite(overlay, bleed, bleed);
+    return img;
+  }
+
+  // Shrink the photo into the frame's window (cover-cropped), then lay the full-canvas overlay on top.
+  const left = Math.round(def.window.x * W);
+  const top = Math.round(def.window.y * H);
+  const winW = Math.round(def.window.w * W);
+  const winH = Math.round(def.window.h * H);
+  const canvas = new Image(W, H);
+  canvas.fill(hexToRGBA(def.bg));
+  canvas.composite(img.cover(winW, winH), left, top);
+  canvas.composite(overlay.resize(W, H), 0, 0);
+  return canvas;
+}
 
 const FILTERS_DATA: Record<string, readonly number[] | null> = {
   none:  null,
@@ -305,7 +358,7 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-async function refundPayment(stripeKey: string, paymentIntentId: string): Promise<{ attempted: boolean; succeeded: boolean }> {
+async function refundPayment(stripeKey: string, paymentIntentId: string, userId?: string): Promise<{ attempted: boolean; succeeded: boolean }> {
   try {
     const res = await fetch('https://api.stripe.com/v1/refunds', {
       method: 'POST',
@@ -321,6 +374,9 @@ async function refundPayment(stripeKey: string, paymentIntentId: string): Promis
       return { attempted: true, succeeded: false };
     }
     console.log('[submit-postcard] Stripe refund issued:', data.id, 'for PI', paymentIntentId);
+    if (userId) {
+      await sendRefundEmail({ userId, paymentIntentId, amountCents: data.amount, currency: data.currency, reason: 'failed' });
+    }
     return { attempted: true, succeeded: true };
   } catch (err) {
     console.error('[submit-postcard] Stripe refund threw:', err);
@@ -408,7 +464,7 @@ serve(async (req) => {
       ]);
 
     if (fromErr || !fromAddress || recipientErr || !recipientAddress) {
-      const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId);
+      const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId, userId);
       return jsonResponse({ error: `Sender or recipient address not found. ${refundMsg(succeeded)}` }, 404);
     }
 
@@ -425,7 +481,7 @@ serve(async (req) => {
       pi.metadata.destination_country !== destinationCountry ||
       Number(pi.metadata.base_price_cents) !== expectedBasePrice
     ) {
-      const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId);
+      const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId, userId);
       return jsonResponse({ error: `Pricing details changed after checkout. ${refundMsg(succeeded)}` }, 409);
     }
 
@@ -433,7 +489,7 @@ serve(async (req) => {
     const addressRestriction =
       getAddressRestriction(fromAddress) || getAddressRestriction(recipientAddress);
     if (addressRestriction) {
-      const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId);
+      const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId, userId);
       return jsonResponse({ error: `${addressRestriction} ${refundMsg(succeeded)}` }, 422);
     }
 
@@ -446,7 +502,7 @@ serve(async (req) => {
       SNAP_SEND_RETURN_ADDRESS.zip
     );
     if (needsSnapSendReturnAddress && !testMode && !officialReturnConfigured) {
-      const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId);
+      const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId, userId);
       return jsonResponse({
         error: `International sender fulfillment is not available until Snap Send's US return mailbox is configured. ${refundMsg(succeeded)}`,
       }, 503);
@@ -463,16 +519,16 @@ serve(async (req) => {
           'warning',
           `paymentIntentId=${paymentIntentId}; userId=${userId}; status=${status}; body=${JSON.stringify(visionData).slice(0, 1000)}`,
         );
-        const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId);
+        const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId, userId);
         return jsonResponse({ error: `Content moderation unavailable. ${refundMsg(succeeded)}` }, 503);
       }
       if (isBlocked(safeSearch.adult) || isBlocked(safeSearch.violence)) {
-        const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId);
+        const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId, userId);
         return jsonResponse({ error: `This image cannot be sent. ${refundMsg(succeeded)}`, code: 'CONTENT_REJECTED' }, 422);
       }
     } else {
       console.error('GOOGLE_VISION_API_KEY not set');
-      const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId);
+      const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId, userId);
       return jsonResponse({ error: `Content moderation unavailable. ${refundMsg(succeeded)}` }, 503);
     }
 
@@ -509,6 +565,17 @@ serve(async (req) => {
       // The UI shrinks the image to fit inside the frame; we must do the same
       // here so the printed result matches the preview (not crop/cover the photo).
       // Expanding the canvas changes dimensions and causes Lob to reject with 422.
+      const overlayDef = OVERLAY_FRAMES[frame as string];
+      if (overlayDef) {
+        // Deliberately not caught here: printing without the frame the customer chose would be wrong.
+        try {
+          img = await applyOverlayFrame(img, frame, overlayDef);
+        } catch (overlayErr) {
+          throw overlayErr instanceof FrameOverlayError
+            ? overlayErr
+            : new FrameOverlayError(`overlay frame ${frame} failed: ${(overlayErr as Error)?.message ?? overlayErr}`);
+        }
+      }
       try {
         const frameDef = FRAMES_DATA.find((f) => f.id === frame);
         if (frameDef && frameDef.borderWidth > 0) {
@@ -655,6 +722,17 @@ serve(async (req) => {
 
       imageBytes = await img.encodeJPEG(95);
     } catch (correctionErr) {
+      if (correctionErr instanceof FrameOverlayError) {
+        // No auto-refund: the client offers Retry / Cancel & Refund for 5xx after payment.
+        console.error('[submit-postcard]', correctionErr.message);
+        reportError(
+          'submit-postcard',
+          'Overlay frame failed',
+          'error',
+          `paymentIntentId=${paymentIntentId}; frame=${frame}; error=${correctionErr.message}`,
+        );
+        return jsonResponse({ error: 'Could not apply the selected frame. Please try again.' }, 503);
+      }
       console.error('[submit-postcard] print correction failed, using original bytes:', correctionErr);
       imageBytes = rawImageBytes;
     }
@@ -671,7 +749,7 @@ serve(async (req) => {
         'error',
         `paymentIntentId=${paymentIntentId}; userId=${userId}; tempImagePath=${tempImagePath}; error=${uploadError.message}`,
       );
-      const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId);
+      const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId, userId);
       return jsonResponse({ error: `Failed to process image. ${refundMsg(succeeded)}` }, 500);
     }
 
@@ -778,7 +856,7 @@ serve(async (req) => {
           `paymentIntentId=${paymentIntentId}; userId=${userId}; lobStatus=${lobRes.status}; lobError=${JSON.stringify(lobData).slice(0, 1000)}`,
         );
       }
-      const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId);
+      const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId, userId);
       return jsonResponse({ error: `Lob ${lobRes.status}: ${lobErrMsg} ${refundMsg(succeeded)}`, lob_status: lobRes.status, lob_detail: lobData }, 502);
     }
 
@@ -825,7 +903,7 @@ serve(async (req) => {
       await supabase.storage.from('postcard-fronts').remove([tempImagePath]).catch(() => {});
     }
     if (confirmedPaymentIntentId && !lobSubmitted) {
-      await refundPayment(stripeKey, confirmedPaymentIntentId);
+      await refundPayment(stripeKey, confirmedPaymentIntentId, confirmedUserId);
     }
     console.error('Unhandled error:', err);
     reportError(

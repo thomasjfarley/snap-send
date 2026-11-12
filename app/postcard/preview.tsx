@@ -3,13 +3,14 @@ import {
   View, Text, TouchableOpacity, StyleSheet,
   ScrollView, Dimensions, Alert, Platform, ActivityIndicator, Image,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { usePostcardStore } from '@/store/postcard.store';
 import { useProfileStore } from '@/store/profile.store';
 import { useAddressStore } from '@/store/address.store';
-import { FRAMES } from '@/constants/editor';
+import { getFrame, isOverlayFrame } from '@/constants/editor';
+import { OverlayFramedPhoto } from '@/components/OverlayFramedPhoto';
 import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
 import { FONT_SIZE, SPACING } from '@/constants/theme';
@@ -86,6 +87,7 @@ function PinIcon({ height, color = '#fff' }: { height: number; color?: string })
 
 export default function PreviewScreen() {
   const router = useRouter();
+  const { unverifiedOk } = useLocalSearchParams<{ unverifiedOk?: string }>();
   const { photoUri, filterId, frameId, message, location, recipient, reset, setJustSent } = usePostcardStore();
   const { profile } = useProfileStore();
   const { addresses } = useAddressStore();
@@ -114,6 +116,7 @@ export default function PreviewScreen() {
   const destinationCountry = recipient?.country?.toUpperCase() || 'US';
   const senderCountry = personalAddress?.country?.toUpperCase() || 'US';
   const riskWarningRequired = requiresInternationalRiskWarning(destinationCountry);
+  const allowUnverified = unverifiedOk === '1' && destinationCountry === 'US' && recipient?.lob_verified === false;
   // null until the lookup finishes, so begin_checkout isn't logged with the wrong price
   const [atCost, setAtCost] = useState<boolean | null>(null);
   const basePriceCents = getPostcardPriceCents(destinationCountry, atCost === true);
@@ -244,6 +247,7 @@ export default function PreviewScreen() {
             testMode: __DEV__,
             analyticsContext,
             recipientAddressId: recipient.id,
+            acceptUnverifiedRecipient: allowUnverified,
             senderAddressId: personalAddress?.id,
             ...(personalAddress ? {
               customerAddress: {
@@ -323,7 +327,7 @@ export default function PreviewScreen() {
       }
     })();
     return () => { cancelled = true; };
-  }, [destinationCountry, photoUri, recipient?.id, riskAccepted, riskWarningRequired, senderCountry]);
+  }, [destinationCountry, photoUri, recipient?.id, riskAccepted, riskWarningRequired, senderCountry, allowUnverified]);
 
   const messageFontSize = useMemo(() => {
     const trimmed = (message ?? '').trim();
@@ -350,7 +354,7 @@ export default function PreviewScreen() {
     return null;
   }
 
-  const activeFrame = FRAMES.find((f) => f.id === frameId)!;
+  const activeFrame = getFrame(frameId);
   const overlay = FILTER_OVERLAYS[filterId];
   const isGrayscale = filterId === 'bw';
   const basePriceStr = `$${(basePriceCents / 100).toFixed(2)}`;
@@ -582,9 +586,28 @@ export default function PreviewScreen() {
           ref={cardFrontRef}
           style={[
             styles.cardFront,
-            { borderWidth: activeFrame.borderWidth, borderColor: activeFrame.borderColor, padding: activeFrame.padding },
+            isOverlayFrame(activeFrame)
+              ? null
+              : { borderWidth: activeFrame.borderWidth, borderColor: activeFrame.borderColor, padding: activeFrame.padding },
           ]}
         >
+          {isOverlayFrame(activeFrame) ? (
+            <OverlayFramedPhoto
+              frame={activeFrame}
+              width={CARD_W}
+              height={CARD_H}
+              uri={photoUri}
+              grayscale={isGrayscale}
+              tint={overlay}
+            >
+              {!!location && (
+                <View style={styles.locationBadge}>
+                  <PinIcon height={11} />
+                  <Text style={styles.locationBadgeText} numberOfLines={1}>{location}</Text>
+                </View>
+              )}
+            </OverlayFramedPhoto>
+          ) : (
           <View style={{ position: 'relative', width: CARD_W - activeFrame.borderWidth * 2 - activeFrame.padding * 2, height: CARD_H - activeFrame.borderWidth * 2 - activeFrame.padding * 2 }}>
               <GrayscaleImage uri={photoUri} grayscale={isGrayscale} />
             {overlay && <View style={[StyleSheet.absoluteFill, { backgroundColor: overlay.color, opacity: overlay.opacity }]} />}
@@ -595,6 +618,7 @@ export default function PreviewScreen() {
               </View>
             )}
           </View>
+          )}
         </View>
 
         {/* Back */}

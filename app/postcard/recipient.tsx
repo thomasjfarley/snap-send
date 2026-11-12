@@ -1,11 +1,11 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, FlatList, StyleSheet,
+  View, Text, TouchableOpacity, FlatList, StyleSheet, Alert, ActivityIndicator,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePostcardStore } from '@/store/postcard.store';
-import { useAddressStore } from '@/store/address.store';
+import { useAddressStore, type AddressFormData } from '@/store/address.store';
 import { useAuthStore } from '@/store/auth.store';
 import type { Address } from '@/lib/database.types';
 import { useTheme } from '@/hooks/useTheme';
@@ -17,7 +17,8 @@ export default function RecipientScreen() {
   const router = useRouter();
   const { recipient, setRecipient } = usePostcardStore();
   const { user } = useAuthStore();
-  const { addresses, fetch } = useAddressStore();
+  const { addresses, fetch, validate, update } = useAddressStore();
+  const [verifying, setVerifying] = useState(false);
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
@@ -31,14 +32,102 @@ export default function RecipientScreen() {
   const recipients = addresses.filter((a) => !a.is_personal);
   const personalAddress = addresses.find((a) => a.is_personal && (a.country === 'US' || !a.country));
 
-  function handleSelect(address: Address) {
+  function proceed(address: Address, unverifiedOk = false) {
     setRecipient(address);
     analytics.postcardCompleted(
       !!usePostcardStore.getState().photoUri &&
         !!usePostcardStore.getState().message?.trim() &&
         address.lob_verified !== false,
     );
-    router.push('/postcard/preview');
+    router.push(unverifiedOk ? '/postcard/preview?unverifiedOk=1' : '/postcard/preview');
+  }
+
+  function offerUnverifiedSend(address: Address) {
+    if ((address.country || 'US').toUpperCase() === 'US') {
+      Alert.alert(
+        'Address could not be verified',
+        'We could not verify this address. This can happen for rural or tribal-land addresses. You can still send, but the postcard may not be deliverable and no refund is guaranteed.',
+        [
+          { text: 'Edit Address', onPress: () => router.push(`/address/${address.id}`) },
+          { text: 'Send Anyway', onPress: () => proceed(address, true) },
+          { text: 'Cancel', style: 'cancel' },
+        ],
+      );
+    } else {
+      Alert.alert(
+        'Address could not be verified',
+        'Addresses outside the US must be verified before sending. Please update the address and try again.',
+        [
+          { text: 'Edit Address', onPress: () => router.push(`/address/${address.id}`) },
+          { text: 'Cancel', style: 'cancel' },
+        ],
+      );
+    }
+  }
+
+  async function markVerified(address: Address, fields: Partial<AddressFormData> = {}) {
+    const { error } = await update(address.id, { ...fields, lob_verified: true });
+    if (error) {
+      Alert.alert('Error', error);
+      return;
+    }
+    proceed({ ...address, ...fields, lob_verified: true } as Address);
+  }
+
+  async function handleSelect(address: Address) {
+    if (address.lob_verified !== false) {
+      proceed(address);
+      return;
+    }
+    if (verifying) return;
+    setVerifying(true);
+    const { result, error } = await validate({
+      line1: address.line1,
+      line2: address.line2 ?? '',
+      city: address.city,
+      state: address.state,
+      zip: address.zip,
+      country: address.country || 'US',
+    });
+    setVerifying(false);
+
+    if (error) {
+      Alert.alert('Verification error', `${error}\n\nPlease try again.`);
+      return;
+    }
+    if (!result || !result.verified) {
+      offerUnverifiedSend(address);
+      return;
+    }
+
+    const suggested = {
+      line1: result.address.line1,
+      line2: result.address.line2 ?? '',
+      city: result.address.city,
+      state: result.address.state,
+      zip: result.address.zip,
+    };
+    const isDifferent =
+      suggested.line1 !== address.line1 ||
+      suggested.line2 !== (address.line2 ?? '') ||
+      suggested.city !== address.city ||
+      suggested.state !== address.state ||
+      suggested.zip !== address.zip;
+
+    if (!isDifferent) {
+      await markVerified(address);
+      return;
+    }
+    const lines = `${suggested.line1}${suggested.line2 ? `, ${suggested.line2}` : ''}\n${suggested.city}, ${suggested.state} ${suggested.zip}`;
+    Alert.alert(
+      'Use verified address?',
+      `Lob suggests this standardized address:\n\n${lines}`,
+      [
+        { text: 'Use Verified Address', onPress: () => markVerified(address, suggested) },
+        { text: 'Edit Address', onPress: () => router.push(`/address/${address.id}`) },
+        { text: 'Cancel', style: 'cancel' },
+      ],
+    );
   }
 
   return (
@@ -101,6 +190,12 @@ export default function RecipientScreen() {
           </View>
         }
       />
+      {verifying && (
+        <View style={styles.verifyOverlay}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.verifyText}>Verifying address…</Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -133,6 +228,11 @@ function makeStyles(colors: AppColors) {
     selfBadge: { backgroundColor: colors.primaryLight, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
     selfBadgeText: { fontSize: FONT_SIZE.xs, color: colors.primary, fontWeight: '600' },
     empty: { alignItems: 'center', gap: SPACING.md, paddingTop: 80 },
+    verifyOverlay: {
+      ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.35)',
+      alignItems: 'center', justifyContent: 'center', gap: SPACING.sm,
+    },
+    verifyText: { color: '#fff', fontSize: FONT_SIZE.md, fontWeight: '600' },
     emptyEmoji: { fontSize: 48 },
     emptyTitle: { fontSize: FONT_SIZE.xl, fontWeight: '700', color: colors.textPrimary },
     emptySub: { fontSize: FONT_SIZE.sm, color: colors.textSecondary, textAlign: 'center' },

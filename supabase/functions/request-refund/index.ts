@@ -3,6 +3,7 @@
 // Issues a Stripe refund and delegates notification to the report-error function.
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { sendRefundEmail } from '../_shared/refund-email.ts';
 
 const STRIPE_SECRET_KEY_LIVE    = Deno.env.get('STRIPE_SECRET_KEY')!;
 const STRIPE_SECRET_KEY_TEST    = Deno.env.get('STRIPE_SECRET_KEY_TEST')!;
@@ -87,6 +88,13 @@ serve(async (req) => {
 
     console.log('[request-refund] refund issued:', refundData.id, 'for PI', paymentIntentId);
     reportError({ title: 'User refunded after submission failure', severity: 'warning', details, userEmail: user.email ?? 'unknown' });
+    await sendRefundEmail({
+      userId: user.id,
+      paymentIntentId,
+      amountCents: refundData.amount,
+      currency: refundData.currency,
+      reason: 'cancelled',
+    });
 
     return jsonResponse({ success: true, refundId: refundData.id });
   } catch (err) {
