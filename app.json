@@ -80,6 +80,8 @@
         "expo-build-properties",
         {
           "android": {
+            "compileSdkVersion": 37,
+            "targetSdkVersion": 37,
             "enableMinifyInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
             "extraProguardRules": "-dontwarn com.stripe.android.pushProvisioning.**\n-keep class io.invertase.firebase.** { *; }\n-keep class com.reactnativestripesdk.** { *; }"
