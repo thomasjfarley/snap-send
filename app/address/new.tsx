@@ -42,11 +42,7 @@ export default function NewAddressScreen() {
   const [verified, setVerified] = useState<boolean | null>(null);
 
   async function handleImportFromContacts() {
-    const { status } = await Contacts.requestPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please allow access to your contacts.');
-      return;
-    }
+    // The system contact picker needs no contacts permission
     const contact = await Contacts.presentContactPickerAsync();
     if (!contact) return;
 
