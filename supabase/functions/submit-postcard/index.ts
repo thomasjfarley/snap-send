@@ -68,6 +68,14 @@ const OVERLAY_FRAMES: Record<string, OverlayFrame> = {
   'christmas-holly-ribbon':{ window: { x: 0.0449, y: 0.0986, w: 0.9199, h: 0.8467 }, bg: '#1F4D2B' },
   'christmas-gingerbread': { window: { x: 0.1152, y: 0.1084, w: 0.7904, h: 0.8193 }, bg: '#F6EBDD' },
   'christmas-snowy-pines':    { window: { x: 0.0658, y: 0.0889, w: 0.8685, h: 0.8447 }, bg: '#F4F7FA' },
+  'fall-turkey':                 { window: { x: 0.0228, y: 0.127, w: 0.9538, h: 0.8203 }, bg: '#FFFFFF' },
+  'fall-thanksgiving-pumpkins':  { window: { x: 0.0267, y: 0.0879, w: 0.9414, h: 0.8457 }, bg: '#7A3E0F' },
+  'christmas-happy-holidays':    { window: { x: 0.0339, y: 0.1943, w: 0.9323, h: 0.7578 }, bg: '#8B1A1A' },
+  'christmas-merry-lantern':     { window: { x: 0.0449, y: 0.2178, w: 0.9089, h: 0.7461 }, bg: '#8B1A1A' },
+  'newyear-navy-gold':           { window: { x: 0.0234, y: 0.1953, w: 0.9499, h: 0.7598 }, bg: '#0B1B3A' },
+  'winter-icy-silver':           { window: { x: 0.0423, y: 0.0645, w: 0.916, h: 0.8477 }, bg: '#EAF2F8' },
+  'winter-snowflake-wonderland': { window: null, bg: '#FFFFFF' },
+  'winter-scarf-mittens':        { window: { x: 0.0658, y: 0.1084, w: 0.8698, h: 0.7871 }, bg: '#DCEBF7' },
   'newyear-gold-silver':   { window: { x: 0.0638, y: 0.0811, w: 0.873, h: 0.8496 }, bg: '#F8F4EA' },
 };
 

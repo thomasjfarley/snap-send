@@ -17,8 +17,11 @@ const BASIC_FRAMES = [
 const FALL_END = new Date(2026, 11, 1).getTime();       // gone Dec 1
 const CHRISTMAS_END = new Date(2026, 11, 26).getTime(); // available through Dec 25
 const NEW_YEAR_END = new Date(2027, 0, 2).getTime();    // available through Jan 1
+const WINTER_END = new Date(2027, 1, 1).getTime();      // gone Feb 1
 
 const HOLIDAY_FRAMES = [
+  { id: 'fall-turkey', label: 'Turkey', overlay: require('../assets/frames/fall-turkey.png'), window: { x: 0.0228, y: 0.127, w: 0.9538, h: 0.8203 }, expiresAt: FALL_END },
+  { id: 'fall-thanksgiving-pumpkins', label: 'Thanksgiving', overlay: require('../assets/frames/fall-thanksgiving-pumpkins.png'), window: { x: 0.0267, y: 0.0879, w: 0.9414, h: 0.8457 }, expiresAt: FALL_END },
   { id: 'fall-cornucopia', label: 'Cornucopia', overlay: require('../assets/frames/fall-cornucopia.png'), window: null, expiresAt: FALL_END },
   { id: 'fall-pumpkin-vines', label: 'Pumpkins', overlay: require('../assets/frames/fall-pumpkin-vines.png'), window: null, expiresAt: FALL_END },
   { id: 'fall-orchard-apples', label: 'Apples', overlay: require('../assets/frames/fall-orchard-apples.png'), window: null, expiresAt: FALL_END },
@@ -34,6 +37,12 @@ const HOLIDAY_FRAMES = [
   { id: 'christmas-gingerbread', label: 'Gingerbread', overlay: require('../assets/frames/christmas-gingerbread.png'), window: { x: 0.1152, y: 0.1084, w: 0.7904, h: 0.8193 }, expiresAt: CHRISTMAS_END },
   { id: 'newyear-gold-silver', label: 'New Year', overlay: require('../assets/frames/newyear-gold-silver.png'), window: { x: 0.0638, y: 0.0811, w: 0.873, h: 0.8496 }, expiresAt: NEW_YEAR_END },
   { id: 'christmas-snowy-pines', label: 'Snowy Pines', overlay: require('../assets/frames/christmas-snowy-pines.png'), window: { x: 0.0658, y: 0.0889, w: 0.8685, h: 0.8447 }, expiresAt: CHRISTMAS_END },
+  { id: 'christmas-happy-holidays', label: 'Happy Holidays', overlay: require('../assets/frames/christmas-happy-holidays.png'), window: { x: 0.0339, y: 0.1943, w: 0.9323, h: 0.7578 }, expiresAt: CHRISTMAS_END },
+  { id: 'christmas-merry-lantern', label: 'Merry Christmas', overlay: require('../assets/frames/christmas-merry-lantern.png'), window: { x: 0.0449, y: 0.2178, w: 0.9089, h: 0.7461 }, expiresAt: CHRISTMAS_END },
+  { id: 'newyear-navy-gold', label: 'Navy & Gold', overlay: require('../assets/frames/newyear-navy-gold.png'), window: { x: 0.0234, y: 0.1953, w: 0.9499, h: 0.7598 }, expiresAt: NEW_YEAR_END },
+  { id: 'winter-icy-silver', label: 'Icy Silver', overlay: require('../assets/frames/winter-icy-silver.png'), window: { x: 0.0423, y: 0.0645, w: 0.916, h: 0.8477 }, expiresAt: WINTER_END },
+  { id: 'winter-snowflake-wonderland', label: 'Snowflakes', overlay: require('../assets/frames/winter-snowflake-wonderland.png'), window: null, expiresAt: WINTER_END },
+  { id: 'winter-scarf-mittens', label: 'Scarf & Mittens', overlay: require('../assets/frames/winter-scarf-mittens.png'), window: { x: 0.0658, y: 0.1084, w: 0.8698, h: 0.7871 }, expiresAt: WINTER_END },
 ] as const;
 
 export type BorderFrame = (typeof BASIC_FRAMES)[number] & { overlay?: undefined; window?: undefined; expiresAt?: undefined };
