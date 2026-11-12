@@ -97,6 +97,7 @@
         }
       ],
       "expo-localization",
+      "./plugins/withDisableReleaseLint.js",
       [
         "expo-splash-screen",
         {
