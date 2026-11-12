@@ -77,6 +77,19 @@ const OVERLAY_FRAMES: Record<string, OverlayFrame> = {
   'winter-snowflake-wonderland': { window: null, bg: '#FFFFFF' },
   'winter-scarf-mittens':        { window: { x: 0.0658, y: 0.1084, w: 0.8698, h: 0.7871 }, bg: '#DCEBF7' },
   'newyear-gold-silver':   { window: { x: 0.0638, y: 0.0811, w: 0.873, h: 0.8496 }, bg: '#F8F4EA' },
+  'fall-wish-you-were-here':     { window: { x: 0.0879, y: 0.1328, w: 0.8385, h: 0.7637 }, bg: '#FBEBCB' },
+  'fall-kids-table':             { window: { x: 0.0299, y: 0.1221, w: 0.9355, h: 0.7451 }, bg: '#FBF3E2' },
+  'fall-thankful-for-you':       { window: null, bg: '#FFFFFF' },
+  'fall-happy-thanksgiving':     { window: null, bg: '#FFFFFF' },
+  'fall-incident-report':        { window: { x: 0.028, y: 0.1699, w: 0.944, h: 0.707 }, bg: '#F3EAD6' },
+  'fall-we-got-one':             { window: { x: 0.0221, y: 0.0889, w: 0.9557, h: 0.7783 }, bg: '#F6D9A0' },
+  'fall-wanted-turkey':          { window: { x: 0.0404, y: 0.2061, w: 0.7858, h: 0.7051 }, bg: '#D9B98A' },
+  'fall-pie-inspector':          { window: { x: 0.2038, y: 0.1445, w: 0.5436, h: 0.7979 }, bg: '#FBEBD2' },
+  'fall-elastic-waistband':      { window: { x: 0.0859, y: 0.1445, w: 0.8242, h: 0.7217 }, bg: '#B5391E' },
+  'fall-mashed-potato':          { window: { x: 0.0592, y: 0.1387, w: 0.8776, h: 0.7471 }, bg: '#FBEFC9' },
+  'fall-corner-cornucopia':      { window: null, bg: '#FFFFFF' },
+  'fall-first-thanksgiving':     { window: null, bg: '#FFFFFF' },
+  'fall-stuffing':               { window: { x: 0.084, y: 0.1416, w: 0.8281, h: 0.7344 }, bg: '#F6B21E' },
 };
 
 class FrameOverlayError extends Error {}
