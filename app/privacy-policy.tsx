@@ -78,7 +78,7 @@ export default function PrivacyPolicyScreen() {
 
           <Text style={[styles.subheading, { color: colors.textPrimary }]}>Location (Optional)</Text>
           <Para>
-            If you choose to add a location to your postcard, Snap Send can use your device&apos;s location
+            If you choose to add a location to your postcard, Snap Send can use your device&apos;s approximate location
             (with your permission) to suggest nearby places. Your coordinates, or the place name you
             type, are sent to the OpenStreetMap Nominatim service to look up place names. We do not store
             your device location. You can decline the permission and type a location instead, or skip it.
