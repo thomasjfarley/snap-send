@@ -13,6 +13,7 @@ import type { AppColors } from '@/constants/theme';
 import { FONT_SIZE, SPACING } from '@/constants/theme';
 import { GrayscaleImage } from '@/components/GrayscaleImage';
 import { OverlayFramedPhoto } from '@/components/OverlayFramedPhoto';
+import { SaveDraftButton } from '@/components/SaveDraftButton';
 
 const FILTER_OVERLAYS: Record<string, { color: string; opacity: number } | null> = {
   none: null,
@@ -102,6 +103,8 @@ export default function EditorScreen() {
           <Text style={[styles.navText, { color: colors.primary, fontWeight: '700' }]}>Next →</Text>
         </TouchableOpacity>
       </View>
+
+      <SaveDraftButton step="editor" />
 
       {/* Photo Preview */}
       <View style={styles.photoArea}>

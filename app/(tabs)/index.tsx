@@ -8,6 +8,7 @@ import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
 import { FONT_SIZE, SPACING } from '@/constants/theme';
 import { promptForStoreReviewAfterSend } from '@/lib/store-review';
+import { DraftsSection } from '@/components/DraftsSection';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -37,6 +38,8 @@ export default function HomeScreen() {
             <Text style={styles.heroBtnText}>Get Started →</Text>
           </View>
         </TouchableOpacity>
+
+        <DraftsSection />
 
         {/* How it works */}
         <Text style={styles.sectionTitle}>How it works</Text>
