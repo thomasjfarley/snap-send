@@ -4,6 +4,8 @@ import {
   ScrollView, Dimensions, Alert, Platform, ActivityIndicator, Image,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { SaveDraftButton } from '@/components/SaveDraftButton';
+import { deleteDraft } from '@/lib/drafts';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { usePostcardStore } from '@/store/postcard.store';
@@ -553,6 +555,8 @@ export default function PreviewScreen() {
 
       submittedRef.current = true;
       analytics.postcardSent();
+      const sentDraftId = usePostcardStore.getState().draftId;
+      if (sentDraftId) deleteDraft(sentDraftId).catch(() => {});
       paymentConfirmedRef.current = false;
       submissionPayloadRef.current = null;
       errorLogRef.current = [];
@@ -578,6 +582,8 @@ export default function PreviewScreen() {
         <Text style={styles.title}>Preview</Text>
         <View style={{ width: 60 }} />
       </View>
+
+      <SaveDraftButton step="preview" disabled={sending} />
 
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Front */}

@@ -12,6 +12,7 @@ import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
 import { FONT_SIZE, SPACING } from '@/constants/theme';
 import { analytics } from '@/lib/analytics';
+import { SaveDraftButton } from '@/components/SaveDraftButton';
 
 export default function RecipientScreen() {
   const router = useRouter();
@@ -141,6 +142,8 @@ export default function RecipientScreen() {
           <Text style={[styles.navText, { color: colors.primary }]}>+ Add</Text>
         </TouchableOpacity>
       </View>
+
+      <SaveDraftButton step="recipient" disabled={verifying} />
 
       <FlatList
         data={recipients}

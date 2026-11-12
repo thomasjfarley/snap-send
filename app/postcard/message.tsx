@@ -10,6 +10,7 @@ import { usePostcardStore } from '@/store/postcard.store';
 import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
 import { FONT_SIZE, SPACING } from '@/constants/theme';
+import { SaveDraftButton } from '@/components/SaveDraftButton';
 
 const MAX_CHARS = 500;
 const MAX_LINES = 18;
@@ -206,6 +207,8 @@ export default function MessageScreen() {
             <Text style={[styles.navText, { color: message.trim().length > 0 ? colors.primary : colors.textSecondary, fontWeight: '700' }]}>Next →</Text>
           </TouchableOpacity>
         </View>
+
+        <SaveDraftButton step="message" />
 
         <View style={styles.body}>
           <View style={styles.labelRow}>
