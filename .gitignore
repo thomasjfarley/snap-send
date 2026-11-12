@@ -51,3 +51,6 @@ google-play-service-account.json
 .idea/
 .vscode/
 *.aab
+
+# local release helper
+scripts/play-upload.js
