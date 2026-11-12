@@ -73,7 +73,7 @@ export default function HistoryScreen() {
         refreshControl={
           <RefreshControl
             refreshing={loading}
-            onRefresh={() => user && fetch(user.id)}
+            onRefresh={() => { if (user) fetch(user.id); }}
             tintColor={colors.primary}
           />
         }
@@ -87,7 +87,7 @@ export default function HistoryScreen() {
                 <Text style={styles.ctaBtnText}>Create a Postcard</Text>
               </TouchableOpacity>
             </View>
-          ) : null
+          ) : undefined
         }
       />
     </SafeAreaView>

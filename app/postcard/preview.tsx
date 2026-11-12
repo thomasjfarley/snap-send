@@ -95,7 +95,7 @@ export default function PreviewScreen() {
   const { addresses } = useAddressStore();
   const personalAddress = addresses.find((a) => a.is_personal);
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
-  const cardFrontRef = useRef<View>(null);
+  const cardFrontRef = useRef<React.ComponentRef<typeof View>>(null);
   const submittedRef = useRef(false);
   const sendInProgressRef = useRef(false);
   const paymentIntentIdRef = useRef<string | null>(null);

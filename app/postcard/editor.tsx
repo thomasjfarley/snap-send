@@ -3,8 +3,7 @@ import {
   View, Text, Image, TouchableOpacity, ScrollView,
   StyleSheet, Dimensions, BackHandler,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useNavigation } from '@react-navigation/native';
+import { useRouter, useNavigation } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePostcardStore } from '@/store/postcard.store';
 import { FILTERS, getFrame, getSelectableFrames, isOverlayFrame, type FrameId } from '@/constants/editor';

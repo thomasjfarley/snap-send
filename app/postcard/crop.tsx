@@ -25,7 +25,7 @@ export default function CropScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const [workingUri, setWorkingUri] = useState<string>(photoUri ?? '');
   const [imgSize, setImgSize] = useState<{ w: number; h: number } | null>(null);
   const [bodyHeight, setBodyHeight] = useState(0);

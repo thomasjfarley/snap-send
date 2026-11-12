@@ -108,7 +108,7 @@ export default function AddressBookScreen() {
         refreshControl={
           <RefreshControl
             refreshing={loading}
-            onRefresh={() => user && fetch(user.id)}
+            onRefresh={() => { if (user) fetch(user.id); }}
             tintColor={colors.primary}
           />
         }
@@ -122,7 +122,7 @@ export default function AddressBookScreen() {
                 <Text style={styles.btnPrimaryText}>Add First Recipient</Text>
               </TouchableOpacity>
             </View>
-          ) : null
+          ) : undefined
         }
       />
     </SafeAreaView>

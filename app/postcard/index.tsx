@@ -168,7 +168,7 @@ function makeStyles(colors: AppColors) {
       alignItems: 'center', gap: SPACING.xs, borderWidth: 1, borderColor: colors.border,
     },
     blockingOverlay: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
       backgroundColor: 'transparent',
     },
     optionEmoji: { fontSize: 48 },

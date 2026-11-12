@@ -50,7 +50,7 @@ function StripeDeepLinkHandler() {
   useEffect(() => {
     const getInitialUrl = async () => {
       const initialUrl = await Linking.getInitialURL();
-      handleDeepLink(initialUrl);
+      handleDeepLink(initialUrl ?? null);
     };
     getInitialUrl();
 
