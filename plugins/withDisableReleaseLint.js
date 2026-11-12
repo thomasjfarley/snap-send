@@ -1,14 +1,16 @@
 const { withProjectBuildGradle } = require('expo/config-plugins');
 
-// Stripe's optional push-provisioning dependency needs play-services-tapandpay, which is not on
-// public Maven, so lintVitalAnalyzeRelease cannot resolve its classpath. We don't use that feature.
-const MARKER = '// disable-release-lint';
+// Stripe's optional push-provisioning dependency (compileOnly) needs play-services-tapandpay, which
+// is not on public Maven, so Android lint's classpath cannot resolve. We don't use that feature, so
+// exclude it from the lint classpaths only; compile classpaths are untouched.
+const MARKER = '// exclude-push-provisioning-from-lint';
 const SNIPPET = `
 ${MARKER}
 subprojects { p ->
-  ['com.android.application', 'com.android.library'].each { id ->
-    p.plugins.withId(id) {
-      p.android.lint.checkReleaseBuilds = false
+  p.configurations.configureEach { c ->
+    def n = c.name.toLowerCase()
+    if (n.contains('lint') && n.endsWith('classpath')) {
+      c.exclude group: 'com.stripe', module: 'stripe-android-issuing-push-provisioning'
     }
   }
 }
