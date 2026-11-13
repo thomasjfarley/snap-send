@@ -169,6 +169,7 @@ export default function RecipientScreen() {
         contentContainerStyle={styles.list}
         ListHeaderComponent={
           <View style={{ gap: SPACING.sm }}>
+            {requestButton}
             {personalAddress ? (
           <TouchableOpacity
             style={[styles.card, styles.selfCard, recipient?.id === personalAddress.id && styles.cardSelected]}
@@ -204,7 +205,6 @@ export default function RecipientScreen() {
             </TouchableOpacity>
           );
         }}
-        ListFooterComponent={requestButton}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyEmoji}>📭</Text>
@@ -251,7 +251,7 @@ function makeStyles(colors: AppColors) {
     checkmark: { fontSize: 20, color: colors.primary, fontWeight: '700' },
     selfCard: { borderStyle: 'dashed' },
     requestBtn: {
-      alignItems: 'center', paddingVertical: SPACING.lg, gap: 2,
+      alignItems: 'center', paddingVertical: SPACING.xs, gap: 2,
     },
     requestBtnTitle: { fontSize: FONT_SIZE.sm, fontWeight: '500', color: colors.textSecondary, textDecorationLine: 'underline' },
     requestBtnSub: { fontSize: FONT_SIZE.xs, color: colors.textSecondary },
