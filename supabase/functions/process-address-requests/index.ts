@@ -11,7 +11,6 @@ import { refundPaymentIntent } from '../_shared/refund.ts';
 import { printRequest } from '../_shared/address-request-print.ts';
 import {
   expiredDigitalEmail,
-  hasBackImage,
   recipientReminderEmail,
   senderNudgeEmail,
   sendEmail,
@@ -114,7 +113,7 @@ serve(async () => {
         const daysLeft = Math.max(1, Math.ceil((new Date(row.expires_at).getTime() - now) / DAY_MS));
         await sendEmail({
           to: row.recipient_email,
-          email: recipientReminderEmail({ senderName: sender.fullName, token: row.token, daysLeft, hasBack: await hasBackImage(supabase, row.id) }),
+          email: recipientReminderEmail({ senderName: sender.fullName, token: row.token, daysLeft }),
           idempotencyKey: `request-reminder-${row.id}-${due}`,
           tag: 'request-reminder',
         });

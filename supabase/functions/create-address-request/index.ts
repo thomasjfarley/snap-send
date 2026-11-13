@@ -8,7 +8,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isBlocked, runSafeSearch } from '../_shared/safe-search.ts';
 import { recordTaxTransaction } from '../_shared/stripe-tax.ts';
 import { refundPaymentIntent } from '../_shared/refund.ts';
-import { hasBackImage, inviteEmail, REQUEST_WINDOW_DAYS, sendEmail } from '../_shared/request-emails.ts';
+import { inviteEmail, REQUEST_WINDOW_DAYS, sendEmail } from '../_shared/request-emails.ts';
 
 const STRIPE_SECRET_KEY_LIVE = Deno.env.get('STRIPE_SECRET_KEY')!;
 const STRIPE_SECRET_KEY_TEST = Deno.env.get('STRIPE_SECRET_KEY_TEST')!;
@@ -253,7 +253,7 @@ serve(async (req) => {
       .from('profiles').select('full_name').eq('id', user.id).maybeSingle();
     const sent = await sendEmail({
       to: email,
-      email: inviteEmail({ senderName: profile?.full_name ?? null, token, hasBack: await hasBackImage(supabase, requestId) }),
+      email: inviteEmail({ senderName: profile?.full_name ?? null, token }),
       idempotencyKey: `request-invite-${requestId}`,
       tag: 'request-invite',
     });
