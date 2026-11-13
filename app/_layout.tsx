@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { useProfileStore } from '@/store/profile.store';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
+import { syncInstallCampaign } from '@/lib/install-referrer';
 import { STRIPE_PUBLISHABLE_KEY } from '@/constants/config';
 import { RequiredUpdateGate } from '@/components/RequiredUpdateGate';
 import { logScreenView, setAnalyticsUserId } from '@/lib/analytics';
@@ -91,6 +92,10 @@ function AuthGate() {
     if (!passwordRecovery || !initialized) return;
     router.push('/(auth)/reset-password');
   }, [passwordRecovery, initialized]);
+
+  useEffect(() => {
+    if (user && profile?.id === user.id) syncInstallCampaign(user.id);
+  }, [user?.id, profile?.id]);
 
   useEffect(() => {
     if (!initialized) return;

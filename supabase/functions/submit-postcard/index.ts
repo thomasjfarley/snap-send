@@ -852,7 +852,7 @@ serve(async (req) => {
     const fromHtml = addrBlock('FROM', fromAddress);
     const senderJoyHtml = addrBlock('SENT WITH JOY FROM', fromAddress);
     const toHtml = addrBlock('TO', recipientAddress);
-    const qrHtml = `<div style="text-align:center"><p style="font-size:8px;font-weight:bold;color:#444;margin:0 0 8px 0;letter-spacing:2px;text-transform:uppercase">Snap Send</p><img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&color=222222&bgcolor=ffffff&data=https://snapsend.live" width="80" height="80" style="display:block;margin:0 auto" /><p style="font-size:8px;color:#888;margin:8px 0 0 0;letter-spacing:1px">Send Joy</p></div>`;
+    const qrHtml = `<div style="text-align:center"><p style="font-size:8px;font-weight:bold;color:#444;margin:0 0 8px 0;letter-spacing:2px;text-transform:uppercase">Snap Send</p><img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&color=222222&bgcolor=ffffff&data=https://snapsend.live/q" width="80" height="80" style="display:block;margin:0 auto" /><p style="font-size:8px;color:#888;margin:8px 0 0 0;letter-spacing:1px">Send Joy</p></div>`;
     const brandingHtml = needsSnapSendReturnAddress
       ? `<table style="width:100%;border-collapse:collapse;table-layout:fixed"><tr><td style="width:58%;vertical-align:middle;padding-right:8px">${senderJoyHtml}</td><td style="width:42%;vertical-align:middle">${qrHtml}</td></tr></table>`
       : qrHtml;

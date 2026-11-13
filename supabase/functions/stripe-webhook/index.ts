@@ -6,6 +6,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { recordTaxTransaction, reverseTaxTransaction } from '../_shared/stripe-tax.ts';
 import { sendGa4Purchase } from '../_shared/ga4.ts';
+import { alertPostcardCampaignPurchase } from '../_shared/campaign-alert.ts';
 
 const STRIPE_WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET')!;
 const STRIPE_WEBHOOK_SECRET_TEST = Deno.env.get('STRIPE_WEBHOOK_SECRET_TEST') ?? '';
@@ -190,6 +191,11 @@ serve(async (req) => {
             'warning',
             `paymentIntentId=${paymentIntent.id}; error=${gaError instanceof Error ? gaError.message : String(gaError)}`,
           );
+        }
+        try {
+          await alertPostcardCampaignPurchase(supabase, paymentIntent);
+        } catch (alertError) {
+          console.error('[stripe-webhook] campaign alert failed', alertError);
         }
       } else if (event.type === 'refund.created' || event.type === 'refund.updated') {
         const refund = event.data.object;

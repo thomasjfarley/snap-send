@@ -707,7 +707,7 @@ export default function PreviewScreen() {
                 <View style={styles.qrSectionInternational}>
                   <Text style={styles.snapSendText}>SNAP SEND</Text>
                   <Image
-                    source={{ uri: 'https://api.qrserver.com/v1/create-qr-code/?size=100x100&color=222222&bgcolor=ffffff&data=https://snapsend.live' }}
+                    source={{ uri: 'https://api.qrserver.com/v1/create-qr-code/?size=100x100&color=222222&bgcolor=ffffff&data=https://snapsend.live/q' }}
                     style={styles.qrImage}
                   />
                   <Text style={styles.sendJoyText}>Send Joy</Text>
@@ -717,7 +717,7 @@ export default function PreviewScreen() {
               <View style={styles.qrSection}>
                 <Text style={styles.snapSendText}>SNAP SEND</Text>
                 <Image
-                  source={{ uri: 'https://api.qrserver.com/v1/create-qr-code/?size=100x100&color=222222&bgcolor=ffffff&data=https://snapsend.live' }}
+                  source={{ uri: 'https://api.qrserver.com/v1/create-qr-code/?size=100x100&color=222222&bgcolor=ffffff&data=https://snapsend.live/q' }}
                   style={styles.qrImage}
                 />
                 <Text style={styles.sendJoyText}>Send Joy</Text>
