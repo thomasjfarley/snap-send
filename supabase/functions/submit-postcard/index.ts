@@ -833,8 +833,8 @@ serve(async (req) => {
       .split('\n')
       .reduce((sum: number, line: string) => sum + Math.max(1, Math.ceil(line.length / LOB_CHARS_PER_LINE)), 0);
     const sizeByChars = msgLen < 80 ? 15 : msgLen < 200 ? 13 : msgLen < 350 ? 11 : 10;
-    const sizeByLines = lineCount <= 5 ? 15 : lineCount <= 9 ? 13 : lineCount <= 13 ? 11 : lineCount <= 28 ? 10 : 9;
-    const sizeByVisual = visualLines <= 7 ? 15 : visualLines <= 12 ? 13 : visualLines <= 17 ? 11 : visualLines <= 28 ? 10 : 9;
+    const sizeByLines = lineCount <= 5 ? 15 : lineCount <= 9 ? 13 : lineCount <= 13 ? 11 : lineCount <= 26 ? 10 : 9;
+    const sizeByVisual = visualLines <= 7 ? 15 : visualLines <= 12 ? 13 : visualLines <= 17 ? 11 : visualLines <= 26 ? 10 : 9;
     const lobFontSize = Math.min(sizeByChars, sizeByLines, sizeByVisual);
 
     // Build inline address blocks — {{from_address}}/{{to_address}} merge vars
