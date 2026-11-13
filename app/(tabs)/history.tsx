@@ -31,7 +31,7 @@ export default function HistoryScreen() {
     if (!user) return;
     const { data } = await (supabase as any)
       .from('address_requests')
-      .select('id, recipient_email, status, expires_at, amount_cents, created_at')
+      .select('id, recipient_email, status, expires_at, amount_cents, created_at, downloaded_at')
       .in('status', ['awaiting_address', 'processing', 'expired_digital', 'refunded'])
       .order('created_at', { ascending: false });
     setRequests(data ?? []);
@@ -46,13 +46,20 @@ export default function HistoryScreen() {
   function requestStatus(r: any) {
     switch (r.status) {
       case 'awaiting_address': {
-        const days = Math.max(0, Math.ceil((new Date(r.expires_at).getTime() - Date.now()) / 86400000));
+        const msLeft = new Date(r.expires_at).getTime() - Date.now();
+        if (r.downloaded_at && msLeft <= 0) {
+          return { label: 'Fulfilled digitally', color: '#14532D', bg: '#DCFCE7', emoji: '💌' };
+        }
+        const days = Math.max(0, Math.ceil(msLeft / 86400000));
+        if (r.downloaded_at) {
+          return { label: `Digital postcard accepted · ${days}d left`, color: '#1E40AF', bg: '#DBEAFE', emoji: '📥' };
+        }
         return { label: `Waiting for address · ${days}d left`, color: '#92400E', bg: '#FEF3C7', emoji: '✉️' };
       }
       case 'processing':
         return { label: 'Address received', color: '#6B21A8', bg: '#F3E8FF', emoji: '🖨️' };
       case 'expired_digital':
-        return { label: 'Sent digitally', color: '#14532D', bg: '#DCFCE7', emoji: '💌' };
+        return { label: 'Fulfilled digitally', color: '#14532D', bg: '#DCFCE7', emoji: '💌' };
       default:
         return { label: 'Refunded', color: '#991B1B', bg: '#FEE2E2', emoji: '↩️' };
     }
