@@ -351,8 +351,8 @@ export default function PreviewScreen() {
       .split('\n')
       .reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / LOB_CHARS_PER_LINE)), 0);
     const byChars = len < 80 ? 15 : len < 200 ? 13 : len < 350 ? 11 : 10;
-    const byLines = lines <= 5 ? 15 : lines <= 9 ? 13 : lines <= 13 ? 11 : 10;
-    const byVisual = visualLines <= 7 ? 15 : visualLines <= 12 ? 13 : visualLines <= 17 ? 11 : 10;
+    const byLines = lines <= 5 ? 15 : lines <= 9 ? 13 : lines <= 13 ? 11 : lines <= 28 ? 10 : 9;
+    const byVisual = visualLines <= 7 ? 15 : visualLines <= 12 ? 13 : visualLines <= 17 ? 11 : visualLines <= 28 ? 10 : 9;
     // Select the same tier as Lob, then scale down proportionally to the preview card size.
     // Lob renders at LOB_RENDER_WIDTH; our preview is CARD_W — shrink everything by that ratio.
     const lobFontSize = Math.min(byChars, byLines, byVisual);
