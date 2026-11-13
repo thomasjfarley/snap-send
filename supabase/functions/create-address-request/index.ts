@@ -12,7 +12,10 @@ import { inviteEmail, REQUEST_WINDOW_DAYS, sendEmail } from '../_shared/request-
 
 const STRIPE_SECRET_KEY_LIVE = Deno.env.get('STRIPE_SECRET_KEY')!;
 const STRIPE_SECRET_KEY_TEST = Deno.env.get('STRIPE_SECRET_KEY_TEST')!;
-const GOOGLE_VISION_API_KEY = Deno.env.get('GOOGLE_VISION_API_KEY') ?? '';
+const GOOGLE_VISION_API_KEY =
+  Deno.env.get('GOOGLE_VISION_API_KEY') ??
+  Deno.env.get('GOOGLE_VISION_API_KE') ??
+  '';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
