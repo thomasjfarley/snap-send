@@ -144,8 +144,8 @@ export default function RecipientScreen() {
 
   const requestButton = (
     <TouchableOpacity style={styles.requestBtn} onPress={requestAddressByEmail}>
-      <Text style={styles.requestBtnTitle}>✉️  Request address via email</Text>
-      <Text style={styles.requestBtnSub}>Don't have their address? We'll ask them for it.</Text>
+      <Text style={styles.requestBtnSub}>Don't have their address?</Text>
+      <Text style={styles.requestBtnTitle}>Request it by email</Text>
     </TouchableOpacity>
   );
 
@@ -169,7 +169,6 @@ export default function RecipientScreen() {
         contentContainerStyle={styles.list}
         ListHeaderComponent={
           <View style={{ gap: SPACING.sm }}>
-            {requestButton}
             {personalAddress ? (
           <TouchableOpacity
             style={[styles.card, styles.selfCard, recipient?.id === personalAddress.id && styles.cardSelected]}
@@ -205,6 +204,7 @@ export default function RecipientScreen() {
             </TouchableOpacity>
           );
         }}
+        ListFooterComponent={requestButton}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyEmoji}>📭</Text>
@@ -251,11 +251,10 @@ function makeStyles(colors: AppColors) {
     checkmark: { fontSize: 20, color: colors.primary, fontWeight: '700' },
     selfCard: { borderStyle: 'dashed' },
     requestBtn: {
-      backgroundColor: colors.primaryLight, borderRadius: 14, padding: SPACING.md,
-      borderWidth: 2, borderColor: colors.primary, gap: 2,
+      alignItems: 'center', paddingVertical: SPACING.lg, gap: 2,
     },
-    requestBtnTitle: { fontSize: FONT_SIZE.md, fontWeight: '700', color: colors.primary },
-    requestBtnSub: { fontSize: FONT_SIZE.sm, color: colors.textSecondary },
+    requestBtnTitle: { fontSize: FONT_SIZE.sm, fontWeight: '500', color: colors.textSecondary, textDecorationLine: 'underline' },
+    requestBtnSub: { fontSize: FONT_SIZE.xs, color: colors.textSecondary },
     selfRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, flexWrap: 'wrap' },
     selfBadge: { backgroundColor: colors.primaryLight, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
     selfBadgeText: { fontSize: FONT_SIZE.xs, color: colors.primary, fontWeight: '600' },
