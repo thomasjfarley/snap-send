@@ -356,12 +356,8 @@ export default function PreviewScreen() {
     // Select the same tier as Lob, then scale down proportionally to the preview card size.
     // Lob renders at LOB_RENDER_WIDTH; our preview is CARD_W — shrink everything by that ratio.
     const lobFontSize = Math.min(byChars, byLines, byVisual);
-    return Math.max(6, Math.round(lobFontSize * LOB_SCALE));
+    return lobFontSize * LOB_SCALE;
   }, [message]);
-
-  const previewMaxLines = messageFontSize > 0
-    ? Math.floor((CARD_H - MSG_PAD_VERT * 2) / (messageFontSize * 1.5))
-    : undefined;
 
   if (!photoUri || (!recipient && !addressRequest)) {
     return null;
@@ -689,7 +685,6 @@ export default function PreviewScreen() {
         <View ref={cardBackRef} collapsable={false} style={styles.cardBack}>
           <View style={styles.backMessage}>
             <Text
-              numberOfLines={previewMaxLines}
               style={[styles.backMessageText, { fontSize: messageFontSize, lineHeight: messageFontSize * 1.5 }]}
             >{message}</Text>
           </View>
