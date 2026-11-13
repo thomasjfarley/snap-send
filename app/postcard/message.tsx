@@ -13,13 +13,13 @@ import { FONT_SIZE, SPACING } from '@/constants/theme';
 import { SaveDraftButton } from '@/components/SaveDraftButton';
 
 const MAX_CHARS = 880;
-const MAX_LINES = 26;
+const MAX_LINES = 30;
 const MAX_EMOJIS = 60;
 // Lob renders at 10px min, 219px content width. At 0.5 avg char width: 43 chars/line.
 // Using 40 as a conservative safety margin.
 const LOB_CHARS_PER_LINE = 40;
-// At 10px (22 lines) then 9px (up to 26 lines) with 1.5 line-height.
-const LOB_MAX_VISUAL = 26;
+// 10px up to 22 lines, 9px up to 26, 8px up to 30 (1.5 line-height).
+const LOB_MAX_VISUAL = 30;
 
 // Matches full emoji sequences (same set as the server-side EMOJI_REGEX).
 // Each emoji is rendered as a Twemoji image (~1em wide ≈ 2 char-widths in the
