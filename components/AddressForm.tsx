@@ -70,7 +70,7 @@ export function AddressForm({
 
       <TextInput
         style={styles.input}
-        placeholder="Apt, suite, unit (optional)"
+        placeholder="Address line 2 (apt, suite, unit, box…)"
         placeholderTextColor={colors.textSecondary}
         value={values.line2}
         onChangeText={(v) => onChange('line2', v)}
