@@ -4,8 +4,6 @@ Shared task list for any session or contributor. Keep it current: add new items,
 
 ## Open
 
-- [ ] **Confirm R8 minification is live on Android** (deadline Feb 2027).
-  R8, resource shrinking and keep rules ship in 1.1.0 and passed an on-device test (sign-in, drafts, payment, analytics). After 1.1.0 is live on Play, check that the Play Console DEX obfuscation flag clears, then delete this item.
 - [ ] **Decide on Apple sign-in for the web app** (`snap-send-web`, `auth.service.ts` uses `signInWithOAuth`).
   The Apple OAuth client secret in Supabase (Authentication > Providers > Apple) expires every 6 months. Native iOS sign-in does not use it. Options: remove Apple on web, or automate secret renewal. First count users with Apple as their provider (hidden-email users cannot sign in on web without it).
 - [ ] **Consider raising the 500-character message limit** and revisit the 60-emoji cap (Lob HTML limit is 10,000 characters).
