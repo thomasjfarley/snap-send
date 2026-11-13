@@ -6,6 +6,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
+import { cachePostcardImage } from '@/lib/postcard-images';
 import type { Postcard } from '@/lib/database.types';
 import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
@@ -30,6 +31,8 @@ export default function OrderDetailScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [postcard, setPostcard] = useState<Postcard | null>(null);
   const [loading, setLoading] = useState(true);
+  const [localFront, setLocalFront] = useState<string | null>(null);
+  const [localBack, setLocalBack] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const messageFontSize = useMemo(() => {
@@ -60,7 +63,14 @@ export default function OrderDetailScreen() {
         .eq('id', id)
         .single();
         if (error) setError(error.message);
-        else setPostcard(data as Postcard | null);
+        else {
+          setPostcard(data as Postcard | null);
+          const p = data as Postcard | null;
+          if (p) {
+            setLocalFront(await cachePostcardImage(p.id, 'front', p.lob_front_url));
+            setLocalBack(await cachePostcardImage(p.id, 'back', p.lob_back_url));
+          }
+        }
         setLoading(false);
     })();
   }, [id]);
@@ -106,8 +116,8 @@ export default function OrderDetailScreen() {
 
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Front image from Lob */}
-        {postcard.lob_front_url && (
-          <Image source={{ uri: postcard.lob_front_url }} style={styles.postcardThumb} resizeMode="cover" />
+        {(localFront ?? postcard.lob_front_url) && (
+          <Image source={{ uri: (localFront ?? postcard.lob_front_url)! }} style={styles.postcardThumb} resizeMode="cover" />
         )}
         {/* Status banner */}
         <View style={[styles.statusBanner, { backgroundColor: status.bg }]}>
@@ -140,8 +150,8 @@ export default function OrderDetailScreen() {
 
         {/* Back image from Lob, or native mockup for old orders */}
         <Text style={styles.sectionTitle}>Back</Text>
-        {postcard.lob_back_url ? (
-          <Image source={{ uri: postcard.lob_back_url }} style={styles.postcardThumb} resizeMode="cover" />
+        {(localBack ?? postcard.lob_back_url) ? (
+          <Image source={{ uri: (localBack ?? postcard.lob_back_url)! }} style={styles.postcardThumb} resizeMode="cover" />
         ) : (
           <View style={styles.postcardBack}>
             <View style={styles.backLeft}>

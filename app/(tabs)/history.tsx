@@ -1,5 +1,7 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { cachePostcardImage } from '@/lib/postcard-images';
+import { deleteRequestCards, getRequestCardUri } from '@/lib/request-cards';
 import {
   View, Text, Image, FlatList, TouchableOpacity,
   StyleSheet, RefreshControl,
@@ -26,6 +28,33 @@ export default function HistoryScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [requests, setRequests] = useState<any[]>([]);
+  const [thumbs, setThumbs] = useState<Record<string, string>>({});
+
+  // Resolve (and permanently cache) the Lob front image for each postcard; request cards use
+  // the sender-preview copy until their printed postcard has been cached.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const next: Record<string, string> = {};
+      for (const p of postcards) {
+        const uri = await cachePostcardImage(p.id, 'front', p.lob_front_url);
+        if (uri) next[p.id] = uri;
+        await cachePostcardImage(p.id, 'back', p.lob_back_url);
+      }
+      for (const r of requests) {
+        const printed = r.postcard_id ? next[r.postcard_id] : null;
+        if (printed) {
+          next[`req:${r.id}`] = printed;
+          deleteRequestCards(r.id).catch(() => {});
+          continue;
+        }
+        const local = await getRequestCardUri(r.id, 'front');
+        if (local) next[`req:${r.id}`] = local;
+      }
+      if (!cancelled) setThumbs(next);
+    })();
+    return () => { cancelled = true; };
+  }, [postcards, requests]);
 
   const loadRequests = useCallback(async () => {
     if (!user) return;
@@ -75,6 +104,9 @@ export default function HistoryScreen() {
         style={styles.card}
         onPress={() => router.push(r.postcard_id ? `/order/${r.postcard_id}` : `/order/request/${r.id}`)}
       >
+        {thumbs[`req:${r.id}`] && (
+          <Image source={{ uri: thumbs[`req:${r.id}`] }} style={styles.thumbnail} resizeMode="cover" />
+        )}
         <View style={styles.cardLeft}>
           <Text style={styles.recipient}>{r.recipient_email}</Text>
           <Text style={styles.address}>Address requested by email</Text>
@@ -99,8 +131,8 @@ export default function HistoryScreen() {
 
     return (
       <TouchableOpacity style={styles.card} onPress={() => router.push(`/order/${item.id}`)}>
-        {item.lob_front_url && (
-          <Image source={{ uri: item.lob_front_url }} style={styles.thumbnail} resizeMode="cover" />
+        {(thumbs[item.id] ?? item.lob_front_url) && (
+          <Image source={{ uri: thumbs[item.id] ?? item.lob_front_url! }} style={styles.thumbnail} resizeMode="cover" />
         )}
         <View style={styles.cardLeft}>
           <Text style={styles.recipient}>{snapshot?.full_name ?? 'Unknown recipient'}</Text>
