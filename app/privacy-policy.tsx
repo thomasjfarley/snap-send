@@ -48,7 +48,7 @@ export default function PrivacyPolicyScreen() {
           <Text style={styles.back}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Privacy Policy</Text>
-        <Text style={styles.effective}>Effective Date: November 2, 2026</Text>
+        <Text style={styles.effective}>Effective Date: November 12, 2026</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -74,6 +74,28 @@ export default function PrivacyPolicyScreen() {
           <Para>
             We collect the photos you upload and messages you write for your postcards. This content is
             transmitted to our printing partner solely to fulfill your order.
+          </Para>
+
+          <Text style={[styles.subheading, { color: colors.textPrimary }]}>Location (Optional)</Text>
+          <Para>
+            If you choose to add a location to your postcard, Snap Send can use your device&apos;s approximate location
+            (with your permission) to suggest nearby places. Your coordinates, or the place name you
+            type, are sent to the OpenStreetMap Nominatim service to look up place names. We do not store
+            your device location. You can decline the permission and type a location instead, or skip it.
+          </Para>
+
+          <Text style={[styles.subheading, { color: colors.textPrimary }]}>Contacts (Optional)</Text>
+          <Para>
+            If you choose to import an address from your contacts, Snap Send opens your device&apos;s contact
+            picker. We only receive the single contact you select, and only to fill in the address
+            form. We do not read or upload the rest of your contacts.
+          </Para>
+
+          <Text style={[styles.subheading, { color: colors.textPrimary }]}>Saved Drafts</Text>
+          <Para>
+            If you save a postcard draft, the photo, message, and choices are stored only on your device.
+            They are not sent to us until you send the postcard, and they are removed when you delete
+            the draft, send the postcard, or uninstall the app.
           </Para>
 
           <Text style={[styles.subheading, { color: colors.textPrimary }]}>Payment Information</Text>
@@ -132,6 +154,8 @@ export default function PrivacyPolicyScreen() {
           <Bullet>Google Analytics for Firebase — app usage analytics (policies.google.com/privacy)</Bullet>
           <Bullet>Google Cloud Vision — automated safety screening of postcard images</Bullet>
           <Bullet>Apple — sign-in via Apple (apple.com/legal/privacy)</Bullet>
+          <Bullet>Resend — delivery of transactional emails such as refund confirmations (resend.com/legal/privacy-policy)</Bullet>
+          <Bullet>OpenStreetMap Nominatim — optional place lookup when you add a location to a postcard (osmfoundation.org/wiki/Privacy_Policy)</Bullet>
           <Bullet>
             Lob — your photo, message, sender address, and recipient address are shared with our
             fulfillment partner to produce and mail your postcard (lob.com/legal/privacy).

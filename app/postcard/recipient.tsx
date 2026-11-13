@@ -164,7 +164,7 @@ export default function RecipientScreen() {
             </View>
             {recipient?.id === personalAddress.id && <Text style={styles.checkmark}>✓</Text>}
           </TouchableOpacity>
-        ) : null}
+        ) : undefined}
         renderItem={({ item }) => {
           const selected = recipient?.id === item.id;
           return (
@@ -232,7 +232,7 @@ function makeStyles(colors: AppColors) {
     selfBadgeText: { fontSize: FONT_SIZE.xs, color: colors.primary, fontWeight: '600' },
     empty: { alignItems: 'center', gap: SPACING.md, paddingTop: 80 },
     verifyOverlay: {
-      ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.35)',
+      ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.35)',
       alignItems: 'center', justifyContent: 'center', gap: SPACING.sm,
     },
     verifyText: { color: '#fff', fontSize: FONT_SIZE.md, fontWeight: '600' },
