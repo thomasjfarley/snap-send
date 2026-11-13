@@ -58,8 +58,6 @@ export function AddressForm({
         autoComplete="name"
       />
 
-      <CountryPicker value={values.country} onChange={(code) => onChange('country', code)} />
-
       <TextInput
         style={styles.input}
         placeholder="Street address"
@@ -110,6 +108,8 @@ export function AddressForm({
           autoComplete="postal-code"
         />
       </View>
+
+      <CountryPicker value={values.country} onChange={(code) => onChange('country', code)} />
 
       <TouchableOpacity
         style={[styles.verifyBtn, validating && styles.disabled]}
