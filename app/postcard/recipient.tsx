@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, FlatList, StyleSheet, Alert, ActivityIndicator,
+  View, Text, TouchableOpacity, FlatList, StyleSheet, Alert, ActivityIndicator, TextInput,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,6 +13,7 @@ import type { AppColors } from '@/constants/theme';
 import { FONT_SIZE, SPACING } from '@/constants/theme';
 import { analytics } from '@/lib/analytics';
 import { SaveDraftButton } from '@/components/SaveDraftButton';
+import { sortAndFilterAddresses } from '@/lib/address-filter';
 
 export default function RecipientScreen() {
   const router = useRouter();
@@ -30,7 +31,12 @@ export default function RecipientScreen() {
   );
 
   // Exclude personal address from the general list
-  const recipients = addresses.filter((a) => !a.is_personal);
+  const [search, setSearch] = useState('');
+  const recipients = useMemo(
+    () => sortAndFilterAddresses(addresses.filter((a) => !a.is_personal), search),
+    [addresses, search],
+  );
+  const hasSavedRecipients = addresses.some((a) => !a.is_personal);
   const personalAddress = addresses.find((a) => a.is_personal && (a.country === 'US' || !a.country));
 
   function proceed(address: Address, unverifiedOk = false) {
@@ -163,8 +169,23 @@ export default function RecipientScreen() {
 
       <SaveDraftButton step="recipient" disabled={verifying} />
 
+      {hasSavedRecipients && (
+        <TextInput
+          style={styles.search}
+          placeholder="Search name or address"
+          placeholderTextColor={colors.textSecondary}
+          value={search}
+          onChangeText={setSearch}
+          autoCorrect={false}
+          autoCapitalize="none"
+          clearButtonMode="while-editing"
+          returnKeyType="search"
+        />
+      )}
+
       <FlatList
         data={recipients}
+        keyboardShouldPersistTaps="handled"
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         ListHeaderComponent={
@@ -206,6 +227,12 @@ export default function RecipientScreen() {
           );
         }}
         ListEmptyComponent={
+          hasSavedRecipients ? (
+            <View style={styles.empty}>
+              <Text style={styles.emptyTitle}>No matches</Text>
+              <Text style={styles.emptySub}>Try a different name or address.</Text>
+            </View>
+          ) : (
           <View style={styles.empty}>
             <Text style={styles.emptyEmoji}>📭</Text>
             <Text style={styles.emptyTitle}>No recipients saved</Text>
@@ -214,6 +241,7 @@ export default function RecipientScreen() {
               <Text style={styles.addBtnText}>Add Recipient</Text>
             </TouchableOpacity>
           </View>
+          )
         }
       />
       {verifying && (
@@ -239,6 +267,12 @@ function makeStyles(colors: AppColors) {
     navText: { fontSize: FONT_SIZE.md, color: colors.textSecondary },
     title: { fontSize: FONT_SIZE.lg, fontWeight: '700', color: colors.textPrimary },
     list: { padding: SPACING.xl, gap: SPACING.sm, paddingBottom: 40 },
+    search: {
+      backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border,
+      marginHorizontal: SPACING.xl, marginTop: SPACING.md,
+      paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
+      fontSize: FONT_SIZE.md, color: colors.textPrimary,
+    },
     card: {
       backgroundColor: colors.surface, borderRadius: 14, padding: SPACING.md,
       borderWidth: 2, borderColor: colors.border,

@@ -12,7 +12,7 @@ import type { AppColors } from '@/constants/theme';
 import { FONT_SIZE, SPACING } from '@/constants/theme';
 import { SaveDraftButton } from '@/components/SaveDraftButton';
 
-const MAX_CHARS = 600;
+const MAX_CHARS = 800;
 const MAX_LINES = 18;
 const MAX_EMOJIS = 60;
 // Lob renders at 10px min, 219px content width. At 0.5 avg char width: 43 chars/line.

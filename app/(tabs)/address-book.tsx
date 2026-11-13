@@ -1,10 +1,11 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -17,6 +18,7 @@ import type { Address } from '@/lib/database.types';
 import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
 import { FONT_SIZE, SPACING } from '@/constants/theme';
+import { sortAndFilterAddresses } from '@/lib/address-filter';
 
 export default function AddressBookScreen() {
   const router = useRouter();
@@ -25,6 +27,8 @@ export default function AddressBookScreen() {
   const { addresses, fetch, remove, loading } = useAddressStore();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const [search, setSearch] = useState('');
+  const visibleAddresses = useMemo(() => sortAndFilterAddresses(addresses, search), [addresses, search]);
 
   useFocusEffect(
     useCallback(() => {
@@ -100,8 +104,23 @@ export default function AddressBookScreen() {
         </TouchableOpacity>
       </View>
 
+      {addresses.length > 0 && (
+        <TextInput
+          style={styles.search}
+          placeholder="Search name or address"
+          placeholderTextColor={colors.textSecondary}
+          value={search}
+          onChangeText={setSearch}
+          autoCorrect={false}
+          autoCapitalize="none"
+          clearButtonMode="while-editing"
+          returnKeyType="search"
+        />
+      )}
+
       <FlatList
-        data={addresses}
+        data={visibleAddresses}
+        keyboardShouldPersistTaps="handled"
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.list}
@@ -114,6 +133,12 @@ export default function AddressBookScreen() {
         }
         ListEmptyComponent={
           !loading ? (
+            addresses.length > 0 ? (
+              <View style={styles.empty}>
+                <Text style={styles.emptyTitle}>No matches</Text>
+                <Text style={styles.emptySubtitle}>Try a different name or address.</Text>
+              </View>
+            ) : (
             <View style={styles.empty}>
               <Text style={styles.emptyEmoji}>📭</Text>
               <Text style={styles.emptyTitle}>No recipients yet</Text>
@@ -122,6 +147,7 @@ export default function AddressBookScreen() {
                 <Text style={styles.btnPrimaryText}>Add First Recipient</Text>
               </TouchableOpacity>
             </View>
+            )
           ) : undefined
         }
       />
@@ -145,6 +171,12 @@ function makeStyles(colors: AppColors) {
     addBtn: { backgroundColor: colors.primary, borderRadius: 20, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs },
     addBtnText: { color: '#fff', fontSize: FONT_SIZE.sm, fontWeight: '600' },
     list: { padding: SPACING.xl, gap: SPACING.sm, paddingBottom: 40 },
+    search: {
+      backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border,
+      marginHorizontal: SPACING.xl, marginTop: SPACING.md,
+      paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
+      fontSize: FONT_SIZE.md, color: colors.textPrimary,
+    },
     card: {
       backgroundColor: colors.surface, borderRadius: 14, padding: SPACING.md,
       borderWidth: 1, borderColor: colors.border,
