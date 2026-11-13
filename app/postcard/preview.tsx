@@ -740,9 +740,8 @@ export default function PreviewScreen() {
                   </>
                 ) : (
                   <>
-                    <Text style={styles.addrText}>Your recipient will enter</Text>
-                    <Text style={styles.addrText}>their address from the</Text>
-                    <Text style={styles.addrText}>link we email them</Text>
+                    <Text style={styles.addrText}>Your address</Text>
+                    <Text style={styles.addrText}>goes here</Text>
                   </>
                 )}
               </View>
