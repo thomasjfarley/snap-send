@@ -14,7 +14,7 @@ import * as Contacts from 'expo-contacts';
 import { useAuthStore } from '@/store/auth.store';
 import { useAddressStore } from '@/store/address.store';
 import { AddressForm } from '@/components/AddressForm';
-import { getMailingCountry } from '@/constants/countries';
+import { countryCodeFromName } from '@/constants/countries';
 import type { AddressFormData } from '@/store/address.store';
 import { useTheme } from '@/hooks/useTheme';
 import type { AppColors } from '@/constants/theme';
@@ -43,26 +43,39 @@ export default function NewAddressScreen() {
 
   async function handleImportFromContacts() {
     // The system contact picker needs no contacts permission
-    const contact = await Contacts.presentContactPickerAsync();
-    if (!contact) return;
+    try {
+      const picked = await Contacts.Contact.presentPicker();
+      if (!picked) return;
 
-    const fullName = [contact.firstName, contact.lastName].filter(Boolean).join(' ')
-      || contact.name
-      || '';
+      const details = await picked.getDetails([
+        Contacts.ContactField.FULL_NAME,
+        Contacts.ContactField.GIVEN_NAME,
+        Contacts.ContactField.FAMILY_NAME,
+        Contacts.ContactField.ADDRESSES,
+      ]);
 
-    const addr = contact.addresses?.[0];
-    const importedCountry = getMailingCountry(addr?.isoCountryCode).code;
-    setForm({
-      label: 'Friend',
-      full_name: fullName,
-      line1: addr?.street ?? '',
-      line2: '',
-      city: addr?.city ?? '',
-      state: addr?.region ?? '',
-      zip: addr?.postalCode ?? '',
-      country: importedCountry,
-    });
-    setVerified(null);
+      const fullName = details.fullName
+        || [details.givenName, details.familyName].filter(Boolean).join(' ');
+
+      const addr = details.addresses?.[0];
+      setForm({
+        label: 'Friend',
+        full_name: fullName,
+        line1: addr?.street ?? '',
+        line2: '',
+        city: addr?.city ?? '',
+        state: addr?.state || addr?.region || '',
+        zip: addr?.postcode ?? '',
+        country: countryCodeFromName(addr?.country),
+      });
+      setVerified(null);
+
+      if (!addr) {
+        Alert.alert('No address found', 'That contact has no saved address. The name was imported; enter the address manually.');
+      }
+    } catch (e) {
+      Alert.alert('Import failed', e instanceof Error ? e.message : 'Could not read that contact.');
+    }
   }
 
   function handleChange(field: keyof AddressFormData, value: string) {

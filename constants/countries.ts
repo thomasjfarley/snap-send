@@ -73,6 +73,21 @@ export function getMailingCountry(code?: string | null) {
     MAILING_COUNTRY_BY_CODE.get('US')!;
 }
 
+// Contacts store a free-text country name ("USA", "United Kingdom"), not an ISO code.
+export function countryCodeFromName(name?: string | null) {
+  const value = (name ?? '').trim().toLowerCase();
+  if (!value) return 'US';
+  if (['us', 'usa', 'u.s.', 'u.s.a.', 'america', 'united states of america'].includes(value)) return 'US';
+  if (['uk', 'u.k.', 'england', 'scotland', 'wales', 'great britain'].includes(value)) return 'GB';
+  const match = countries.find((c) =>
+    c.cca2.toLowerCase() === value ||
+    c.cca3.toLowerCase() === value ||
+    c.name.common.toLowerCase() === value ||
+    c.name.official.toLowerCase() === value,
+  );
+  return getMailingCountry(match?.cca2).code;
+}
+
 export function requiresInternationalRiskWarning(code?: string | null) {
   const country = getMailingCountry(code);
   return country.code !== 'US' && country.riskTier === 'limited';
