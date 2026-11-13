@@ -20,6 +20,8 @@ const corsHeaders = {
 
 const TOKEN_REGEX = /^[A-Za-z0-9_-]{40,64}$/;
 const BUCKET = 'address-request-images';
+// USPS First-Class Mail International suspensions (keep in sync with constants/countries.ts).
+const SUSPENDED_COUNTRIES = new Set(['AF', 'BY', 'BT', 'CU', 'ER', 'HT', 'IR', 'KI', 'CG', 'SC', 'SS', 'SD', 'TM', 'YE']);
 
 function reportError(source: string, title: string, severity: 'warning' | 'error' | 'critical', details: string) {
   fetch(`${SUPABASE_URL}/functions/v1/report-error`, {
@@ -128,6 +130,9 @@ serve(async (req) => {
       }
       const restriction = getAddressRestriction(address);
       if (restriction) return json({ error: restriction }, 422);
+      if (SUSPENDED_COUNTRIES.has(address.country)) {
+        return json({ error: 'USPS has temporarily suspended mail to this country, so we cannot send a postcard there.' }, 422);
+      }
 
       const verifyRes = await fetch(`${SUPABASE_URL}/functions/v1/validate-address`, {
         method: 'POST',

@@ -70,6 +70,16 @@ export default function PrivacyPolicyScreen() {
             the addresses of postcard recipients. This information is required to print and deliver your postcards.
           </Para>
 
+          <Text style={[styles.subheading, { color: colors.textPrimary }]}>Address Requests</Text>
+          <Para>
+            If you ask a recipient for their address by email, we collect and store that person&apos;s email
+            address, send them a link to view your postcard, and keep your postcard image and message for up
+            to 45 days to power that link. When the recipient enters their mailing address, it is verified,
+            saved to your address book, and used to print and mail your postcard. Postcard images are deleted
+            when the request is completed, refunded, or expires. We send reminder emails to the recipient and
+            to you while no address has been entered.
+          </Para>
+
           <Text style={[styles.subheading, { color: colors.textPrimary }]}>Postcard Content</Text>
           <Para>
             We collect the photos you upload and messages you write for your postcards. This content is
