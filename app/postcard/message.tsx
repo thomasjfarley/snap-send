@@ -18,7 +18,7 @@ const MAX_EMOJIS = 60;
 // Lob renders at 10px min, 219px content width. At 0.5 avg char width: 43 chars/line.
 // Using 40 as a conservative safety margin.
 const LOB_CHARS_PER_LINE = 40;
-// 10px up to 28 lines, 9px up to 30 (1.5 line-height).
+// Text never goes below 10px; 1.5 line-height.
 const LOB_MAX_VISUAL = 30;
 
 // Matches full emoji sequences (same set as the server-side EMOJI_REGEX).
