@@ -43,30 +43,32 @@ export default function HistoryScreen() {
     }, [user, loadRequests]),
   );
 
-  function requestStatus(r: any) {
+  function requestStatus(r: any): { label: string; color: string; bg: string; emoji: string }[] {
+    const one = (s: { label: string; color: string; bg: string; emoji: string }) => [s];
     switch (r.status) {
       case 'awaiting_address': {
         const msLeft = new Date(r.expires_at).getTime() - Date.now();
         if (r.downloaded_at && msLeft <= 0) {
-          return { label: 'Fulfilled digitally', color: '#14532D', bg: '#DCFCE7', emoji: '💌' };
+          return one({ label: 'Fulfilled digitally', color: '#14532D', bg: '#DCFCE7', emoji: '💌' });
         }
         const days = Math.max(0, Math.ceil(msLeft / 86400000));
+        const waiting = { label: `Waiting for address · ${days}d left`, color: '#92400E', bg: '#FEF3C7', emoji: '✉️' };
         if (r.downloaded_at) {
-          return { label: `Digital postcard accepted · ${days}d left`, color: '#1E40AF', bg: '#DBEAFE', emoji: '📥' };
+          return [waiting, { label: 'Digital postcard accepted', color: '#1E40AF', bg: '#DBEAFE', emoji: '📥' }];
         }
-        return { label: `Waiting for address · ${days}d left`, color: '#92400E', bg: '#FEF3C7', emoji: '✉️' };
+        return [waiting];
       }
       case 'processing':
-        return { label: 'Address received', color: '#6B21A8', bg: '#F3E8FF', emoji: '🖨️' };
+        return one({ label: 'Address received', color: '#6B21A8', bg: '#F3E8FF', emoji: '🖨️' });
       case 'expired_digital':
-        return { label: 'Fulfilled digitally', color: '#14532D', bg: '#DCFCE7', emoji: '💌' };
+        return one({ label: 'Fulfilled digitally', color: '#14532D', bg: '#DCFCE7', emoji: '💌' });
       default:
-        return { label: 'Refunded', color: '#991B1B', bg: '#FEE2E2', emoji: '↩️' };
+        return one({ label: 'Refunded', color: '#991B1B', bg: '#FEE2E2', emoji: '↩️' });
     }
   }
 
   function renderRequest(r: any) {
-    const s = requestStatus(r);
+    const pills = requestStatus(r);
     return (
       <View key={r.id} style={styles.card}>
         <View style={styles.cardLeft}>
@@ -75,9 +77,11 @@ export default function HistoryScreen() {
           <Text style={styles.date}>{formatDate(r.created_at)}</Text>
         </View>
         <View style={styles.cardRight}>
-          <View style={[styles.badge, { backgroundColor: s.bg }]}>
-            <Text style={[styles.badgeText, { color: s.color }]}>{s.emoji} {s.label}</Text>
-          </View>
+          {pills.map((s) => (
+            <View key={s.label} style={[styles.badge, { backgroundColor: s.bg, marginBottom: 4 }]}>
+              <Text style={[styles.badgeText, { color: s.color }]}>{s.emoji} {s.label}</Text>
+            </View>
+          ))}
           <Text style={styles.price}>${(r.amount_cents / 100).toFixed(2)}</Text>
         </View>
       </View>
