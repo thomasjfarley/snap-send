@@ -1,4 +1,5 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 import {
   View, Text, Image, FlatList, TouchableOpacity,
   StyleSheet, RefreshControl,
@@ -24,11 +25,57 @@ export default function HistoryScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
+  const [requests, setRequests] = useState<any[]>([]);
+
+  const loadRequests = useCallback(async () => {
+    if (!user) return;
+    const { data } = await (supabase as any)
+      .from('address_requests')
+      .select('id, recipient_email, status, expires_at, amount_cents, created_at')
+      .in('status', ['awaiting_address', 'processing', 'expired_digital', 'refunded'])
+      .order('created_at', { ascending: false });
+    setRequests(data ?? []);
+  }, [user]);
+
   useFocusEffect(
     useCallback(() => {
-      if (user) fetch(user.id);
-    }, [user]),
+      if (user) { fetch(user.id); loadRequests(); }
+    }, [user, loadRequests]),
   );
+
+  function requestStatus(r: any) {
+    switch (r.status) {
+      case 'awaiting_address': {
+        const days = Math.max(0, Math.ceil((new Date(r.expires_at).getTime() - Date.now()) / 86400000));
+        return { label: `Waiting for address · ${days}d left`, color: '#92400E', bg: '#FEF3C7', emoji: '✉️' };
+      }
+      case 'processing':
+        return { label: 'Address received', color: '#6B21A8', bg: '#F3E8FF', emoji: '🖨️' };
+      case 'expired_digital':
+        return { label: 'Sent digitally', color: '#14532D', bg: '#DCFCE7', emoji: '💌' };
+      default:
+        return { label: 'Refunded', color: '#991B1B', bg: '#FEE2E2', emoji: '↩️' };
+    }
+  }
+
+  function renderRequest(r: any) {
+    const s = requestStatus(r);
+    return (
+      <View key={r.id} style={styles.card}>
+        <View style={styles.cardLeft}>
+          <Text style={styles.recipient}>{r.recipient_email}</Text>
+          <Text style={styles.address}>Address requested by email</Text>
+          <Text style={styles.date}>{formatDate(r.created_at)}</Text>
+        </View>
+        <View style={styles.cardRight}>
+          <View style={[styles.badge, { backgroundColor: s.bg }]}>
+            <Text style={[styles.badgeText, { color: s.color }]}>{s.emoji} {s.label}</Text>
+          </View>
+          <Text style={styles.price}>${(r.amount_cents / 100).toFixed(2)}</Text>
+        </View>
+      </View>
+    );
+  }
 
   function renderItem({ item }: { item: Postcard }) {
     const snapshot = item.recipient_snapshot as any;
@@ -70,15 +117,16 @@ export default function HistoryScreen() {
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.list}
+        ListHeaderComponent={requests.length > 0 ? <View style={{ gap: SPACING.sm }}>{requests.map(renderRequest)}</View> : null}
         refreshControl={
           <RefreshControl
             refreshing={loading}
-            onRefresh={() => { if (user) fetch(user.id); }}
+            onRefresh={() => { if (user) { fetch(user.id); loadRequests(); } }}
             tintColor={colors.primary}
           />
         }
         ListEmptyComponent={
-          !loading ? (
+          !loading && requests.length === 0 ? (
             <View style={styles.empty}>
               <Text style={styles.emptyEmoji}>📭</Text>
               <Text style={styles.emptyTitle}>No postcards yet</Text>

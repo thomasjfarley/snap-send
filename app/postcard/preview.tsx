@@ -90,7 +90,7 @@ function PinIcon({ height, color = '#fff' }: { height: number; color?: string })
 export default function PreviewScreen() {
   const router = useRouter();
   const { unverifiedOk } = useLocalSearchParams<{ unverifiedOk?: string }>();
-  const { photoUri, filterId, frameId, message, location, recipient, reset, setJustSent } = usePostcardStore();
+  const { photoUri, filterId, frameId, message, location, recipient, addressRequest, reset, setJustSent } = usePostcardStore();
   const { profile } = useProfileStore();
   const { addresses } = useAddressStore();
   const personalAddress = addresses.find((a) => a.is_personal);
@@ -115,9 +115,12 @@ export default function PreviewScreen() {
   // 'rejected' = Vision API blocked the image
   // 'error'    = pre-init failed (payment sheet not ready)
   const [preloadStatus, setPreloadStatus] = useState<'checking' | 'ready' | 'rejected' | 'error'>('checking');
-  const destinationCountry = recipient?.country?.toUpperCase() || 'US';
+  // 'XX' stands in for "a country outside the US" until the recipient enters their own address
+  const destinationCountry = addressRequest
+    ? (addressRequest.international ? 'XX' : 'US')
+    : recipient?.country?.toUpperCase() || 'US';
   const senderCountry = personalAddress?.country?.toUpperCase() || 'US';
-  const riskWarningRequired = requiresInternationalRiskWarning(destinationCountry);
+  const riskWarningRequired = !addressRequest && requiresInternationalRiskWarning(destinationCountry);
   const allowUnverified = unverifiedOk === '1' && destinationCountry === 'US' && recipient?.lob_verified === false;
   // null until the lookup finishes, so begin_checkout isn't logged with the wrong price
   const [atCost, setAtCost] = useState<boolean | null>(null);
@@ -146,12 +149,12 @@ export default function PreviewScreen() {
 
   useEffect(() => {
     if (submittedRef.current) return;
-    if (!photoUri || !recipient) router.replace('/postcard');
-  }, [photoUri, recipient]);
+    if (!photoUri || (!recipient && !addressRequest)) router.replace('/postcard');
+  }, [photoUri, recipient, addressRequest]);
 
   useEffect(() => {
-    if (atCost !== null && photoUri && recipient) analytics.beginCheckout(basePriceCents, destinationCountry);
-  }, [atCost, photoUri, recipient, basePriceCents, destinationCountry]);
+    if (atCost !== null && photoUri && (recipient || addressRequest)) analytics.beginCheckout(basePriceCents, destinationCountry);
+  }, [atCost, photoUri, recipient, addressRequest, basePriceCents, destinationCountry]);
 
   useEffect(() => {
     if (!recipient || !riskWarningRequired || riskAccepted || riskPromptShownRef.current) return;
@@ -175,7 +178,7 @@ export default function PreviewScreen() {
   // user's touch gesture.
   useEffect(() => {
     if (riskWarningRequired && !riskAccepted) return;
-    if (!photoUri || !recipient || Platform.OS === 'web') {
+    if (!photoUri || (!recipient && !addressRequest) || Platform.OS === 'web') {
       setPreloadStatus('ready'); // web payment path is handled separately in handleSend
       return;
     }
@@ -248,8 +251,12 @@ export default function PreviewScreen() {
           body: {
             testMode: __DEV__,
             analyticsContext,
-            recipientAddressId: recipient.id,
-            acceptUnverifiedRecipient: allowUnverified,
+            ...(addressRequest
+              ? { addressRequest: { international: addressRequest.international } }
+              : {
+                  recipientAddressId: recipient!.id,
+                  acceptUnverifiedRecipient: allowUnverified,
+                }),
             senderAddressId: personalAddress?.id,
             ...(personalAddress ? {
               customerAddress: {
@@ -329,7 +336,7 @@ export default function PreviewScreen() {
       }
     })();
     return () => { cancelled = true; };
-  }, [destinationCountry, photoUri, recipient?.id, riskAccepted, riskWarningRequired, senderCountry, allowUnverified]);
+  }, [destinationCountry, photoUri, recipient?.id, addressRequest?.international, riskAccepted, riskWarningRequired, senderCountry, allowUnverified]);
 
   const messageFontSize = useMemo(() => {
     const trimmed = (message ?? '').trim();
@@ -352,7 +359,7 @@ export default function PreviewScreen() {
     ? Math.floor((CARD_H - MSG_PAD_VERT * 2) / (messageFontSize * 1.5))
     : undefined;
 
-  if (!photoUri || !recipient) {
+  if (!photoUri || (!recipient && !addressRequest)) {
     return null;
   }
 
@@ -412,7 +419,7 @@ export default function PreviewScreen() {
   }
 
   async function handleSend() {
-    if (!recipient) return;
+    if (!recipient && !addressRequest) return;
     if (sendInProgressRef.current) return;
     sendInProgressRef.current = true;
 
@@ -469,21 +476,34 @@ export default function PreviewScreen() {
     // Cache payload on first attempt so retries are bit-for-bit identical,
     // satisfying the edge function's idempotency check.
     if (!submissionPayloadRef.current) {
-      submissionPayloadRef.current = {
+      submissionPayloadRef.current = addressRequest
+        ? {
+            imageBase64: lobBase64Ref.current!,
+            message,
+            location: location ?? null,
+            frame: frameId,
+            filter: filterId,
+            fromAddressId: personalAddress.id,
+            recipientEmail: addressRequest.email,
+            international: addressRequest.international,
+            paymentIntentId: paymentIntentIdRef.current,
+            testMode: __DEV__,
+          }
+        : {
         imageBase64: lobBase64Ref.current!,
         message,
         location: location ?? null,
         frame: frameId,
         filter: filterId,
         fromAddressId: personalAddress.id,
-        toAddressId: recipient.id,
+        toAddressId: recipient!.id,
         recipientSnapshot: {
-          full_name: recipient.full_name,
-          line1: recipient.line1,
-          line2: recipient.line2,
-          city: recipient.city,
-          state: recipient.state,
-          zip: recipient.zip,
+          full_name: recipient!.full_name,
+          line1: recipient!.line1,
+          line2: recipient!.line2,
+          city: recipient!.city,
+          state: recipient!.state,
+          zip: recipient!.zip,
           country: destinationCountry,
         },
         paymentIntentId: paymentIntentIdRef.current,
@@ -528,9 +548,10 @@ export default function PreviewScreen() {
     };
 
     try {
-      const { data: submitData, error: submitError } = await supabase.functions.invoke('submit-postcard', {
-        body: submissionPayloadRef.current,
-      });
+      const { data: submitData, error: submitError } = await supabase.functions.invoke(
+        addressRequest ? 'create-address-request' : 'submit-postcard',
+        { body: submissionPayloadRef.current },
+      );
 
       if (submitError) {
         const status = (submitError as any)?.context?.status ?? 'unknown';
@@ -554,7 +575,8 @@ export default function PreviewScreen() {
       }
 
       submittedRef.current = true;
-      analytics.postcardSent();
+      const requestedEmail = addressRequest?.email;
+      if (!requestedEmail) analytics.postcardSent();
       const sentDraftId = usePostcardStore.getState().draftId;
       if (sentDraftId) deleteDraft(sentDraftId).catch(() => {});
       paymentConfirmedRef.current = false;
@@ -562,6 +584,15 @@ export default function PreviewScreen() {
       errorLogRef.current = [];
       reset();
       router.dismissTo('/(tabs)');
+      if (requestedEmail) {
+        setTimeout(() => {
+          Alert.alert(
+            'Request sent! 💌',
+            `We emailed ${requestedEmail} a link to see your postcard and share their address. We'll mail it as soon as they do, and keep you posted.`,
+          );
+        }, 500);
+        return;
+      }
       if (Platform.OS === 'ios') {
         setTimeout(() => setJustSent(true), 500);
       } else {
@@ -685,12 +716,22 @@ export default function PreviewScreen() {
             {/* TO address */}
             <View style={styles.toAddressRow}>
               <View style={styles.addressBlock}>
-                <Text style={styles.addrText}>{recipient.full_name}</Text>
-                <Text style={styles.addrText}>{recipient.line1}</Text>
-                {recipient.line2 ? <Text style={styles.addrText}>{recipient.line2}</Text> : null}
-                <Text style={styles.addrText}>{recipient.city}, {recipient.state} {recipient.zip}</Text>
-                {destinationCountry !== 'US' && (
-                  <Text style={styles.addrText}>{getMailingCountry(destinationCountry).name}</Text>
+                {recipient ? (
+                  <>
+                    <Text style={styles.addrText}>{recipient.full_name}</Text>
+                    <Text style={styles.addrText}>{recipient.line1}</Text>
+                    {recipient.line2 ? <Text style={styles.addrText}>{recipient.line2}</Text> : null}
+                    <Text style={styles.addrText}>{recipient.city}, {recipient.state} {recipient.zip}</Text>
+                    {destinationCountry !== 'US' && (
+                      <Text style={styles.addrText}>{getMailingCountry(destinationCountry).name}</Text>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.addrText}>Your recipient will enter</Text>
+                    <Text style={styles.addrText}>their address from the</Text>
+                    <Text style={styles.addrText}>link we email them</Text>
+                  </>
                 )}
               </View>
             </View>
@@ -709,7 +750,7 @@ export default function PreviewScreen() {
               : <Text style={styles.sendBtnText}>
                   {preloadStatus === 'rejected' ? '🚫 Image cannot be mailed' :
                    preloadStatus === 'error'    ? '⚠️ Unable to load payment' :
-                   `Send for ${priceStr} 📬`}
+                   `${addressRequest ? 'Pay' : 'Send'} for ${priceStr} ${addressRequest ? '💌' : '📬'}`}
                 </Text>
             }
           </TouchableOpacity>
@@ -726,7 +767,11 @@ export default function PreviewScreen() {
           <Text style={styles.webNote}>⚠️ Payments require the iOS or Android app.</Text>
         )}
 
-        <Text style={styles.sendNote}>Your postcard will be printed and mailed within 1–2 business days.</Text>
+        <Text style={styles.sendNote}>
+          {addressRequest
+            ? `We'll email ${addressRequest.email}. Once they enter their address, your postcard is printed and mailed. If they don't enter an address or download it within 45 days, you're refunded automatically.`
+            : 'Your postcard will be printed and mailed within 1–2 business days.'}
+        </Text>
       </ScrollView>
     </SafeAreaView>
   );

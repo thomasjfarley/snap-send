@@ -131,6 +131,24 @@ export default function RecipientScreen() {
     );
   }
 
+  function requestAddressByEmail() {
+    Alert.alert(
+      'Request address via email',
+      "Your recipient will get an email with a link to see a digital version of your postcard and enter their mailing address so we can mail them the real one.\n\nYou'll be charged when you pay. If they don't enter an address or download the card within 45 days, you'll be refunded automatically.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Continue', onPress: () => router.push('/postcard/request-address') },
+      ],
+    );
+  }
+
+  const requestButton = (
+    <TouchableOpacity style={styles.requestBtn} onPress={requestAddressByEmail}>
+      <Text style={styles.requestBtnTitle}>✉️  Request address via email</Text>
+      <Text style={styles.requestBtnSub}>Don't have their address? We'll ask them for it.</Text>
+    </TouchableOpacity>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -149,7 +167,10 @@ export default function RecipientScreen() {
         data={recipients}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
-        ListHeaderComponent={personalAddress ? (
+        ListHeaderComponent={
+          <View style={{ gap: SPACING.sm }}>
+            {requestButton}
+            {personalAddress ? (
           <TouchableOpacity
             style={[styles.card, styles.selfCard, recipient?.id === personalAddress.id && styles.cardSelected]}
             onPress={() => handleSelect(personalAddress)}
@@ -164,7 +185,9 @@ export default function RecipientScreen() {
             </View>
             {recipient?.id === personalAddress.id && <Text style={styles.checkmark}>✓</Text>}
           </TouchableOpacity>
-        ) : undefined}
+            ) : null}
+          </View>
+        }
         renderItem={({ item }) => {
           const selected = recipient?.id === item.id;
           return (
@@ -227,6 +250,12 @@ function makeStyles(colors: AppColors) {
     addr: { fontSize: FONT_SIZE.sm, color: colors.textSecondary },
     checkmark: { fontSize: 20, color: colors.primary, fontWeight: '700' },
     selfCard: { borderStyle: 'dashed' },
+    requestBtn: {
+      backgroundColor: colors.primaryLight, borderRadius: 14, padding: SPACING.md,
+      borderWidth: 2, borderColor: colors.primary, gap: 2,
+    },
+    requestBtnTitle: { fontSize: FONT_SIZE.md, fontWeight: '700', color: colors.primary },
+    requestBtnSub: { fontSize: FONT_SIZE.sm, color: colors.textSecondary },
     selfRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, flexWrap: 'wrap' },
     selfBadge: { backgroundColor: colors.primaryLight, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
     selfBadgeText: { fontSize: FONT_SIZE.xs, color: colors.primary, fontWeight: '600' },

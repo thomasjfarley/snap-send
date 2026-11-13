@@ -87,6 +87,19 @@ serve(async (req) => {
     }
 
     console.log('[request-refund] refund issued:', refundData.id, 'for PI', paymentIntentId);
+    // A refunded address request must stop reminding or serving the recipient.
+    const { data: closedRequest } = await supabase
+      .from('address_requests')
+      .update({ status: 'refunded', resolved_at: new Date().toISOString(), images_deleted_at: new Date().toISOString() })
+      .eq('stripe_payment_intent_id', paymentIntentId)
+      .in('status', ['awaiting_address', 'processing'])
+      .select('id')
+      .maybeSingle();
+    if (closedRequest) {
+      await supabase.storage
+        .from('address-request-images')
+        .remove([`${closedRequest.id}/original.jpg`, `${closedRequest.id}/front.jpg`]);
+    }
     reportError({ title: 'User refunded after submission failure', severity: 'warning', details, userEmail: user.email ?? 'unknown' });
     await sendRefundEmail({
       userId: user.id,
