@@ -41,7 +41,6 @@ export async function printRequest(
   await supabase.storage.from('address-request-images').remove([`${requestId}/original.jpg`]);
 
   const { data: row } = await supabase
-  const { data: row } = await supabase
     .from('address_requests')
     .select('user_id, to_address_id')
     .eq('id', requestId)
