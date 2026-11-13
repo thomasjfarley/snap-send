@@ -69,34 +69,46 @@ serve(async (req) => {
     const testMode = body?.testMode === true;
     const STRIPE_SECRET_KEY = testMode ? STRIPE_SECRET_KEY_TEST : STRIPE_SECRET_KEY_LIVE;
     const addr = body?.customerAddress;
+    const requestMode = body?.addressRequest && typeof body.addressRequest === 'object';
+    const requestInternational = requestMode && body.addressRequest.international === true;
     const recipientAddressId = String(body?.recipientAddressId ?? '');
     const senderAddressId = String(body?.senderAddressId ?? '');
-    if (!recipientAddressId || !senderAddressId) {
+    if ((!requestMode && !recipientAddressId) || !senderAddressId) {
       return new Response(JSON.stringify({ error: 'Sender and recipient addresses are required' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const { data: recipientAddress, error: recipientError } = await supabase
-      .from('addresses')
-      .select('id, line1, line2, city, state, zip, country, lob_verified')
-      .eq('id', recipientAddressId)
-      .eq('user_id', user.id)
-      .single();
+    // In request mode the recipient's address is unknown until they enter it; only the
+    // domestic/international choice is fixed at checkout.
+    let recipientAddress: {
+      id: string; line1: string; line2: string | null; city: string; state: string | null;
+      zip: string; country: string | null; lob_verified: boolean;
+    } | null = null;
+    if (!requestMode) {
+      const { data, error: recipientError } = await supabase
+        .from('addresses')
+        .select('id, line1, line2, city, state, zip, country, lob_verified')
+        .eq('id', recipientAddressId)
+        .eq('user_id', user.id)
+        .single();
 
-    if (recipientError || !recipientAddress) {
-      return new Response(JSON.stringify({ error: 'Recipient address not found' }), {
-        status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      if (recipientError || !data) {
+        return new Response(JSON.stringify({ error: 'Recipient address not found' }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      recipientAddress = data;
     }
     // US recipients (e.g. rural Alaska, tribal lands) may be undeliverable per Lob yet still
     // mailable; the sender must have explicitly accepted the delivery-risk warning.
     const allowUnverifiedRecipient =
+      !!recipientAddress &&
       body?.acceptUnverifiedRecipient === true &&
       String(recipientAddress.country ?? 'US').toUpperCase() === 'US';
-    if (!recipientAddress.lob_verified && !allowUnverifiedRecipient) {
+    if (recipientAddress && !recipientAddress.lob_verified && !allowUnverifiedRecipient) {
       return new Response(JSON.stringify({ error: 'Recipient address must be verified before checkout' }), {
         status: 422,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -122,7 +134,7 @@ serve(async (req) => {
       });
     }
 
-    const recipientRestriction = getAddressRestriction(recipientAddress);
+    const recipientRestriction = recipientAddress ? getAddressRestriction(recipientAddress) : null;
     const senderRestriction = getAddressRestriction(senderAddress);
     if (recipientRestriction || senderRestriction) {
       return new Response(JSON.stringify({ error: recipientRestriction || senderRestriction }), {
@@ -131,7 +143,10 @@ serve(async (req) => {
       });
     }
 
-    const destinationCountry = String(recipientAddress.country ?? 'US').toUpperCase();
+    // 'XX' stands in for "some non-US country" until the recipient picks one.
+    const destinationCountry = recipientAddress
+      ? String(recipientAddress.country ?? 'US').toUpperCase()
+      : requestInternational ? 'XX' : 'US';
     if (!/^[A-Z]{2}$/.test(destinationCountry)) {
       return new Response(JSON.stringify({ error: 'Invalid destination country' }), {
         status: 400,
@@ -239,14 +254,18 @@ serve(async (req) => {
       'payment_method_types[0]': 'card',
       'metadata[user_id]': user.id,
       'metadata[sender_address_id]': senderAddress.id,
-      'metadata[recipient_address_id]': recipientAddress.id,
+      'metadata[recipient_address_id]': recipientAddress?.id ?? '',
       'metadata[destination_country]': destinationCountry,
       'metadata[billing_country]': billingCountry,
       'metadata[pricing_version]': POSTCARD_PRICING_VERSION,
       'metadata[base_price_cents]': String(postcardPriceCents),
       'metadata[tax_amount_cents]': String(taxAmountCents),
-      'metadata[unverified_recipient_accepted]': String(!recipientAddress.lob_verified),
+      'metadata[unverified_recipient_accepted]': String(!!recipientAddress && !recipientAddress.lob_verified),
     });
+    if (requestMode) {
+      piParams.set('metadata[request_flow]', 'true');
+      piParams.set('metadata[request_international]', String(requestInternational));
+    }
     if (taxCalculationId) piParams.set('metadata[tax_calculation]', taxCalculationId);
 
     // Lets the webhook report the verified purchase to GA4 (only present when the user allows analytics)

@@ -4,6 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getAddressRestriction } from '../_shared/market-compliance.ts';
 import { recordTaxTransaction } from '../_shared/stripe-tax.ts';
 import { sendRefundEmail } from '../_shared/refund-email.ts';
+import { isBlocked, runSafeSearch } from '../_shared/safe-search.ts';
 import { getPostcardPriceCents } from '../../../shared/postcard-pricing.ts';
 import { Image } from 'https://deno.land/x/imagescript@1.3.0/mod.ts';
 
@@ -35,8 +36,6 @@ function reportError(source: string, title: string, severity: 'warning' | 'error
 }
 
 const LOB_BASE_URL = 'https://api.lob.com/v1';
-const LIKELIHOOD_LEVELS = ['UNKNOWN', 'VERY_UNLIKELY', 'UNLIKELY', 'POSSIBLE', 'LIKELY', 'VERY_LIKELY'];
-const BLOCK_THRESHOLD = 'LIKELY';
 
 // ── Frame and filter definitions (mirrors constants/editor.ts) ────────────────
 const FRAMES_DATA = [
@@ -333,45 +332,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-function isBlocked(likelihood: string): boolean {
-  return LIKELIHOOD_LEVELS.indexOf(likelihood) >= LIKELIHOOD_LEVELS.indexOf(BLOCK_THRESHOLD);
-}
-
-async function runSafeSearch(imageBase64: string) {
-  let lastStatus = 503;
-  let lastData: unknown = null;
-
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    try {
-      const visionRes = await fetch(
-        `https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_VISION_API_KEY}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            requests: [{ image: { content: imageBase64 }, features: [{ type: 'SAFE_SEARCH_DETECTION' }] }],
-          }),
-        },
-      );
-      const visionData = await visionRes.json();
-      const safeSearch = visionData.responses?.[0]?.safeSearchAnnotation;
-      if (visionRes.ok && safeSearch) {
-        return { safeSearch, status: visionRes.status, data: visionData };
-      }
-      lastStatus = visionRes.status;
-      lastData = visionData;
-    } catch (error) {
-      lastData = { error: String(error) };
-    }
-
-    if (attempt < 3) {
-      await new Promise((resolve) => setTimeout(resolve, attempt * 500));
-    }
-  }
-
-  return { safeSearch: null, status: lastStatus, data: lastData };
-}
-
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -379,7 +339,7 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-async function refundPayment(stripeKey: string, paymentIntentId: string, userId?: string): Promise<{ attempted: boolean; succeeded: boolean }> {
+async function refundPaymentStripe(stripeKey: string, paymentIntentId: string, userId?: string): Promise<{ attempted: boolean; succeeded: boolean }> {
   try {
     const res = await fetch('https://api.stripe.com/v1/refunds', {
       method: 'POST',
@@ -420,12 +380,56 @@ serve(async (req) => {
   let confirmedUserId: string | undefined;
   let lobSubmitted = false;
   let stripeKey = STRIPE_SECRET_KEY_LIVE; // refined after parsing testMode
+  let internalMode = false;
+  let renderDigital = false;
+  let addressRequestId: string | null = null;
+  const refundPayment = (key: string, paymentIntentId: string, userId?: string) =>
+    internalMode
+      ? Promise.resolve({ attempted: false, succeeded: false })
+      : refundPaymentStripe(key, paymentIntentId, userId);
 
   try {
-    const {
+    const body = await req.json();
+    let {
       imageBase64, message, location, frame, filter,
       fromAddressId, toAddressId, paymentIntentId, testMode,
-    } = await req.json();
+    } = body;
+
+    // Internal (service-role) calls come from the address-request functions. They render the
+    // digital card or print a request once the recipient's address is known. Refunds are left to
+    // the caller so a transient failure doesn't cancel a paid request.
+    internalMode =
+      typeof body.addressRequestId === 'string' &&
+      req.headers.get('Authorization') === `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`;
+    renderDigital = internalMode && body.mode === 'render-digital';
+    let internalImageBytes: Uint8Array | null = null;
+    let addressRequest: { international: boolean } | null = null;
+    if (internalMode) {
+      const { data: reqRow } = await supabase
+        .from('address_requests')
+        .select('*')
+        .eq('id', body.addressRequestId)
+        .single();
+      if (!reqRow) return jsonResponse({ error: 'Address request not found' }, 404);
+      const { data: originalBlob, error: originalErr } = await supabase.storage
+        .from('address-request-images')
+        .download(`${reqRow.id}/original.jpg`);
+      if (originalErr || !originalBlob) {
+        return jsonResponse({ error: 'Original image not found' }, 404);
+      }
+      internalImageBytes = new Uint8Array(await originalBlob.arrayBuffer());
+      imageBase64 = 'internal';
+      message = reqRow.message;
+      location = reqRow.location;
+      frame = reqRow.frame;
+      filter = reqRow.filter;
+      fromAddressId = reqRow.from_address_id;
+      toAddressId = renderDigital ? 'none' : reqRow.to_address_id;
+      paymentIntentId = reqRow.stripe_payment_intent_id;
+      testMode = reqRow.test_mode;
+      addressRequest = { international: reqRow.international };
+      addressRequestId = reqRow.id;
+    }
 
     if (!imageBase64 || !paymentIntentId || !fromAddressId || !toAddressId) {
       return jsonResponse({ error: 'Missing required fields' }, 400);
@@ -447,11 +451,13 @@ serve(async (req) => {
     confirmedUserId = userId;
     confirmedPaymentIntentId = paymentIntentId;
 
-    const taxTransaction = await recordTaxTransaction(
-      STRIPE_SECRET_KEY,
-      paymentIntentId,
-      pi.metadata.tax_calculation,
-    );
+    const taxTransaction = internalMode
+      ? { succeeded: true }
+      : await recordTaxTransaction(
+        STRIPE_SECRET_KEY,
+        paymentIntentId,
+        pi.metadata.tax_calculation,
+      );
     if (!taxTransaction.succeeded) {
       reportError(
         'submit-postcard',
@@ -472,24 +478,35 @@ serve(async (req) => {
       .select('id, lob_id')
       .eq('stripe_payment_intent_id', paymentIntentId)
       .maybeSingle();
-    if (existingPostcard) {
+    if (existingPostcard && !renderDigital) {
       return jsonResponse({ success: true, lobId: existingPostcard.lob_id, postcardId: existingPostcard.id });
     }
 
-    const [{ data: fromAddress, error: fromErr }, { data: recipientAddress, error: recipientErr }] =
+    let fromAddress: any = null;
+    let recipientAddress: any = null;
+    let destinationCountry = 'US';
+    let needsSnapSendReturnAddress = false;
+
+    if (!renderDigital) {
+    const [{ data: fromRow, error: fromErr }, { data: recipientRow, error: recipientErr }] =
       await Promise.all([
         supabase.from('addresses').select('*')
           .eq('id', fromAddressId).eq('user_id', userId).single(),
         supabase.from('addresses').select('*')
           .eq('id', toAddressId).eq('user_id', userId).single(),
       ]);
+    fromAddress = fromRow;
+    recipientAddress = recipientRow;
 
     if (fromErr || !fromAddress || recipientErr || !recipientAddress) {
       const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId, userId);
       return jsonResponse({ error: `Sender or recipient address not found. ${refundMsg(succeeded)}` }, 404);
     }
 
-    const destinationCountry = String(recipientAddress.country || 'US').toUpperCase();
+    destinationCountry = String(recipientAddress.country || 'US').toUpperCase();
+    if (addressRequest && addressRequest.international === (destinationCountry === 'US')) {
+      return jsonResponse({ error: 'Recipient address does not match the requested destination type.' }, 422);
+    }
     const { data: atCostRow } = await supabase
       .from('at_cost_accounts')
       .select('user_id')
@@ -497,9 +514,11 @@ serve(async (req) => {
       .maybeSingle();
     const expectedBasePrice = getPostcardPriceCents(destinationCountry, !!atCostRow);
     if (
-      pi.metadata.sender_address_id !== fromAddressId ||
-      pi.metadata.recipient_address_id !== toAddressId ||
-      pi.metadata.destination_country !== destinationCountry ||
+      (!addressRequest && (
+        pi.metadata.sender_address_id !== fromAddressId ||
+        pi.metadata.recipient_address_id !== toAddressId ||
+        pi.metadata.destination_country !== destinationCountry
+      )) ||
       Number(pi.metadata.base_price_cents) !== expectedBasePrice
     ) {
       const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId, userId);
@@ -514,7 +533,7 @@ serve(async (req) => {
       return jsonResponse({ error: `${addressRestriction} ${refundMsg(succeeded)}` }, 422);
     }
 
-    const needsSnapSendReturnAddress = senderCountry !== 'US';
+    needsSnapSendReturnAddress = senderCountry !== 'US';
     const officialReturnConfigured = Boolean(
       SNAP_SEND_RETURN_ADDRESS.full_name &&
       SNAP_SEND_RETURN_ADDRESS.line1 &&
@@ -528,10 +547,14 @@ serve(async (req) => {
         error: `International sender fulfillment is not available until Snap Send's US return mailbox is configured. ${refundMsg(succeeded)}`,
       }, 503);
     }
+    }
 
     // ── 2. SafeSearch (LEGAL REQUIREMENT — 18 U.S.C. § 1461) ─────────────────
-    if (GOOGLE_VISION_API_KEY) {
-      const { safeSearch, status, data: visionData } = await runSafeSearch(imageBase64);
+    // Address requests are moderated once, when the request is created.
+    if (internalMode) {
+      // already moderated
+    } else if (GOOGLE_VISION_API_KEY) {
+      const { safeSearch, status, data: visionData } = await runSafeSearch(imageBase64, GOOGLE_VISION_API_KEY);
       if (!safeSearch) {
         console.error('Vision API failed:', JSON.stringify(visionData));
         reportError(
@@ -556,7 +579,7 @@ serve(async (req) => {
     // ── 3. Upload image to Storage so Lob can fetch via URL ───────────────────
     // Lob's inline HTML limit is 10,000 chars; base64 images far exceed that.
     tempImagePath = `temp/${userId}/${Date.now()}.jpg`;
-    const rawImageBytes = Uint8Array.from(atob(imageBase64), (c) => c.charCodeAt(0));
+    const rawImageBytes = internalImageBytes ?? Uint8Array.from(atob(imageBase64), (c) => c.charCodeAt(0));
 
     // Apply print-compensating corrections before sending to Lob.
     // Lob's CMYK pre-press rendering crushes shadows and oversaturates warm
@@ -645,10 +668,11 @@ serve(async (req) => {
       // Gamma (γ=1.3) is applied first, then a linear-RGB saturation matrix
       // (s=0.88) — preserving the original operation order.
       // GAMMA_LUT and SAT_M are module-level constants precomputed once.
+      // Digital copies skip the print-only color compensation.
       try {
         const bmp = img.bitmap;
         const s = SAT_M;
-        for (let i = 0; i < bmp.length; i += 4) {
+        for (let i = 0; i < (renderDigital ? 0 : bmp.length); i += 4) {
           const r = GAMMA_LUT[bmp[i]];
           const g = GAMMA_LUT[bmp[i + 1]];
           const b = GAMMA_LUT[bmp[i + 2]];
@@ -741,6 +765,12 @@ serve(async (req) => {
         }
       }
 
+      if (renderDigital) {
+        // Trim Lob's 0.125" bleed so the digital copy matches what is physically visible.
+        const BLEED = 38;
+        img = img.crop(BLEED, BLEED, img.width - 2 * BLEED, img.height - 2 * BLEED);
+      }
+
       imageBytes = await img.encodeJPEG(95);
     } catch (correctionErr) {
       if (correctionErr instanceof FrameOverlayError) {
@@ -756,6 +786,18 @@ serve(async (req) => {
       }
       console.error('[submit-postcard] print correction failed, using original bytes:', correctionErr);
       imageBytes = rawImageBytes;
+    }
+
+    if (renderDigital) {
+      const frontPath = `${addressRequestId}/front.jpg`;
+      const { error: frontErr } = await supabase.storage
+        .from('address-request-images')
+        .upload(frontPath, imageBytes, { contentType: 'image/jpeg', upsert: true });
+      tempImagePath = null;
+      if (frontErr) {
+        return jsonResponse({ error: `Failed to store digital card: ${frontErr.message}` }, 500);
+      }
+      return jsonResponse({ success: true, frontPath });
     }
 
     const { error: uploadError } = await supabase.storage
@@ -897,6 +939,7 @@ serve(async (req) => {
         lob_back_url: (lobData.thumbnails?.[1]?.medium ?? null) as string | null,
         stripe_payment_intent_id: paymentIntentId,
         price_cents: pi.amount,
+        ...(addressRequestId ? { address_request_id: addressRequestId } : {}),
       })
       .select().single();
 

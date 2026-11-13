@@ -7,7 +7,7 @@ const SUPPORT_EMAIL = 'support@snapsend.live';
 const FROM = `Snap Send <${SUPPORT_EMAIL}>`;
 const BRAND = '#2563EB';
 
-export type RefundReason = 'failed' | 'cancelled';
+export type RefundReason = 'failed' | 'cancelled' | 'unclaimed';
 
 export interface RefundEmailOptions {
   userId: string;
@@ -40,6 +40,8 @@ export function buildRefundEmail(opts: {
   const headline = 'Your refund is on its way';
   const intro = reason === 'cancelled'
     ? "As requested, we've cancelled your postcard order and refunded your payment in full."
+    : reason === 'unclaimed'
+    ? "Your recipient didn't enter their address or download the postcard within 45 days, so we've refunded your payment in full."
     : "We're sorry, we couldn't print and mail your postcard, so we've refunded your payment in full.";
   const timing = 'The refund goes back to your original payment method and usually appears within 5 to 10 business days, depending on your bank.';
   const retry = "You're welcome to try sending your postcard again anytime. If something still doesn't look right, reply to this email and a real person will help.";
