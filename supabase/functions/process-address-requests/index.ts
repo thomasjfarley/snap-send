@@ -11,6 +11,7 @@ import { refundPaymentIntent } from '../_shared/refund.ts';
 import { printRequest } from '../_shared/address-request-print.ts';
 import {
   expiredDigitalEmail,
+  hasBackImage,
   recipientReminderEmail,
   senderNudgeEmail,
   sendEmail,
@@ -113,7 +114,7 @@ serve(async () => {
         const daysLeft = Math.max(1, Math.ceil((new Date(row.expires_at).getTime() - now) / DAY_MS));
         await sendEmail({
           to: row.recipient_email,
-          email: recipientReminderEmail({ senderName: sender.fullName, token: row.token, daysLeft }),
+          email: recipientReminderEmail({ senderName: sender.fullName, token: row.token, daysLeft, hasBack: await hasBackImage(supabase, row.id) }),
           idempotencyKey: `request-reminder-${row.id}-${due}`,
           tag: 'request-reminder',
         });
@@ -188,7 +189,7 @@ serve(async () => {
       .is('images_deleted_at', null)
       .limit(200);
     for (const row of toClean ?? []) {
-      await supabase.storage.from(BUCKET).remove([`${row.id}/original.jpg`, `${row.id}/front.jpg`]);
+      await supabase.storage.from(BUCKET).remove([`${row.id}/original.jpg`, `${row.id}/front.jpg`, `${row.id}/back.jpg`]);
       await supabase
         .from('address_requests')
         .update({ images_deleted_at: new Date().toISOString() })

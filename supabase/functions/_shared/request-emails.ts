@@ -12,6 +12,20 @@ export function requestLink(token: string): string {
   return `${REQUEST_LINK_BASE}${token}`;
 }
 
+// Token-gated image endpoint (GET on the public address-request function), so the images keep
+// working in an email client for as long as the link itself is active.
+export function cardImageUrl(token: string, side: 'front' | 'back'): string {
+  return `${Deno.env.get('SUPABASE_URL')}/functions/v1/address-request?t=${encodeURIComponent(token)}&side=${side}`;
+}
+
+export async function hasBackImage(
+  supabase: { storage: { from: (b: string) => { list: (p: string, o?: unknown) => Promise<{ data: { name: string }[] | null }> } } },
+  requestId: string,
+): Promise<boolean> {
+  const { data } = await supabase.storage.from('address-request-images').list(requestId, { search: 'back.jpg' });
+  return !!data?.some((f) => f.name === 'back.jpg');
+}
+
 function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
@@ -21,6 +35,7 @@ interface EmailContent {
   headline: string;
   preheader: string;
   paragraphs: string[];
+  images?: string[];
   cta?: { label: string; url: string };
   footerNote: string;
 }
@@ -38,6 +53,9 @@ function render(c: EmailContent): { subject: string; html: string; text: string 
 
   const paragraphsHtml = c.paragraphs
     .map((p) => `<p style="margin:0 0 16px;font-size:16px;line-height:1.6;">${esc(p)}</p>`)
+    .join('\n            ');
+  const imagesHtml = (c.images ?? [])
+    .map((src, i) => `<img src="${esc(src)}" alt="${i === 0 ? 'Front of your postcard' : 'Back of your postcard'}" width="496" style="display:block;width:100%;max-width:496px;height:auto;margin:0 0 12px;border-radius:6px;border:1px solid #E2E8F0;">`)
     .join('\n            ');
   const ctaHtml = c.cta
     ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;"><tr><td style="background-color:${BRAND};border-radius:8px;"><a href="${esc(c.cta.url)}" style="display:inline-block;padding:14px 28px;font-family:${FONT};font-size:16px;font-weight:600;color:#FFFFFF;text-decoration:none;">${esc(c.cta.label)}</a></td></tr></table>
@@ -67,6 +85,7 @@ function render(c: EmailContent): { subject: string; html: string; text: string 
           <td style="padding:32px;font-family:${FONT};color:#0F172A;">
             <h1 style="margin:0 0 16px;font-size:22px;line-height:1.3;color:#0F172A;">${esc(c.headline)}</h1>
             ${paragraphsHtml}
+            ${imagesHtml}
             ${ctaHtml}
             <p style="margin:0;font-size:16px;line-height:1.6;">With warmth,<br>The Snap Send team</p>
           </td>
@@ -97,7 +116,7 @@ function safeName(name: string | null | undefined, fallback: string): string {
 const RECIPIENT_FOOTER = "You're receiving this because someone sent you a postcard with Snap Send.";
 const SENDER_FOOTER = "You're receiving this because you sent a postcard with Snap Send.";
 
-export function inviteEmail(opts: { senderName: string | null; token: string }) {
+export function inviteEmail(opts: { senderName: string | null; token: string; hasBack?: boolean }) {
   const sender = safeName(opts.senderName, 'Someone who cares about you');
   return render({
     subject: `${sender} is sending you a postcard`,
@@ -108,12 +127,13 @@ export function inviteEmail(opts: { senderName: string | null; token: string }) 
       `${sender} just made you a postcard and wants to mail it to you. We're getting it ready to be printed and delivered.`,
       "You can see your postcard right now, and download it if you'd like. Share the address where it should be mailed and we'll send the real thing straight to your mailbox.",
     ],
+    images: [cardImageUrl(opts.token, 'front'), ...(opts.hasBack ? [cardImageUrl(opts.token, 'back')] : [])],
     cta: { label: 'See your postcard', url: requestLink(opts.token) },
     footerNote: RECIPIENT_FOOTER,
   });
 }
 
-export function recipientReminderEmail(opts: { senderName: string | null; token: string; daysLeft: number }) {
+export function recipientReminderEmail(opts: { senderName: string | null; token: string; daysLeft: number; hasBack?: boolean }) {
   const sender = safeName(opts.senderName, 'Someone who cares about you');
   return render({
     subject: `A reminder: ${sender}'s postcard is waiting for you`,
@@ -124,6 +144,7 @@ export function recipientReminderEmail(opts: { senderName: string | null; token:
       `${sender} sent you a postcard, and we haven't received an address to mail it to yet. It's not too late: add your address and we'll print and mail it to you.`,
       `This link stays active for ${opts.daysLeft} more days.`,
     ],
+    images: [cardImageUrl(opts.token, 'front'), ...(opts.hasBack ? [cardImageUrl(opts.token, 'back')] : [])],
     cta: { label: 'See your postcard', url: requestLink(opts.token) },
     footerNote: RECIPIENT_FOOTER,
   });

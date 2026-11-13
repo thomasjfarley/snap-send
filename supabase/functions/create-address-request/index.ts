@@ -8,7 +8,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isBlocked, runSafeSearch } from '../_shared/safe-search.ts';
 import { recordTaxTransaction } from '../_shared/stripe-tax.ts';
 import { refundPaymentIntent } from '../_shared/refund.ts';
-import { inviteEmail, REQUEST_WINDOW_DAYS, sendEmail } from '../_shared/request-emails.ts';
+import { hasBackImage, inviteEmail, REQUEST_WINDOW_DAYS, sendEmail } from '../_shared/request-emails.ts';
 
 const STRIPE_SECRET_KEY_LIVE = Deno.env.get('STRIPE_SECRET_KEY')!;
 const STRIPE_SECRET_KEY_TEST = Deno.env.get('STRIPE_SECRET_KEY_TEST')!;
@@ -78,7 +78,7 @@ serve(async (req) => {
     if (authError || !user) return json({ error: 'Unauthorized' }, 401);
 
     const {
-      imageBase64, message, location, frame, filter,
+      imageBase64, backImageBase64, message, location, frame, filter,
       fromAddressId, recipientEmail, international, paymentIntentId, testMode,
     } = await req.json();
 
@@ -87,6 +87,7 @@ serve(async (req) => {
       return json({ error: 'Missing or invalid fields' }, 400);
     }
     stripeKey = testMode === true ? STRIPE_SECRET_KEY_TEST : STRIPE_SECRET_KEY_LIVE;
+    const backImage = typeof backImageBase64 === 'string' && backImageBase64.length > 0 && backImageBase64.length < 4_000_000;
 
     // ── 1. Verify payment belongs to this user and this request ──────────────
     const piRes = await fetch(`https://api.stripe.com/v1/payment_intents/${paymentIntentId}`, {
@@ -155,6 +156,15 @@ serve(async (req) => {
         } else if (isBlocked(safeSearch.adult) || isBlocked(safeSearch.violence)) {
           moderationError = { message: 'This image cannot be sent.', status: 422, code: 'CONTENT_REJECTED' };
         }
+        // The back is a screenshot taken by the app but is client-supplied, so it is moderated too.
+        if (!moderationError && backImage) {
+          const back = await runSafeSearch(backImageBase64, GOOGLE_VISION_API_KEY);
+          if (!back.safeSearch) {
+            moderationError = { message: 'Content moderation unavailable.', status: 503 };
+          } else if (isBlocked(back.safeSearch.adult) || isBlocked(back.safeSearch.violence)) {
+            moderationError = { message: 'This image cannot be sent.', status: 422, code: 'CONTENT_REJECTED' };
+          }
+        }
       }
       if (moderationError) {
         const refunded = await refundPaymentIntent(stripeKey, paymentIntentId, user.id, 'failed');
@@ -179,6 +189,20 @@ serve(async (req) => {
           `paymentIntentId=${paymentIntentId}; error=${uploadError.message}`,
         );
         return json({ error: 'Failed to store your postcard. Please try again.' }, 503);
+      }
+
+      if (backImage) {
+        const { error: backError } = await supabase.storage
+          .from('address-request-images')
+          .upload(`${requestId}/back.jpg`, Uint8Array.from(atob(backImageBase64), (c) => c.charCodeAt(0)), { contentType: 'image/jpeg', upsert: true });
+        if (backError) {
+          reportError(
+            'create-address-request',
+            'Back image upload failed',
+            'warning',
+            `paymentIntentId=${paymentIntentId}; error=${backError.message}`,
+          );
+        }
       }
 
       const { error: insertError } = await supabase.from('address_requests').insert({
@@ -229,7 +253,7 @@ serve(async (req) => {
       .from('profiles').select('full_name').eq('id', user.id).maybeSingle();
     const sent = await sendEmail({
       to: email,
-      email: inviteEmail({ senderName: profile?.full_name ?? null, token }),
+      email: inviteEmail({ senderName: profile?.full_name ?? null, token, hasBack: await hasBackImage(supabase, requestId) }),
       idempotencyKey: `request-invite-${requestId}`,
       tag: 'request-invite',
     });

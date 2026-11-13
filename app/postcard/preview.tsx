@@ -96,6 +96,7 @@ export default function PreviewScreen() {
   const personalAddress = addresses.find((a) => a.is_personal);
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const cardFrontRef = useRef<React.ComponentRef<typeof View>>(null);
+  const cardBackRef = useRef<React.ComponentRef<typeof View>>(null);
   const submittedRef = useRef(false);
   const sendInProgressRef = useRef(false);
   const paymentIntentIdRef = useRef<string | null>(null);
@@ -476,9 +477,20 @@ export default function PreviewScreen() {
     // Cache payload on first attempt so retries are bit-for-bit identical,
     // satisfying the edge function's idempotency check.
     if (!submissionPayloadRef.current) {
+      // Screenshot of the back exactly as the sender sees it, for the recipient's email and page.
+      let backImageBase64: string | undefined;
+      if (addressRequest) {
+        try {
+          const { captureRef } = require('react-native-view-shot');
+          backImageBase64 = await captureRef(cardBackRef, { format: 'jpg', quality: 0.92, result: 'base64' });
+        } catch (e) {
+          console.warn('[request-address] back capture failed', e);
+        }
+      }
       submissionPayloadRef.current = addressRequest
         ? {
             imageBase64: lobBase64Ref.current!,
+            backImageBase64,
             message,
             location: location ?? null,
             frame: frameId,
@@ -660,7 +672,7 @@ export default function PreviewScreen() {
 
         {/* Back */}
         <Text style={styles.sideLabel}>BACK</Text>
-        <View style={styles.cardBack}>
+        <View ref={cardBackRef} collapsable={false} style={styles.cardBack}>
           <View style={styles.backMessage}>
             <Text
               numberOfLines={previewMaxLines}

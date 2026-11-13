@@ -42,6 +42,25 @@ const str = (v: unknown, max = 200) => String(v ?? '').trim().slice(0, max);
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+
+  // Email images: GET ?t=TOKEN&side=front|back. Deliberately does not count as a download,
+  // since mail clients and scanners prefetch images.
+  if (req.method === 'GET') {
+    const u = new URL(req.url);
+    const t = str(u.searchParams.get('t'), 80);
+    const side = u.searchParams.get('side') === 'back' ? 'back' : 'front';
+    if (!TOKEN_REGEX.test(t)) return new Response('Not found', { status: 404 });
+    const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const { data: r } = await sb.from('address_requests').select('id, expires_at, status').eq('token', t).maybeSingle();
+    if (!r || new Date(r.expires_at).getTime() <= Date.now() || r.status === 'refunded' || r.status === 'expired_digital') {
+      return new Response('Not found', { status: 404 });
+    }
+    const { data: file } = await sb.storage.from(BUCKET).download(`${r.id}/${side}.jpg`);
+    if (!file) return new Response('Not found', { status: 404 });
+    return new Response(file, {
+      headers: { ...corsHeaders, 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, max-age=3600' },
+    });
+  }
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -72,6 +91,9 @@ serve(async (req) => {
       const { data: signed } = await supabase.storage
         .from(BUCKET)
         .createSignedUrl(`${row.id}/front.jpg`, 3600);
+      const { data: backSigned } = await supabase.storage
+        .from(BUCKET)
+        .createSignedUrl(`${row.id}/back.jpg`, 3600);
       return json({
         state: addressTaken ? 'address_received' : 'awaiting_address',
         senderName: profile?.full_name ?? null,
@@ -79,6 +101,7 @@ serve(async (req) => {
         location: row.location,
         international: row.international,
         imageUrl: signed?.signedUrl ?? null,
+        backImageUrl: backSigned?.signedUrl ?? null,
         expiresAt: row.expires_at,
         downloaded: !!row.downloaded_at,
       });
@@ -98,7 +121,10 @@ serve(async (req) => {
           .eq('id', row.id)
           .is('downloaded_at', null);
       }
-      return json({ url: signed.signedUrl });
+      const { data: backSigned } = await supabase.storage
+        .from(BUCKET)
+        .createSignedUrl(`${row.id}/back.jpg`, 300, { download: 'snap-send-postcard-back.jpg' });
+      return json({ url: signed.signedUrl, backUrl: backSigned?.signedUrl ?? null });
     }
 
     if (action === 'validate' || action === 'submit') {

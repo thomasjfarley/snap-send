@@ -98,7 +98,7 @@ serve(async (req) => {
     if (closedRequest) {
       await supabase.storage
         .from('address-request-images')
-        .remove([`${closedRequest.id}/original.jpg`, `${closedRequest.id}/front.jpg`]);
+        .remove([`${closedRequest.id}/original.jpg`, `${closedRequest.id}/front.jpg`, `${closedRequest.id}/back.jpg`]);
     }
     reportError({ title: 'User refunded after submission failure', severity: 'warning', details, userEmail: user.email ?? 'unknown' });
     await sendRefundEmail({
