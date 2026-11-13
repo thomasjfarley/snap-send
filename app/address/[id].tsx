@@ -50,11 +50,14 @@ export default function EditAddressScreen() {
   // Populate form once address loads from store
   useEffect(() => {
     if (existing) {
+      // Single-line inputs can't hold line breaks (e.g. imported contacts)
+      const [first, ...rest] = existing.line1.split(/\r?\n/);
+      const line2 = [...rest, existing.line2 ?? ''].map((s) => s.trim()).filter(Boolean).join(', ');
       setForm({
         label: existing.label,
         full_name: existing.full_name,
-        line1: existing.line1,
-        line2: existing.line2 ?? '',
+        line1: first.trim(),
+        line2,
         city: existing.city,
         state: existing.state,
         zip: existing.zip,
