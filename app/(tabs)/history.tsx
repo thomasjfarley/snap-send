@@ -117,7 +117,7 @@ export default function HistoryScreen() {
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.list}
-        ListHeaderComponent={requests.length > 0 ? <View style={{ gap: SPACING.sm }}>{requests.map(renderRequest)}</View> : null}
+        ListHeaderComponent={requests.length > 0 ? <View style={{ gap: SPACING.sm }}>{requests.map(renderRequest)}</View>         : undefined}
         refreshControl={
           <RefreshControl
             refreshing={loading}
