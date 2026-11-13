@@ -24,6 +24,7 @@ import { getMailingCountry, requiresInternationalRiskWarning } from '@/constants
 import { supabase } from '@/lib/supabase';
 import { GrayscaleImage } from '@/components/GrayscaleImage';
 import { analytics } from '@/lib/analytics';
+import { saveRequestCard } from '@/lib/request-cards';
 import { getAnalyticsContext } from '@/store/analytics.store';
 
 const SUPPORT_EMAIL = 'support@snapsend.live';
@@ -97,6 +98,8 @@ export default function PreviewScreen() {
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const cardFrontRef = useRef<React.ComponentRef<typeof View>>(null);
   const cardBackRef = useRef<React.ComponentRef<typeof View>>(null);
+  const frontCaptureRef = useRef<string | null>(null);
+  const backCaptureRef = useRef<string | null>(null);
   const submittedRef = useRef(false);
   const sendInProgressRef = useRef(false);
   const paymentIntentIdRef = useRef<string | null>(null);
@@ -483,6 +486,8 @@ export default function PreviewScreen() {
         try {
           const { captureRef } = require('react-native-view-shot');
           backImageBase64 = await captureRef(cardBackRef, { format: 'jpg', quality: 0.92, result: 'base64' });
+          frontCaptureRef.current = await captureRef(cardFrontRef, { format: 'jpg', quality: 0.92, result: 'base64' });
+          backCaptureRef.current = backImageBase64 ?? null;
         } catch (e) {
           console.warn('[request-address] back capture failed', e);
         }
@@ -587,6 +592,15 @@ export default function PreviewScreen() {
       }
 
       submittedRef.current = true;
+      const newRequestId = (submitData as any)?.requestId as string | undefined;
+      if (addressRequest && newRequestId) {
+        try {
+          if (frontCaptureRef.current) await saveRequestCard(newRequestId, 'front', frontCaptureRef.current);
+          if (backCaptureRef.current) await saveRequestCard(newRequestId, 'back', backCaptureRef.current);
+        } catch (e) {
+          console.warn('[request-address] saving local copy failed', e);
+        }
+      }
       const requestedEmail = addressRequest?.email;
       if (!requestedEmail) analytics.postcardSent();
       const sentDraftId = usePostcardStore.getState().draftId;

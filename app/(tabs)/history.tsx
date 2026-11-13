@@ -31,7 +31,7 @@ export default function HistoryScreen() {
     if (!user) return;
     const { data } = await (supabase as any)
       .from('address_requests')
-      .select('id, recipient_email, status, expires_at, amount_cents, created_at, downloaded_at')
+      .select('id, recipient_email, status, expires_at, amount_cents, created_at, downloaded_at, postcard_id')
       .in('status', ['awaiting_address', 'processing', 'expired_digital', 'refunded'])
       .order('created_at', { ascending: false });
     setRequests(data ?? []);
@@ -70,7 +70,11 @@ export default function HistoryScreen() {
   function renderRequest(r: any) {
     const pills = requestStatus(r);
     return (
-      <View key={r.id} style={styles.card}>
+      <TouchableOpacity
+        key={r.id}
+        style={styles.card}
+        onPress={() => router.push(r.postcard_id ? `/order/${r.postcard_id}` : `/order/request/${r.id}`)}
+      >
         <View style={styles.cardLeft}>
           <Text style={styles.recipient}>{r.recipient_email}</Text>
           <Text style={styles.address}>Address requested by email</Text>
@@ -84,7 +88,7 @@ export default function HistoryScreen() {
           ))}
           <Text style={styles.price}>${(r.amount_cents / 100).toFixed(2)}</Text>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   }
 
