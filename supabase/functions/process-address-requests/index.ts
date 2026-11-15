@@ -188,7 +188,7 @@ serve(async () => {
       .is('images_deleted_at', null)
       .limit(200);
     for (const row of toClean ?? []) {
-      await supabase.storage.from(BUCKET).remove([`${row.id}/original.jpg`, `${row.id}/front.jpg`, `${row.id}/back.jpg`]);
+      await supabase.storage.from(BUCKET).remove([`${row.id}/original.jpg`, `${row.id}/front.jpg`, `${row.id}/back.jpg`, `${row.id}/preview.jpg`]);
       await supabase
         .from('address_requests')
         .update({ images_deleted_at: new Date().toISOString() })

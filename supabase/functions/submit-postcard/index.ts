@@ -804,6 +804,31 @@ serve(async (req) => {
       if (frontErr) {
         return jsonResponse({ error: `Failed to store digital card: ${frontErr.message}` }, 500);
       }
+
+      // Watermarked low-res copy used only for the email image, so the clean card is only on the page.
+      try {
+        const font = await getFont();
+        if (font) {
+          const base = (await Image.decode(imageBytes)) as InstanceType<typeof Image>;
+          const prev = base.width > 800 ? base.resize(800, Image.RESIZE_AUTO) : base;
+          const overlay = new Image(prev.width, prev.height);
+          const tile = (await Image.renderText(font, Math.round(prev.width / 14), 'SNAP SEND', 0xFFFFFFFF)).rotate(-30, true);
+          tile.opacity(0.4);
+          const stepX = Math.round(tile.width * 1.5), stepY = Math.round(tile.height * 1.1);
+          for (let row = 0, y = -tile.height / 2; y < prev.height; row++, y += stepY) {
+            for (let x = row % 2 ? stepX / 2 : 0; x < prev.width; x += stepX) {
+              overlay.composite(tile, Math.round(x), Math.round(y));
+            }
+          }
+          prev.composite(overlay, 0, 0);
+          const previewBytes = await prev.encodeJPEG(80);
+          await supabase.storage
+            .from('address-request-images')
+            .upload(`${addressRequestId}/preview.jpg`, previewBytes, { contentType: 'image/jpeg', upsert: true });
+        }
+      } catch (wmErr) {
+        console.error('[submit-postcard] watermark preview failed (email falls back to full image):', wmErr);
+      }
       return jsonResponse({ success: true, frontPath });
     }
 
