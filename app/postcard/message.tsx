@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  KeyboardAvoidingView, Platform, ActivityIndicator, FlatList, Alert,
+  KeyboardAvoidingView, Platform, ActivityIndicator, FlatList, Alert, ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -210,7 +210,7 @@ export default function MessageScreen() {
 
         <SaveDraftButton step="message" />
 
-        <View style={styles.body}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive">
           <View style={styles.locationRow}>
             <Text style={styles.locationPin}>✉️</Text>
             <TextInput
@@ -311,7 +311,7 @@ export default function MessageScreen() {
           </View>
 
           <Text style={styles.tip}>✉️ Your message will appear on the back of the postcard, just like a real one.</Text>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -329,12 +329,12 @@ function makeStyles(colors: AppColors) {
     },
     navText: { fontSize: FONT_SIZE.md, color: colors.textSecondary },
     title: { fontSize: FONT_SIZE.lg, fontWeight: '700', color: colors.textPrimary },
-    body: { flex: 1, padding: SPACING.xl, gap: SPACING.md },
+    body: { flexGrow: 1, padding: SPACING.xl, gap: SPACING.md },
     labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
     label: { fontSize: FONT_SIZE.sm, fontWeight: '600', color: colors.textPrimary },
     charCount: { fontSize: FONT_SIZE.xs, color: colors.textSecondary },
     messageInput: {
-      flex: 1,
+      height: 170,
       fontSize: FONT_SIZE.md,
       color: colors.textPrimary,
       lineHeight: 24,
