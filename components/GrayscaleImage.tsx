@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { Image, Platform, StyleSheet, View } from 'react-native';
 import Svg, { Image as SvgImage, Defs, Filter, FeColorMatrix } from 'react-native-svg';
 
 interface Props {
@@ -14,6 +14,16 @@ interface Props {
  * since CSS `filter` on native views doesn't apply to child image layers.
  */
 export function GrayscaleImage({ uri, grayscale = false }: Props) {
+  // react-native-svg filters render black on Android; a saturation blend layer over the photo
+  // gives the same grayscale there without touching the iOS path.
+  if (grayscale && Platform.OS === 'android') {
+    return (
+      <View style={[StyleSheet.absoluteFill, { isolation: 'isolate' }]}>
+        <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#808080', mixBlendMode: 'saturation' }]} />
+      </View>
+    );
+  }
   if (grayscale) {
     return (
       <View style={StyleSheet.absoluteFill}>
