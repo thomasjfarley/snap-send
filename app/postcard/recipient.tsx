@@ -140,7 +140,7 @@ export default function RecipientScreen() {
   function requestAddressByEmail() {
     Alert.alert(
       'Request address via email',
-      "Your recipient will get an email with a link to see a digital version of your postcard and enter their mailing address so we can mail them the real one.\n\nYou'll be charged when you pay. If they don't enter an address or download the card within 45 days, you'll be refunded automatically.",
+      "Your recipient will get an email with a link to see a digital version of your postcard and enter their mailing address so we can mail them the real one.\n\nYou'll be charged when you pay. If they don't enter an address within 45 days and never open the link to view or download the card, you'll be refunded automatically. If they open it, the digital postcard counts as delivered and the charge stands.",
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Continue', onPress: () => router.push('/postcard/request-address') },

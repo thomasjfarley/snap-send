@@ -83,7 +83,7 @@ export default function HistoryScreen() {
         const days = Math.max(0, Math.ceil(msLeft / 86400000));
         const waiting = { label: `Waiting for address · ${days}d left`, color: '#92400E', bg: '#FEF3C7', emoji: '✉️' };
         if (r.downloaded_at) {
-          return [waiting, { label: 'Digital postcard accepted', color: '#1E40AF', bg: '#DBEAFE', emoji: '📥' }];
+          return [waiting, { label: 'Digital postcard viewed', color: '#1E40AF', bg: '#DBEAFE', emoji: '📥' }];
         }
         return [waiting];
       }

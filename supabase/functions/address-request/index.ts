@@ -107,6 +107,23 @@ serve(async (req) => {
       });
     }
 
+    if (action === 'seen') {
+      // A real person looked at the card. The page only calls this after a few seconds of a visible
+      // tab or a touch/scroll, which link scanners and prefetchers don't produce. downloaded_at doubles
+      // as the "fulfilled digitally" marker, so viewing is treated the same as downloading.
+      if (closed) return json({ error: 'expired' }, 410);
+      const ua = req.headers.get('user-agent') ?? '';
+      if (/bot|crawl|spider|preview|headless|scan|monitor|curl|wget/i.test(ua)) return json({ ok: true });
+      if (!row.downloaded_at && row.status === 'awaiting_address') {
+        await supabase
+          .from('address_requests')
+          .update({ downloaded_at: new Date().toISOString() })
+          .eq('id', row.id)
+          .is('downloaded_at', null);
+      }
+      return json({ ok: true });
+    }
+
     if (action === 'download') {
       if (closed) return json({ error: 'expired' }, 410);
       const { data: signed, error } = await supabase.storage

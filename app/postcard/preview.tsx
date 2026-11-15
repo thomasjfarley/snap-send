@@ -795,7 +795,7 @@ export default function PreviewScreen() {
 
         <Text style={styles.sendNote}>
           {addressRequest
-            ? `We'll email ${addressRequest.email}. Once they enter their address, your postcard is printed and mailed. If they don't enter an address or download it within 45 days, you're refunded automatically.`
+            ? `We'll email ${addressRequest.email}. Once they enter their address, your postcard is printed and mailed. If they don't enter an address within 45 days and never open the link to view or download it, you're refunded automatically. If they open it, the digital postcard counts as delivered.`
             : 'Your postcard will be printed and mailed within 1–2 business days.'}
         </Text>
       </ScrollView>
