@@ -290,7 +290,7 @@ function makeStyles(colors: AppColors) {
       borderWidth: 1, borderColor: colors.border, borderRadius: 10,
       backgroundColor: colors.surface ?? colors.background,
     },
-    requestBtnTitle: { fontSize: FONT_SIZE.sm, fontWeight: '500', color: colors.textPrimary, textDecorationLine: 'underline' },
+    requestBtnTitle: { fontSize: FONT_SIZE.sm, fontWeight: '500', color: '#0A84FF', textDecorationLine: 'underline' },
     requestBtnSub: { fontSize: FONT_SIZE.xs, color: colors.textSecondary },
     selfRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, flexWrap: 'wrap' },
     selfBadge: { backgroundColor: colors.primaryLight, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
