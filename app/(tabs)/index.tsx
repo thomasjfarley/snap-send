@@ -49,13 +49,19 @@ export default function HomeScreen() {
             { emoji: '🎨', title: 'Customize it', desc: 'Add filters, frames, and a personal message' },
             { emoji: '📮', title: 'We mail it', desc: 'A real postcard arrives in 3–5 business days' },
           ].map((step, i) => (
-            <View key={i} style={styles.step}>
+            <TouchableOpacity
+              key={i}
+              style={styles.step}
+              disabled={i !== 0}
+              activeOpacity={0.7}
+              onPress={() => { if (!heroBlockedRef.current) router.push('/postcard'); }}
+            >
               <Text style={styles.stepEmoji}>{step.emoji}</Text>
               <View style={{ flex: 1 }}>
                 <Text style={styles.stepTitle}>{step.title}</Text>
                 <Text style={styles.stepDesc}>{step.desc}</Text>
               </View>
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
       </ScrollView>
