@@ -820,10 +820,12 @@ serve(async (req) => {
           tile.opacity(0.75);
           shadow.opacity(0.5);
           const stepX = Math.round(tile.width * 1.05), stepY = Math.round(tile.height * 0.8);
-          for (let row = 0, y = -tile.height / 2; y < prev.height; row++, y += stepY) {
-            for (let x = row % 2 ? stepX / 2 : 0; x < prev.width; x += stepX) {
-              overlay.composite(shadow, Math.round(x) + 3, Math.round(y) + 3);
-              overlay.composite(tile, Math.round(x), Math.round(y));
+          // All shadows first so a neighbouring tile's shadow never darkens another tile's letters.
+          for (const [img, off] of [[shadow, 3], [tile, 0]] as const) {
+            for (let row = 0, y = -tile.height / 2; y < prev.height; row++, y += stepY) {
+              for (let x = row % 2 ? stepX / 2 : 0; x < prev.width; x += stepX) {
+                overlay.composite(img, Math.round(x) + off, Math.round(y) + off);
+              }
             }
           }
           prev.composite(overlay, 0, 0);
