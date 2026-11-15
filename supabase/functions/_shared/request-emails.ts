@@ -127,6 +127,7 @@ export function inviteEmail(opts: { senderName: string | null; token: string; ha
       `${sender} just made you a postcard and wants to mail it to you. We're getting it ready to be printed and delivered.`,
       "You can see your postcard right now, and download it if you'd like. Share the address where it should be mailed and we'll send the real thing straight to your mailbox.",
     ],
+    images: [cardImageUrl(opts.token, 'front')],
     cta: { label: 'See your postcard', url: requestLink(opts.token) },
     footerNote: RECIPIENT_FOOTER,
   });
@@ -143,6 +144,7 @@ export function recipientReminderEmail(opts: { senderName: string | null; token:
       `${sender} sent you a postcard, and we haven't received an address to mail it to yet. It's not too late: add your address and we'll print and mail it to you.`,
       `This link stays active for ${opts.daysLeft} more days.`,
     ],
+    images: [cardImageUrl(opts.token, 'front')],
     cta: { label: 'See your postcard', url: requestLink(opts.token) },
     footerNote: RECIPIENT_FOOTER,
   });
