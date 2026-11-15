@@ -55,10 +55,7 @@ serve(async (req) => {
     if (!r || new Date(r.expires_at).getTime() <= Date.now() || r.status === 'refunded' || r.status === 'expired_digital') {
       return new Response('Not found', { status: 404 });
     }
-    // Email front image is the watermarked preview when one exists (older requests only have front.jpg).
-    let file: Blob | null = null;
-    if (side === 'front') file = (await sb.storage.from(BUCKET).download(`${r.id}/preview.jpg`)).data;
-    if (!file) file = (await sb.storage.from(BUCKET).download(`${r.id}/${side}.jpg`)).data;
+    const file = (await sb.storage.from(BUCKET).download(`${r.id}/${side}.jpg`)).data;
     if (!file) return new Response('Not found', { status: 404 });
     return new Response(file, {
       headers: { ...corsHeaders, 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, max-age=3600' },
