@@ -159,11 +159,15 @@ export default function EditorScreen() {
         </ScrollView>
       </View>
 
-      {/* Frame Picker */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Frame</Text>
+      {/* Frame Pickers: seasonal frames get their own row so they don't hide behind the basic ones */}
+      {[
+        { label: 'Frame', frames: selectableFrames.filter((fr) => !isOverlayFrame(fr)) },
+        { label: 'Seasonal', frames: selectableFrames.filter(isOverlayFrame) },
+      ].filter((row) => row.frames.length > 0).map((row) => (
+      <View key={row.label} style={styles.section}>
+        <Text style={styles.sectionLabel}>{row.label}</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollRow}>
-          {selectableFrames.map((fr) => {
+          {row.frames.map((fr) => {
             const selected = frameId === fr.id;
             return (
               <TouchableOpacity
@@ -186,6 +190,7 @@ export default function EditorScreen() {
           })}
         </ScrollView>
       </View>
+      ))}
 
     </SafeAreaView>
   );
