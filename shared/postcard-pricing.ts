@@ -2,9 +2,9 @@ export const US_POSTCARD_PRICE_CENTS = 399;
 export const INTERNATIONAL_POSTCARD_PRICE_CENTS = 499;
 // Lob Developer plan (per Lob dashboard, Nov 2026): $0.909 per 4x6 First Class piece, rounded up
 // to a whole cent; international adds a $1.429 fee ($2.338 total, rounded up). Used for accounts in at_cost_accounts.
-// The US price is bumped to $1.25 to also cover Stripe's fee (2.9% + $0.30).
+// The at-cost prices ($1.25 US, $2.75 international) are bumped to also cover Stripe's fee (2.9% + $0.30).
 export const AT_COST_US_POSTCARD_PRICE_CENTS = 125;
-export const AT_COST_INTERNATIONAL_POSTCARD_PRICE_CENTS = 234;
+export const AT_COST_INTERNATIONAL_POSTCARD_PRICE_CENTS = 275;
 export const POSTCARD_PRICING_VERSION = 'destination-only-2026-10';
 
 export function getPostcardPriceCents(destinationCountry?: string | null, atCost = false) {
