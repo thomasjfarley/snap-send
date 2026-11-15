@@ -9,6 +9,8 @@ interface PostcardState {
   message: string;
   location: string | null;
   recipient: Address | null;
+  // Optional name to print instead of the saved address's name, for this postcard only
+  sendToName: string;
   // Set when the sender asks the recipient to supply their own address by email
   addressRequest: { email: string; international: boolean } | null;
   justSent: boolean;
@@ -19,6 +21,7 @@ interface PostcardState {
   setFrame: (id: FrameId) => void;
   setMessage: (msg: string) => void;
   setLocation: (loc: string | null) => void;
+  setSendToName: (name: string) => void;
   setRecipient: (address: Address) => void;
   setAddressRequest: (req: { email: string; international: boolean }) => void;
   setJustSent: (v: boolean) => void;
@@ -35,6 +38,7 @@ export const usePostcardStore = create<PostcardState>((set) => ({
   message: '',
   location: null,
   recipient: null,
+  sendToName: '',
   addressRequest: null,
   justSent: false,
   openedFromChooser: false,
@@ -44,12 +48,13 @@ export const usePostcardStore = create<PostcardState>((set) => ({
   setFrame: (id) => set({ frameId: id }),
   setMessage: (msg) => set({ message: msg }),
   setLocation: (loc) => set({ location: loc }),
+  setSendToName: (name) => set({ sendToName: name }),
   setRecipient: (address) => set({ recipient: address, addressRequest: null }),
   setAddressRequest: (req) => set({ addressRequest: req, recipient: null }),
   setJustSent: (v) => set({ justSent: v }),
   setOpenedFromChooser: (v) => set({ openedFromChooser: v }),
   setDraftId: (id) => set({ draftId: id }),
-  loadDraft: (d) => set({ draftId: d.id, photoUri: d.photoUri, filterId: d.filterId, frameId: d.frameId, message: d.message, location: d.location, recipient: d.recipient, addressRequest: null, openedFromChooser: false }),
+  loadDraft: (d) => set({ draftId: d.id, photoUri: d.photoUri, filterId: d.filterId, frameId: d.frameId, message: d.message, location: d.location, recipient: d.recipient, sendToName: '', addressRequest: null, openedFromChooser: false }),
   // reset clears the postcard draft but NOT justSent
-  reset: () => set({ photoUri: null, filterId: 'none', frameId: 'none', message: '', location: null, recipient: null, addressRequest: null, openedFromChooser: false, draftId: null }),
+  reset: () => set({ photoUri: null, filterId: 'none', frameId: 'none', message: '', location: null, recipient: null, sendToName: '', addressRequest: null, openedFromChooser: false, draftId: null }),
 }));

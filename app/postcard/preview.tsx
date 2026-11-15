@@ -91,7 +91,8 @@ function PinIcon({ height, color = '#fff' }: { height: number; color?: string })
 export default function PreviewScreen() {
   const router = useRouter();
   const { unverifiedOk } = useLocalSearchParams<{ unverifiedOk?: string }>();
-  const { photoUri, filterId, frameId, message, location, recipient, addressRequest, reset, setJustSent } = usePostcardStore();
+  const { photoUri, filterId, frameId, message, location, recipient, sendToName, addressRequest, reset, setJustSent } = usePostcardStore();
+  const recipientName = sendToName.trim();
   const { profile } = useProfileStore();
   const { addresses } = useAddressStore();
   const personalAddress = addresses.find((a) => a.is_personal);
@@ -516,8 +517,9 @@ export default function PreviewScreen() {
         filter: filterId,
         fromAddressId: personalAddress.id,
         toAddressId: recipient!.id,
+        ...(recipientName ? { recipientName } : {}),
         recipientSnapshot: {
-          full_name: recipient!.full_name,
+          full_name: recipientName || recipient!.full_name,
           line1: recipient!.line1,
           line2: recipient!.line2,
           city: recipient!.city,
@@ -745,7 +747,7 @@ export default function PreviewScreen() {
               <View style={styles.addressBlock}>
                 {recipient ? (
                   <>
-                    <Text style={styles.addrText}>{recipient.full_name}</Text>
+                    <Text style={styles.addrText}>{recipientName || recipient.full_name}</Text>
                     <Text style={styles.addrText}>{recipient.line1}</Text>
                     {recipient.line2 ? <Text style={styles.addrText}>{recipient.line2}</Text> : null}
                     <Text style={styles.addrText}>{recipient.city}, {recipient.state} {recipient.zip}</Text>

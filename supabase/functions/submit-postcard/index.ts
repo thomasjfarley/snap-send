@@ -392,7 +392,7 @@ serve(async (req) => {
     const body = await req.json();
     let {
       imageBase64, message, location, frame, filter,
-      fromAddressId, toAddressId, paymentIntentId, testMode,
+      fromAddressId, toAddressId, paymentIntentId, testMode, recipientName,
     } = body;
 
     // Internal (service-role) calls come from the address-request functions. They render the
@@ -502,6 +502,10 @@ serve(async (req) => {
       const { succeeded } = await refundPayment(STRIPE_SECRET_KEY, paymentIntentId, userId);
       return jsonResponse({ error: `Sender or recipient address not found. ${refundMsg(succeeded)}` }, 404);
     }
+
+    // Optional "Send to" name typed by the sender; prints instead of the saved name for this card only.
+    const nameOverride = addressRequest ? '' : String(recipientName ?? '').trim().slice(0, 40);
+    if (nameOverride) recipientAddress = { ...recipientAddress, full_name: nameOverride };
 
     destinationCountry = String(recipientAddress.country || 'US').toUpperCase();
     if (addressRequest && addressRequest.international === (destinationCountry === 'US')) {

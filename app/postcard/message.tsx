@@ -76,7 +76,7 @@ function formatLocationLabel(item: NominatimResult): string {
 
 export default function MessageScreen() {
   const router = useRouter();
-  const { message, setMessage, location, setLocation } = usePostcardStore();
+  const { message, setMessage, location, setLocation, sendToName, setSendToName } = usePostcardStore();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
@@ -269,6 +269,25 @@ export default function MessageScreen() {
                   </TouchableOpacity>
                 )}
               />
+            )}
+          </View>
+
+          <View style={styles.locationRow}>
+            <Text style={styles.locationPin}>✉️</Text>
+            <TextInput
+              style={styles.locationInput}
+              placeholder="Send to a different name (optional)"
+              placeholderTextColor={colors.textSecondary}
+              value={sendToName}
+              onChangeText={setSendToName}
+              maxLength={40}
+              autoCorrect={false}
+              returnKeyType="done"
+            />
+            {!!sendToName && (
+              <TouchableOpacity onPress={() => setSendToName('')} hitSlop={8}>
+                <Text style={styles.locationClear}>✕</Text>
+              </TouchableOpacity>
             )}
           </View>
 
