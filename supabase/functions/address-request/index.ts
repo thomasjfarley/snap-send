@@ -218,23 +218,59 @@ serve(async (req) => {
         .maybeSingle();
       if (!locked) return json({ error: 'already_submitted' }, 409);
 
-      const { data: saved, error: saveError } = await supabase
+      // If the sender already has this person's address saved, reuse that entry instead of adding a duplicate.
+      const norm = (s: unknown) => String(s ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const zip5 = (s: unknown) => String(s ?? '').replace(/\D/g, '').slice(0, 5) || norm(s);
+      const houseNo = (s: unknown) => String(s ?? '').trim().split(/\s+/)[0]?.toLowerCase() ?? '';
+      const { data: candidates } = await supabase
         .from('addresses')
-        .insert({
-          user_id: row.user_id,
-          label: 'Friend',
-          full_name: finalAddress.full_name,
-          line1: finalAddress.line1,
-          line2: finalAddress.line2,
-          city: finalAddress.city,
-          state: finalAddress.state ?? '',
-          zip: String(finalAddress.zip),
-          country: finalAddress.country,
-          lob_verified: !!verification.verified,
-          is_personal: false,
-        })
-        .select('id')
-        .single();
+        .select('id, full_name, line1, zip, country')
+        .eq('user_id', row.user_id)
+        .eq('country', finalAddress.country);
+      const existing = (candidates ?? []).find((a) =>
+        norm(a.full_name) === norm(finalAddress.full_name) &&
+        zip5(a.zip) === zip5(finalAddress.zip) &&
+        houseNo(a.line1) === houseNo(finalAddress.line1),
+      );
+
+      let saved: { id: string } | null = null;
+      let saveError: { message: string } | null = null;
+      if (existing) {
+        // Refresh it with what the recipient confirmed so the printed address is verified and current.
+        const { error } = await supabase
+          .from('addresses')
+          .update({
+            line1: finalAddress.line1,
+            line2: finalAddress.line2,
+            city: finalAddress.city,
+            state: finalAddress.state ?? '',
+            zip: String(finalAddress.zip),
+            lob_verified: !!verification.verified,
+          })
+          .eq('id', existing.id);
+        saved = error ? null : { id: existing.id };
+        saveError = error;
+      } else {
+        const { data, error } = await supabase
+          .from('addresses')
+          .insert({
+            user_id: row.user_id,
+            label: 'Friend',
+            full_name: finalAddress.full_name,
+            line1: finalAddress.line1,
+            line2: finalAddress.line2,
+            city: finalAddress.city,
+            state: finalAddress.state ?? '',
+            zip: String(finalAddress.zip),
+            country: finalAddress.country,
+            lob_verified: !!verification.verified,
+            is_personal: false,
+          })
+          .select('id')
+          .single();
+        saved = data;
+        saveError = error;
+      }
       if (saveError || !saved) {
         // Release the lock so the recipient can try again.
         await supabase

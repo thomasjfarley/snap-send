@@ -62,6 +62,7 @@ export default function HistoryScreen() {
       .from('address_requests')
       .select('id, recipient_email, status, expires_at, amount_cents, created_at, downloaded_at, postcard_id')
       .in('status', ['awaiting_address', 'processing', 'expired_digital', 'refunded'])
+      .eq('test_mode', __DEV__)
       .order('created_at', { ascending: false });
     setRequests(data ?? []);
   }, [user]);

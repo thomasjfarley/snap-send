@@ -23,6 +23,7 @@ export const useOrderStore = create<OrderState>((set) => ({
       .from('postcards')
       .select('*')
       .eq('user_id', userId)
+      .eq('test_mode', __DEV__)
       .order('created_at', { ascending: false });
 
     if (error) {

@@ -939,6 +939,7 @@ serve(async (req) => {
         lob_back_url: (lobData.thumbnails?.[1]?.medium ?? null) as string | null,
         stripe_payment_intent_id: paymentIntentId,
         price_cents: pi.amount,
+        test_mode: testMode === true,
         ...(addressRequestId ? { address_request_id: addressRequestId } : {}),
       })
       .select().single();

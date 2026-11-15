@@ -254,6 +254,7 @@ export interface Database {
           lob_back_url: string | null;
           stripe_payment_intent_id: string | null;
           price_cents: number;
+          test_mode: boolean;
           created_at: string;
           mailed_at: string | null;
           delivered_at: string | null;
@@ -274,6 +275,7 @@ export interface Database {
           lob_back_url?: string | null;
           stripe_payment_intent_id?: string | null;
           price_cents?: number;
+          test_mode?: boolean;
           created_at?: string;
           mailed_at?: string | null;
           delivered_at?: string | null;
