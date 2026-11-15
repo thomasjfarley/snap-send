@@ -102,24 +102,26 @@ export default function HistoryScreen() {
     return (
       <TouchableOpacity
         key={r.id}
-        style={styles.card}
+        style={[styles.card, styles.requestCard]}
         onPress={() => router.push(r.postcard_id ? `/order/${r.postcard_id}` : `/order/request/${r.id}`)}
       >
-        {thumbs[`req:${r.id}`] && (
-          <Image source={{ uri: thumbs[`req:${r.id}`] }} style={styles.thumbnail} resizeMode="cover" />
-        )}
-        <View style={styles.cardLeft}>
-          <Text style={styles.recipient}>{r.recipient_email}</Text>
-          <Text style={styles.address}>Address requested by email</Text>
-          <Text style={styles.date}>{formatDate(r.created_at)}</Text>
+        <View style={styles.requestTop}>
+          {thumbs[`req:${r.id}`] && (
+            <Image source={{ uri: thumbs[`req:${r.id}`] }} style={styles.thumbnail} resizeMode="cover" />
+          )}
+          <View style={styles.cardLeft}>
+            <Text style={styles.recipient} numberOfLines={1} ellipsizeMode="middle">{r.recipient_email}</Text>
+            <Text style={styles.address}>Address requested by email</Text>
+            <Text style={styles.date}>{formatDate(r.created_at)}</Text>
+          </View>
+          <Text style={styles.price}>${(r.amount_cents / 100).toFixed(2)}</Text>
         </View>
-        <View style={styles.cardRight}>
+        <View style={styles.pillRow}>
           {pills.map((s) => (
-            <View key={s.label} style={[styles.badge, { backgroundColor: s.bg, marginBottom: 4 }]}>
+            <View key={s.label} style={[styles.badge, { backgroundColor: s.bg }]}>
               <Text style={[styles.badgeText, { color: s.color }]}>{s.emoji} {s.label}</Text>
             </View>
           ))}
-          <Text style={styles.price}>${(r.amount_cents / 100).toFixed(2)}</Text>
         </View>
       </TouchableOpacity>
     );
@@ -207,6 +209,9 @@ function makeStyles(colors: AppColors) {
       flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
       gap: SPACING.sm,
     },
+    requestCard: { flexDirection: 'column', alignItems: 'stretch', justifyContent: 'flex-start' },
+    requestTop: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+    pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs },
     thumbnail: { width: 52, height: 39, borderRadius: 6, backgroundColor: colors.border },
     cardLeft: { flex: 1, gap: 3 },
     recipient: { fontSize: FONT_SIZE.md, fontWeight: '600', color: colors.textPrimary },
