@@ -812,11 +812,15 @@ serve(async (req) => {
           const base = (await Image.decode(imageBytes)) as InstanceType<typeof Image>;
           const prev = base.width > 800 ? base.resize(800, Image.RESIZE_AUTO) : base;
           const overlay = new Image(prev.width, prev.height);
-          const tile = (await Image.renderText(font, Math.round(prev.width / 14), 'SNAP SEND', 0xFFFFFFFF)).rotate(-30, true);
-          tile.opacity(0.4);
-          const stepX = Math.round(tile.width * 1.5), stepY = Math.round(tile.height * 1.1);
+          const fontPx = Math.round(prev.width / 10);
+          const tile = (await Image.renderText(font, fontPx, 'SNAP SEND', 0xFFFFFFFF)).rotate(-30, true);
+          const shadow = (await Image.renderText(font, fontPx, 'SNAP SEND', 0x000000FF)).rotate(-30, true);
+          tile.opacity(0.75);
+          shadow.opacity(0.5);
+          const stepX = Math.round(tile.width * 1.05), stepY = Math.round(tile.height * 0.8);
           for (let row = 0, y = -tile.height / 2; y < prev.height; row++, y += stepY) {
             for (let x = row % 2 ? stepX / 2 : 0; x < prev.width; x += stepX) {
+              overlay.composite(shadow, Math.round(x) + 3, Math.round(y) + 3);
               overlay.composite(tile, Math.round(x), Math.round(y));
             }
           }
