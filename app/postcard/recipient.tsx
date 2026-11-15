@@ -285,7 +285,7 @@ function makeStyles(colors: AppColors) {
     checkmark: { fontSize: 20, color: colors.primary, fontWeight: '700' },
     selfCard: { borderStyle: 'dashed' },
     requestBtn: {
-      alignSelf: 'flex-end', width: '50%', alignItems: 'center', gap: 2,
+      alignSelf: 'center', width: '50%', alignItems: 'center', gap: 2,
       paddingVertical: SPACING.sm, paddingHorizontal: SPACING.sm,
       borderWidth: 1, borderColor: colors.border, borderRadius: 10,
       backgroundColor: colors.surface ?? colors.background,
