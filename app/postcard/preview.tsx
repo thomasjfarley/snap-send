@@ -128,6 +128,7 @@ export default function PreviewScreen() {
   const allowUnverified = unverifiedOk === '1' && destinationCountry === 'US' && recipient?.lob_verified === false;
   // null until the lookup finishes, so begin_checkout isn't logged with the wrong price
   const [atCost, setAtCost] = useState<boolean | null>(null);
+  const [capturingForRecipient, setCapturingForRecipient] = useState(false);
   const basePriceCents = getPostcardPriceCents(destinationCountry, atCost === true);
   const [riskAccepted, setRiskAccepted] = useState(!riskWarningRequired);
   const [taxAmountCents, setTaxAmountCents] = useState<number | null>(null);
@@ -481,11 +482,16 @@ export default function PreviewScreen() {
       if (addressRequest) {
         try {
           const { captureRef } = require('react-native-view-shot');
+          // The recipient sees this image, so the placeholder must read "Your address goes here".
+          setCapturingForRecipient(true);
+          await new Promise((r) => setTimeout(r, 150));
           backImageBase64 = await captureRef(cardBackRef, { format: 'jpg', quality: 0.92, result: 'base64' });
           frontCaptureRef.current = await captureRef(cardFrontRef, { format: 'jpg', quality: 0.92, result: 'base64' });
           backCaptureRef.current = backImageBase64 ?? null;
         } catch (e) {
           console.warn('[request-address] back capture failed', e);
+        } finally {
+          setCapturingForRecipient(false);
         }
       }
       submissionPayloadRef.current = addressRequest
@@ -749,7 +755,7 @@ export default function PreviewScreen() {
                   </>
                 ) : (
                   <>
-                    <Text style={styles.addrText}>Your address</Text>
+                    <Text style={styles.addrText}>{capturingForRecipient ? 'Your address' : 'Their address'}</Text>
                     <Text style={styles.addrText}>goes here</Text>
                   </>
                 )}
