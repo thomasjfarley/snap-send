@@ -32,7 +32,7 @@ export default function RequestAddressScreen() {
       return;
     }
     if (international === null) {
-      Alert.alert('One more thing', 'Please tell us whether this postcard will be sent internationally.');
+      Alert.alert('One more thing', 'Please choose US address or International (Outside the US).');
       return;
     }
     setAddressRequest({ email: cleaned, international });
@@ -80,13 +80,13 @@ export default function RequestAddressScreen() {
             autoCorrect={false}
           />
 
-          <Text style={[styles.label, { marginTop: SPACING.lg }]}>Will this be sent internationally?</Text>
+          <Text style={[styles.label, { marginTop: SPACING.lg }]}>Where will this be sent?</Text>
           <Text style={styles.help}>
             This sets the price and the kind of address your recipient can enter.
           </Text>
           {([
-            { value: false, title: 'No', sub: 'They must enter a US address.' },
-            { value: true, title: 'Yes', sub: 'They must enter an address outside the US.' },
+            { value: false, title: 'US address', sub: 'They must enter a US address.' },
+            { value: true, title: 'International (Outside the US)', sub: 'They must enter an address outside the US.' },
           ] as const).map((opt) => {
             const selected = international === opt.value;
             return (
