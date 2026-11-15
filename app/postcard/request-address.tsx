@@ -16,26 +16,26 @@ export default function RequestAddressScreen() {
   const router = useRouter();
   const { addressRequest, setAddressRequest } = usePostcardStore();
   const [email, setEmail] = useState(addressRequest?.email ?? '');
-  const [confirmEmail, setConfirmEmail] = useState(addressRequest?.email ?? '');
+  const [name, setName] = useState(addressRequest?.name ?? '');
   const [international, setInternational] = useState<boolean | null>(addressRequest?.international ?? null);
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   function handleContinue() {
     const cleaned = email.trim().toLowerCase();
-    if (!EMAIL_REGEX.test(cleaned)) {
-      Alert.alert('Check the email', 'Please enter a valid email address.');
+    if (!name.trim()) {
+      Alert.alert('Add their name', "Please enter your recipient's name.");
       return;
     }
-    if (cleaned !== confirmEmail.trim().toLowerCase()) {
-      Alert.alert('Emails do not match', "The two email addresses don't match. Please check them and try again.");
+    if (!EMAIL_REGEX.test(cleaned)) {
+      Alert.alert('Check the email', 'Please enter a valid email address.');
       return;
     }
     if (international === null) {
       Alert.alert('One more thing', 'Please choose US address or International (Outside the US).');
       return;
     }
-    setAddressRequest({ email: cleaned, international });
+    setAddressRequest({ email: cleaned, international, name: name.trim() });
     router.push('/postcard/preview');
   }
 
@@ -55,6 +55,18 @@ export default function RequestAddressScreen() {
             Who should we ask for their address? We'll email them a link to see your postcard and enter where it should be mailed.
           </Text>
 
+          <Text style={styles.label}>Recipient's name</Text>
+          <TextInput
+            style={styles.input}
+            value={name}
+            onChangeText={setName}
+            placeholder="Their name"
+            placeholderTextColor={colors.textSecondary}
+            autoCapitalize="words"
+            maxLength={60}
+            textContentType="name"
+          />
+
           <Text style={styles.label}>Recipient's email</Text>
           <TextInput
             style={styles.input}
@@ -66,18 +78,6 @@ export default function RequestAddressScreen() {
             autoCapitalize="none"
             autoCorrect={false}
             textContentType="emailAddress"
-          />
-
-          <Text style={styles.label}>Confirm email</Text>
-          <TextInput
-            style={styles.input}
-            value={confirmEmail}
-            onChangeText={setConfirmEmail}
-            placeholder="Re-enter their email"
-            placeholderTextColor={colors.textSecondary}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
           />
 
           <Text style={[styles.label, { marginTop: SPACING.lg }]}>Where will this be sent?</Text>

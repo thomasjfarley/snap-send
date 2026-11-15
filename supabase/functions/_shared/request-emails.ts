@@ -116,14 +116,14 @@ function safeName(name: string | null | undefined, fallback: string): string {
 const RECIPIENT_FOOTER = "You're receiving this because someone sent you a postcard with Snap Send.";
 const SENDER_FOOTER = "You're receiving this because you sent a postcard with Snap Send.";
 
-export function inviteEmail(opts: { senderName: string | null; token: string; hasBack?: boolean }) {
+export function inviteEmail(opts: { senderName: string | null; recipientName?: string | null; token: string; hasBack?: boolean }) {
   const sender = safeName(opts.senderName, 'Someone who cares about you');
   return render({
     subject: `${sender} is sending you a postcard`,
     headline: `${sender} is sending you a postcard`,
     preheader: 'Open it to see your postcard and tell us where to send it.',
     paragraphs: [
-      'Hello,',
+      opts.recipientName ? `Hello ${safeName(opts.recipientName, '')},` : 'Hello,',
       `${sender} just made you a postcard and wants to mail it to you. We're getting it ready to be printed and delivered.`,
       "You can see your postcard right now, and download it if you'd like. Share the address where it should be mailed and we'll send the real thing straight to your mailbox.",
     ],

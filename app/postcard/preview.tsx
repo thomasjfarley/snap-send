@@ -506,6 +506,7 @@ export default function PreviewScreen() {
             filter: filterId,
             fromAddressId: personalAddress.id,
             recipientEmail: addressRequest.email,
+            recipientName: addressRequest.name,
             international: addressRequest.international,
             paymentIntentId: paymentIntentIdRef.current,
             testMode: __DEV__,

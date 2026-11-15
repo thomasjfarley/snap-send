@@ -13,7 +13,7 @@ interface PostcardState {
   sendToName: string;
   sendFromName: string;
   // Set when the sender asks the recipient to supply their own address by email
-  addressRequest: { email: string; international: boolean } | null;
+  addressRequest: { email: string; international: boolean; name: string } | null;
   justSent: boolean;
   openedFromChooser: boolean;
   draftId: string | null;
@@ -25,7 +25,7 @@ interface PostcardState {
   setSendToName: (name: string) => void;
   setSendFromName: (name: string) => void;
   setRecipient: (address: Address) => void;
-  setAddressRequest: (req: { email: string; international: boolean }) => void;
+  setAddressRequest: (req: { email: string; international: boolean; name: string }) => void;
   setJustSent: (v: boolean) => void;
   setOpenedFromChooser: (v: boolean) => void;
   setDraftId: (id: string | null) => void;
