@@ -91,8 +91,9 @@ function PinIcon({ height, color = '#fff' }: { height: number; color?: string })
 export default function PreviewScreen() {
   const router = useRouter();
   const { unverifiedOk } = useLocalSearchParams<{ unverifiedOk?: string }>();
-  const { photoUri, filterId, frameId, message, location, recipient, sendToName, addressRequest, reset, setJustSent } = usePostcardStore();
+  const { photoUri, filterId, frameId, message, location, recipient, sendToName, sendFromName, addressRequest, reset, setJustSent } = usePostcardStore();
   const recipientName = sendToName.trim();
+  const senderName = sendFromName.trim();
   const { profile } = useProfileStore();
   const { addresses } = useAddressStore();
   const personalAddress = addresses.find((a) => a.is_personal);
@@ -518,6 +519,7 @@ export default function PreviewScreen() {
         fromAddressId: personalAddress.id,
         toAddressId: recipient!.id,
         ...(recipientName ? { recipientName } : {}),
+        ...(senderName ? { senderName } : {}),
         recipientSnapshot: {
           full_name: recipientName || recipient!.full_name,
           line1: recipient!.line1,
@@ -701,7 +703,7 @@ export default function PreviewScreen() {
               <View style={styles.internationalSenderRow}>
                 <View style={styles.senderJoyBlock}>
                   <Text style={styles.senderJoyHeading}>Sent with joy from</Text>
-                  <Text style={styles.fromAddrText}>{personalAddress.full_name}</Text>
+                  <Text style={styles.fromAddrText}>{senderName || personalAddress.full_name}</Text>
                   <Text style={styles.fromAddrText}>{personalAddress.line1}</Text>
                   {personalAddress.line2 ? <Text style={styles.fromAddrText}>{personalAddress.line2}</Text> : null}
                   <Text style={styles.fromAddrText}>{personalAddress.city}, {personalAddress.state} {personalAddress.zip}</Text>
@@ -730,7 +732,7 @@ export default function PreviewScreen() {
             <View style={styles.fromPostageRow}>
               {personalAddress && senderCountry === 'US' ? (
                 <View style={[styles.addressBlock, { flex: 1 }]}>
-                  <Text style={styles.fromAddrText}>{personalAddress.full_name}</Text>
+                  <Text style={styles.fromAddrText}>{senderName || personalAddress.full_name}</Text>
                   <Text style={styles.fromAddrText}>{personalAddress.line1}</Text>
                   {personalAddress.line2 ? <Text style={styles.fromAddrText}>{personalAddress.line2}</Text> : null}
                   <Text style={styles.fromAddrText}>{personalAddress.city}, {personalAddress.state} {personalAddress.zip}</Text>

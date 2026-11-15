@@ -76,7 +76,7 @@ function formatLocationLabel(item: NominatimResult): string {
 
 export default function MessageScreen() {
   const router = useRouter();
-  const { message, setMessage, location, setLocation, sendToName, setSendToName } = usePostcardStore();
+  const { message, setMessage, location, setLocation, sendToName, setSendToName, sendFromName, setSendFromName } = usePostcardStore();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
@@ -211,6 +211,44 @@ export default function MessageScreen() {
         <SaveDraftButton step="message" />
 
         <View style={styles.body}>
+          <View style={styles.locationRow}>
+            <Text style={styles.locationPin}>✉️</Text>
+            <TextInput
+              style={styles.locationInput}
+              placeholder="Send to a different name (optional)"
+              placeholderTextColor={colors.textSecondary}
+              value={sendToName}
+              onChangeText={setSendToName}
+              maxLength={40}
+              autoCorrect={false}
+              returnKeyType="done"
+            />
+            {!!sendToName && (
+              <TouchableOpacity onPress={() => setSendToName('')} hitSlop={8}>
+                <Text style={styles.locationClear}>✕</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <View style={styles.locationRow}>
+            <Text style={styles.locationPin}>👤</Text>
+            <TextInput
+              style={styles.locationInput}
+              placeholder="Send from a different name (optional)"
+              placeholderTextColor={colors.textSecondary}
+              value={sendFromName}
+              onChangeText={setSendFromName}
+              maxLength={40}
+              autoCorrect={false}
+              returnKeyType="done"
+            />
+            {!!sendFromName && (
+              <TouchableOpacity onPress={() => setSendFromName('')} hitSlop={8}>
+                <Text style={styles.locationClear}>✕</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
           <View style={styles.labelRow}>
             <Text style={styles.label}>Your message</Text>
             <Text style={[styles.charCount, countChars(message) > MAX_CHARS * 0.9 && { color: colors.error }]}>
@@ -269,25 +307,6 @@ export default function MessageScreen() {
                   </TouchableOpacity>
                 )}
               />
-            )}
-          </View>
-
-          <View style={styles.locationRow}>
-            <Text style={styles.locationPin}>✉️</Text>
-            <TextInput
-              style={styles.locationInput}
-              placeholder="Send to a different name (optional)"
-              placeholderTextColor={colors.textSecondary}
-              value={sendToName}
-              onChangeText={setSendToName}
-              maxLength={40}
-              autoCorrect={false}
-              returnKeyType="done"
-            />
-            {!!sendToName && (
-              <TouchableOpacity onPress={() => setSendToName('')} hitSlop={8}>
-                <Text style={styles.locationClear}>✕</Text>
-              </TouchableOpacity>
             )}
           </View>
 

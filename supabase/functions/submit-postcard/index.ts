@@ -392,7 +392,7 @@ serve(async (req) => {
     const body = await req.json();
     let {
       imageBase64, message, location, frame, filter,
-      fromAddressId, toAddressId, paymentIntentId, testMode, recipientName,
+      fromAddressId, toAddressId, paymentIntentId, testMode, recipientName, senderName,
     } = body;
 
     // Internal (service-role) calls come from the address-request functions. They render the
@@ -506,6 +506,9 @@ serve(async (req) => {
     // Optional "Send to" name typed by the sender; prints instead of the saved name for this card only.
     const nameOverride = addressRequest ? '' : String(recipientName ?? '').trim().slice(0, 40);
     if (nameOverride) recipientAddress = { ...recipientAddress, full_name: nameOverride };
+
+    const fromNameOverride = addressRequest ? '' : String(senderName ?? '').trim().slice(0, 40);
+    if (fromNameOverride) fromAddress = { ...fromAddress, full_name: fromNameOverride };
 
     destinationCountry = String(recipientAddress.country || 'US').toUpperCase();
     if (addressRequest && addressRequest.international === (destinationCountry === 'US')) {
