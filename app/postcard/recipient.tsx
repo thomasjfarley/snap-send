@@ -285,7 +285,10 @@ function makeStyles(colors: AppColors) {
     checkmark: { fontSize: 20, color: colors.primary, fontWeight: '700' },
     selfCard: { borderStyle: 'dashed' },
     requestBtn: {
-      alignItems: 'center', paddingVertical: SPACING.xs, gap: 2,
+      alignSelf: 'flex-end', width: '50%', alignItems: 'center', gap: 2,
+      paddingVertical: SPACING.sm, paddingHorizontal: SPACING.sm,
+      borderWidth: 1, borderColor: colors.border, borderRadius: 10,
+      backgroundColor: colors.surface ?? colors.background,
     },
     requestBtnTitle: { fontSize: FONT_SIZE.sm, fontWeight: '500', color: colors.textSecondary, textDecorationLine: 'underline' },
     requestBtnSub: { fontSize: FONT_SIZE.xs, color: colors.textSecondary },
