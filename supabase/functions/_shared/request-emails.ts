@@ -44,8 +44,8 @@ function render(c: EmailContent): { subject: string; html: string; text: string 
   const text = [
     ...c.paragraphs.flatMap((p) => [p, '']),
     ...(c.cta ? [`${c.cta.label}: ${c.cta.url}`, ''] : []),
-    'With warmth,',
-    'The Snap Send team',
+    'With Joy,',
+    'Snapsend Team',
     '',
     `Questions? Reply to this email or contact ${SUPPORT_EMAIL}.`,
     'Snap Send - https://snapsend.live',
@@ -87,7 +87,7 @@ function render(c: EmailContent): { subject: string; html: string; text: string 
             ${paragraphsHtml}
             ${imagesHtml}
             ${ctaHtml}
-            <p style="margin:0;font-size:16px;line-height:1.6;">With warmth,<br>The Snap Send team</p>
+            <p style="margin:0;font-size:16px;line-height:1.6;">With Joy,<br>Snapsend Team</p>
           </td>
         </tr>
         <tr>
