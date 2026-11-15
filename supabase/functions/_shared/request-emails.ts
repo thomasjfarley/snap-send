@@ -133,8 +133,24 @@ export function inviteEmail(opts: { senderName: string | null; token: string; ha
   });
 }
 
-export function recipientReminderEmail(opts: { senderName: string | null; token: string; daysLeft: number; hasBack?: boolean }) {
+export function recipientReminderEmail(opts: { senderName: string | null; token: string; daysLeft: number; hasBack?: boolean; viewed?: boolean }) {
   const sender = safeName(opts.senderName, 'Someone who cares about you');
+  if (opts.viewed) {
+    return render({
+      subject: `${sender} paid to mail you a real postcard`,
+      headline: 'The real postcard is still on its way to you',
+      preheader: `${sender} is hoping to put this one in your mailbox.`,
+      paragraphs: [
+        'Hello again,',
+        `We hope you enjoyed the digital version of the postcard ${sender} made for you. ${sender} paid to have the real thing printed and mailed to you, and it's still waiting on one thing: where to send it.`,
+        "It only takes a minute to add your address, and holding it in your hands is a lot more fun than a screen.",
+        `This link stays active for ${opts.daysLeft} more days.`,
+      ],
+      images: [cardImageUrl(opts.token, 'front')],
+      cta: { label: 'Send it to my mailbox', url: requestLink(opts.token) },
+      footerNote: RECIPIENT_FOOTER,
+    });
+  }
   return render({
     subject: `A reminder: ${sender}'s postcard is waiting for you`,
     headline: 'Your postcard is still waiting',
