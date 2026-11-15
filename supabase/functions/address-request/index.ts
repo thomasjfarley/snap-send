@@ -89,7 +89,7 @@ serve(async (req) => {
       const { data: profile } = await supabase
         .from('profiles').select('full_name').eq('id', row.user_id).maybeSingle();
       if (closed) {
-        return json({ state: 'expired', senderName: profile?.full_name ?? null });
+        return json({ state: 'expired', senderName: row.sender_name || profile?.full_name || null });
       }
       const { data: signed } = await supabase.storage
         .from(BUCKET)
@@ -99,7 +99,7 @@ serve(async (req) => {
         .createSignedUrl(`${row.id}/back.jpg`, 3600);
       return json({
         state: addressTaken ? 'address_received' : 'awaiting_address',
-        senderName: profile?.full_name ?? null,
+        senderName: row.sender_name || profile?.full_name || null,
         message: row.message,
         location: row.location,
         international: row.international,

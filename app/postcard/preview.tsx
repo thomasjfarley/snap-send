@@ -509,6 +509,7 @@ export default function PreviewScreen() {
             international: addressRequest.international,
             paymentIntentId: paymentIntentIdRef.current,
             testMode: __DEV__,
+            ...(senderName ? { senderName } : {}),
           }
         : {
         imageBase64: lobBase64Ref.current!,

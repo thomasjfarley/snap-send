@@ -113,7 +113,7 @@ serve(async () => {
         const daysLeft = Math.max(1, Math.ceil((new Date(row.expires_at).getTime() - now) / DAY_MS));
         await sendEmail({
           to: row.recipient_email,
-          email: recipientReminderEmail({ senderName: sender.fullName, token: row.token, daysLeft, viewed: !!row.downloaded_at }),
+          email: recipientReminderEmail({ senderName: row.sender_name || sender.fullName, token: row.token, daysLeft, viewed: !!row.downloaded_at }),
           idempotencyKey: `request-reminder-${row.id}-${due}`,
           tag: 'request-reminder',
         });

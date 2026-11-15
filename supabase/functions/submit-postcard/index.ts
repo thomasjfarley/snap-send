@@ -404,6 +404,7 @@ serve(async (req) => {
     renderDigital = internalMode && body.mode === 'render-digital';
     let internalImageBytes: Uint8Array | null = null;
     let addressRequest: { international: boolean } | null = null;
+    let requestSenderName = '';
     if (internalMode) {
       const { data: reqRow } = await supabase
         .from('address_requests')
@@ -428,6 +429,7 @@ serve(async (req) => {
       paymentIntentId = reqRow.stripe_payment_intent_id;
       testMode = reqRow.test_mode;
       addressRequest = { international: reqRow.international };
+      requestSenderName = String(reqRow.sender_name ?? '');
       addressRequestId = reqRow.id;
     }
 
@@ -507,7 +509,7 @@ serve(async (req) => {
     const nameOverride = addressRequest ? '' : String(recipientName ?? '').trim().slice(0, 40);
     if (nameOverride) recipientAddress = { ...recipientAddress, full_name: nameOverride };
 
-    const fromNameOverride = addressRequest ? '' : String(senderName ?? '').trim().slice(0, 40);
+    const fromNameOverride = String(addressRequest ? requestSenderName : senderName ?? '').trim().slice(0, 40);
     if (fromNameOverride) fromAddress = { ...fromAddress, full_name: fromNameOverride };
 
     destinationCountry = String(recipientAddress.country || 'US').toUpperCase();

@@ -79,7 +79,7 @@ serve(async (req) => {
 
     const {
       imageBase64, backImageBase64, message, location, frame, filter,
-      fromAddressId, recipientEmail, international, paymentIntentId, testMode,
+      fromAddressId, recipientEmail, international, paymentIntentId, testMode, senderName,
     } = await req.json();
 
     const email = String(recipientEmail ?? '').trim().toLowerCase();
@@ -212,6 +212,7 @@ serve(async (req) => {
         recipient_email: email,
         international: international === true,
         from_address_id: fromAddressId,
+        sender_name: String(senderName ?? '').trim().slice(0, 40) || null,
         message: String(message ?? ''),
         frame: frame ?? 'none',
         filter: filter ?? 'none',
@@ -251,9 +252,11 @@ serve(async (req) => {
     // ── 6. Invite the recipient ──────────────────────────────────────────────
     const { data: profile } = await supabase
       .from('profiles').select('full_name').eq('id', user.id).maybeSingle();
+    const { data: reqNameRow } = await supabase
+      .from('address_requests').select('sender_name').eq('id', requestId).maybeSingle();
     const sent = await sendEmail({
       to: email,
-      email: inviteEmail({ senderName: profile?.full_name ?? null, token }),
+      email: inviteEmail({ senderName: reqNameRow?.sender_name || profile?.full_name || null, token }),
       idempotencyKey: `request-invite-${requestId}`,
       tag: 'request-invite',
     });
