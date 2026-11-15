@@ -210,7 +210,7 @@ export default function MessageScreen() {
 
         <SaveDraftButton step="message" />
 
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.body, { paddingBottom: SPACING.xl + 80 }]} automaticallyAdjustKeyboardInsets keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive">
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.body, { paddingBottom: SPACING.xl + 16 }]} automaticallyAdjustKeyboardInsets keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive">
           <View style={styles.locationRow}>
             <Text style={styles.locationPin}>✉️</Text>
             <TextInput
