@@ -113,6 +113,11 @@ export default function RequestDetailScreen() {
           )}
           {req && (
             <>
+              {canFix && (
+                <TouchableOpacity onPress={() => { setFixEmail(''); setFixOpen(true); }} hitSlop={8}>
+                  <Text style={styles.fixLink}>Sent to the wrong email? Fix it</Text>
+                </TouchableOpacity>
+              )}
               <Text style={styles.sectionTitle}>Request Info</Text>
               <View style={styles.metaCard}>
                 <Row label="Sent to" value={req.recipient_email} />
@@ -121,11 +126,6 @@ export default function RequestDetailScreen() {
                 <Row label="Amount" value={`$${(req.amount_cents / 100).toFixed(2)}`} />
                 {req.location ? <Row label="Location" value={req.location} /> : null}
               </View>
-              {canFix && (
-                <TouchableOpacity onPress={() => { setFixEmail(''); setFixOpen(true); }} hitSlop={8}>
-                  <Text style={styles.fixLink}>Sent to the wrong email? Fix it</Text>
-                </TouchableOpacity>
-              )}
             </>
           )}
         </ScrollView>
