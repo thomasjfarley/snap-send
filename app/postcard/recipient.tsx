@@ -294,7 +294,7 @@ function makeStyles(colors: AppColors) {
     requestBtnSub: { fontSize: FONT_SIZE.xs, color: colors.textSecondary },
     selfRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, flexWrap: 'wrap' },
     selfBadge: { backgroundColor: colors.primaryLight, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
-    selfBadgeText: { fontSize: FONT_SIZE.xs, color: colors.primary, fontWeight: '600' },
+    selfBadgeText: { fontSize: FONT_SIZE.xs, color: colors.success, fontWeight: '600' },
     empty: { alignItems: 'center', gap: SPACING.md, paddingTop: 80 },
     verifyOverlay: {
       ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.35)',
